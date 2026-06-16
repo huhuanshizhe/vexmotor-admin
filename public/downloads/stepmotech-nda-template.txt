@@ -1,0 +1,14 @@
+STEPMOTECH MUTUAL NDA PLACEHOLDER
+
+This placeholder file exists so the custom development page can validate its download flow in the current workspace.
+
+Replace this file with the final legal template before production launch.
+
+Suggested fields:
+- Disclosing party
+- Receiving party
+- Project / program name
+- Effective date
+- Scope of confidential information
+- Retention / destruction requirement
+- Signature block

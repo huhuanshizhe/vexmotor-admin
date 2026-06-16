@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/users.schema.json",
+  "title": "users",
+  "description": "前台会员主表。保存用户基本资料与本地账号 MD5 密码。email 唯一；password_hash 保存 MD5 结果，属于兼容性要求。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "email",
+    "passwordHash",
+    "firstName",
+    "lastName",
+    "role",
+    "status",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "主键 UUID"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "maxLength": 320,
+      "description": "登录邮箱，唯一"
+    },
+    "passwordHash": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 32,
+      "description": "MD5 结果，32 位十六进制字符串"
+    },
+    "firstName": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "lastName": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "company": {
+      "type": ["string", "null"],
+      "maxLength": 150
+    },
+    "phone": {
+      "type": ["string", "null"],
+      "maxLength": 50
+    },
+    "avatarUrl": {
+      "type": ["string", "null"],
+      "format": "uri"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["customer", "staff", "admin"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "disabled", "pending"]
+    },
+    "emailVerifiedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "lastLoginAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

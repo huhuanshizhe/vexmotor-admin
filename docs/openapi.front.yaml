@@ -1,0 +1,1125 @@
+openapi: 3.1.0
+info:
+  title: Lianchuan Storefront API
+  version: 0.1.0
+  summary: 前台电商网站接口契约
+  description: |
+    本文档定义前台商城所需的 REST API 契约，覆盖首页、分类、搜索、商品详情、购物车、结账、地址、订单、认证、会员资料、询价、收藏等能力。
+    该文档是前台与服务端联调的唯一接口真源。
+servers:
+  - url: http://localhost:5100
+    description: Local admin API (vexmotor-admin)
+  - url: https://example.com
+    description: Production placeholder
+tags:
+  - name: Home
+  - name: Navigation
+  - name: Categories
+  - name: Search
+  - name: Products
+  - name: Cart
+  - name: Checkout
+  - name: Orders
+  - name: Addresses
+  - name: Auth
+  - name: Profile
+  - name: Inquiries
+  - name: Wishlist
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Front-office JWT from /api/front/auth/login or OAuth callback
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParam:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    SearchKeywordParam:
+      name: keyword
+      in: query
+      schema:
+        type: string
+        minLength: 1
+    CategorySlugParam:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+    ProductSlugParam:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+    CartItemIdParam:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    OrderNumberParam:
+      name: orderNumber
+      in: path
+      required: true
+      schema:
+        type: string
+    InquiryIdParam:
+      name: inquiryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type:
+            - array
+            - 'null'
+          items:
+            type: object
+            additionalProperties: true
+      required: [code, message]
+      additionalProperties: false
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      required: [page, pageSize, total, totalPages]
+      additionalProperties: false
+    Money:
+      type: object
+      properties:
+        currency:
+          type: string
+          example: USD
+        amount:
+          type: number
+        formatted:
+          type: string
+      required: [currency, amount, formatted]
+      additionalProperties: false
+    ImageAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        alt:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+      required: [id, url, alt]
+      additionalProperties: false
+    Brand:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        logo:
+          $ref: '#/components/schemas/ImageAsset'
+      required: [id, name, slug]
+      additionalProperties: false
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        image:
+          $ref: '#/components/schemas/ImageAsset'
+        parentId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+      required: [id, name, slug]
+      additionalProperties: false
+    ProductCard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        sku:
+          type: string
+        shortDescription:
+          type: string
+        coverImage:
+          $ref: '#/components/schemas/ImageAsset'
+        price:
+          $ref: '#/components/schemas/Money'
+        compareAtPrice:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        purchaseMode:
+          type: string
+          enum: [buy, inquiry]
+        inStock:
+          type: boolean
+        brand:
+          oneOf:
+            - $ref: '#/components/schemas/Brand'
+            - type: 'null'
+      required: [id, name, slug, sku, purchaseMode, inStock]
+      additionalProperties: false
+    ProductVariantOption:
+      type: object
+      properties:
+        group:
+          type: string
+        value:
+          type: string
+      required: [group, value]
+      additionalProperties: false
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+        mimeType:
+          type: string
+      required: [id, name, url]
+      additionalProperties: false
+    ProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProductCard'
+        - type: object
+          properties:
+            description:
+              type: string
+            gallery:
+              type: array
+              items:
+                $ref: '#/components/schemas/ImageAsset'
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/Category'
+            attributes:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductVariantOption'
+            attachments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Attachment'
+            relatedProducts:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProductCard'
+            stockQuantity:
+              type: integer
+            seoTitle:
+              type: string
+            seoDescription:
+              type: string
+          required: [description, gallery, categories, attributes, attachments, relatedProducts]
+          additionalProperties: false
+    ProductListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductCard'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+        facets:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required: [items, meta, facets]
+      additionalProperties: false
+    CartItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        product:
+          $ref: '#/components/schemas/ProductCard'
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        variantLabel:
+          type: string
+      required: [id, productId, product, quantity, unitPrice, subtotal]
+      additionalProperties: false
+    Cart:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        itemCount:
+          type: integer
+        couponCode:
+          type:
+            - string
+            - 'null'
+        coupon:
+          type:
+            - object
+            - 'null'
+          properties:
+            code:
+              type: string
+            description:
+              type: string
+            isApplied:
+              type: boolean
+            message:
+              type:
+                - string
+                - 'null'
+          required: [code, description, isApplied, message]
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        discount:
+          $ref: '#/components/schemas/Money'
+        shipping:
+          $ref: '#/components/schemas/Money'
+        tax:
+          $ref: '#/components/schemas/Money'
+        total:
+          $ref: '#/components/schemas/Money'
+        freeShippingThreshold:
+          $ref: '#/components/schemas/Money'
+        remainingForFreeShipping:
+          $ref: '#/components/schemas/Money'
+      required: [id, items, itemCount, subtotal, discount, shipping, tax, total, freeShippingThreshold, remainingForFreeShipping]
+      additionalProperties: false
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+        phone:
+          type: string
+        countryCode:
+          type: string
+        state:
+          type: string
+        city:
+          type: string
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+        postalCode:
+          type: string
+        isDefault:
+          type: boolean
+      required: [id, firstName, lastName, countryCode, city, addressLine1, postalCode, isDefault]
+      additionalProperties: false
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+        phone:
+          type: string
+      required: [id, email]
+      additionalProperties: false
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        sku:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+        subtotal:
+          $ref: '#/components/schemas/Money'
+      required: [id, productName, sku, quantity, unitPrice, subtotal]
+      additionalProperties: false
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: string
+        status:
+          type: string
+        total:
+          $ref: '#/components/schemas/Money'
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, orderNumber, status, total, createdAt]
+      additionalProperties: false
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderItem'
+            shippingAddress:
+              $ref: '#/components/schemas/Address'
+            billingAddress:
+              $ref: '#/components/schemas/Address'
+          required: [items, shippingAddress, billingAddress]
+          additionalProperties: false
+    Inquiry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        phone:
+          type: string
+        company:
+          type: string
+        country:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum: [new, contacted, quoted, closed]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, productId, productName, email, fullName, message, status, createdAt]
+      additionalProperties: false
+    WishlistItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product:
+          $ref: '#/components/schemas/ProductCard'
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, product, createdAt]
+      additionalProperties: false
+    AuthLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [email, password]
+      additionalProperties: false
+    AuthRegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        firstName:
+          type: string
+        lastName:
+          type: string
+        company:
+          type: string
+      required: [email, password, firstName, lastName]
+      additionalProperties: false
+    AddCartItemRequest:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        variantId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+      required: [productId, quantity]
+      additionalProperties: false
+    UpdateCartItemRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+      required: [quantity]
+      additionalProperties: false
+    UpdateCartCouponRequest:
+      type: object
+      properties:
+        couponCode:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    CreateOrderRequest:
+      type: object
+      properties:
+        shippingAddressId:
+          type: string
+          format: uuid
+        billingAddressId:
+          type: string
+          format: uuid
+        shippingMethod:
+          type: string
+        paymentMethod:
+          type: string
+        customerNote:
+          type: string
+        purchaseOrderNumber:
+          type: string
+        taxId:
+          type: string
+        requestedShipDate:
+          type: string
+        tradeTerm:
+          type: string
+      required: [shippingAddressId, billingAddressId, shippingMethod, paymentMethod]
+      additionalProperties: false
+    CreateInquiryRequest:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        company:
+          type: string
+        country:
+          type: string
+        message:
+          type: string
+      required: [productId, fullName, email, message]
+      additionalProperties: false
+paths:
+  /api/front/home:
+    get:
+      tags: [Home]
+      summary: 获取首页聚合数据
+      responses:
+        '200':
+          description: 首页数据
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  heroBanners:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  featuredCategories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+                  hotSale:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductCard'
+                  newRelease:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductCard'
+                  featuredIndustries:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  testimonials:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                required: [heroBanners, featuredCategories, hotSale, newRelease, featuredIndustries, testimonials]
+  /api/front/navigation:
+    get:
+      tags: [Navigation]
+      summary: 获取导航和页头公共数据
+      responses:
+        '200':
+          description: 导航数据
+  /api/front/categories:
+    get:
+      tags: [Categories]
+      summary: 获取分类树或分类列表
+      responses:
+        '200':
+          description: 分类列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+  /api/front/categories/{slug}/products:
+    get:
+      tags: [Categories]
+      summary: 获取分类商品列表
+      parameters:
+        - $ref: '#/components/parameters/CategorySlugParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 分类商品列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '404':
+          description: 分类不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/search:
+    get:
+      tags: [Search]
+      summary: 搜索商品
+      parameters:
+        - $ref: '#/components/parameters/SearchKeywordParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: 搜索结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+  /api/front/products/{slug}:
+    get:
+      tags: [Products]
+      summary: 获取商品详情
+      parameters:
+        - $ref: '#/components/parameters/ProductSlugParam'
+      responses:
+        '200':
+          description: 商品详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '404':
+          description: 商品不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/products/{slug}/related:
+    get:
+      tags: [Products]
+      summary: 获取相关推荐商品
+      parameters:
+        - $ref: '#/components/parameters/ProductSlugParam'
+      responses:
+        '200':
+          description: 相关推荐列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductCard'
+  /api/front/cart:
+    get:
+      tags: [Cart]
+      summary: 获取当前购物车
+      responses:
+        '200':
+          description: 购物车详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+    post:
+      tags: [Cart]
+      summary: 添加商品到购物车
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '200':
+          description: 更新后的购物车
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: 请求非法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/cart/items/{itemId}:
+    patch:
+      tags: [Cart]
+      summary: 更新购物车商品数量
+      parameters:
+        - $ref: '#/components/parameters/CartItemIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          description: 更新后的购物车
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+    delete:
+      tags: [Cart]
+      summary: 删除购物车商品
+      parameters:
+        - $ref: '#/components/parameters/CartItemIdParam'
+      responses:
+        '204':
+          description: 删除成功
+  /api/front/checkout/orders:
+    post:
+      tags: [Checkout]
+      summary: 从当前购物车创建订单
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/orders:
+    get:
+      tags: [Orders]
+      summary: 获取当前用户订单列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 订单列表
+          content:
+            application/json:
+    patch:
+      tags: [Cart]
+      summary: 应用或移除购物车优惠码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartCouponRequest'
+      responses:
+        '200':
+          description: 更新后的购物车
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: 请求非法或优惠码不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderSummary'
+  /api/front/orders/{orderNumber}:
+    get:
+      tags: [Orders]
+      summary: 获取订单详情
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderNumberParam'
+      responses:
+        '200':
+          description: 订单详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '404':
+          description: 订单不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/addresses:
+    get:
+      tags: [Addresses]
+      summary: 获取当前用户地址列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 地址列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+    post:
+      tags: [Addresses]
+      summary: 新增地址
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '201':
+          description: 创建成功
+  /api/front/addresses/{id}:
+    patch:
+      tags: [Addresses]
+      summary: 更新地址
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [Addresses]
+      summary: 删除地址
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 删除成功
+  /api/front/auth/register:
+    post:
+      tags: [Auth]
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+  /api/front/auth/login:
+    post:
+      tags: [Auth]
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: 登录失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 用户退出登录
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: 退出成功
+  /api/front/profile:
+    get:
+      tags: [Profile]
+      summary: 获取当前用户资料
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 用户资料
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    patch:
+      tags: [Profile]
+      summary: 更新当前用户资料
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+  /api/front/inquiries:
+    post:
+      tags: [Inquiries]
+      summary: 提交询价
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInquiryRequest'
+      responses:
+        '201':
+          description: 询价提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+    get:
+      tags: [Inquiries]
+      summary: 获取当前用户询价记录
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 询价列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Inquiry'
+  /api/front/inquiries/{inquiryId}:
+    get:
+      tags: [Inquiries]
+      summary: 获取询价详情
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InquiryIdParam'
+      responses:
+        '200':
+          description: 询价详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+  /api/front/wishlist:
+    get:
+      tags: [Wishlist]
+      summary: 获取收藏列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 收藏列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WishlistItem'
+    post:
+      tags: [Wishlist]
+      summary: 添加商品到收藏
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+              required: [productId]
+      responses:
+        '201':
+          description: 添加成功
+  /api/front/wishlist/{productId}:
+    delete:
+      tags: [Wishlist]
+      summary: 从收藏中移除商品
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 删除成功

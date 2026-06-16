@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/content_blocks.schema.json",
+  "title": "content_blocks",
+  "description": "首页与全站内容块表。用于 banner、行业应用、评价、底部卖点等可配置内容。placement + key 在同一站点范围内建议唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "placement", "blockKey", "content", "status", "sortOrder", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "placement": {"type": "string", "maxLength": 100, "description": "例如 home.hero、home.hot-sale、footer.service-highlights"},
+    "blockKey": {"type": "string", "maxLength": 150},
+    "title": {"type": ["string", "null"], "maxLength": 255},
+    "subtitle": {"type": ["string", "null"], "maxLength": 255},
+    "content": {
+      "type": "object",
+      "description": "建议落库为 JSONB，存储结构化内容",
+      "additionalProperties": true
+    },
+    "status": {"type": "string", "enum": ["active", "inactive"]},
+    "sortOrder": {"type": "integer", "minimum": 0},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/categories.schema.json",
+  "title": "categories",
+  "description": "商品分类表。支持树结构、SEO、图片与多语言扩展。slug 唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "slug",
+    "status",
+    "sortOrder",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "parentId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "关联 categories.id"
+    },
+    "name": {"type": "string", "maxLength": 150},
+    "slug": {"type": "string", "maxLength": 180},
+    "description": {"type": ["string", "null"]},
+    "imageUrl": {"type": ["string", "null"], "format": "uri"},
+    "seoTitle": {"type": ["string", "null"], "maxLength": 255},
+    "seoDescription": {"type": ["string", "null"], "maxLength": 500},
+    "status": {"type": "string", "enum": ["active", "inactive"]},
+    "sortOrder": {"type": "integer", "minimum": 0},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

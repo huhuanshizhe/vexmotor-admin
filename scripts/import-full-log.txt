@@ -1,0 +1,28 @@
+[2026-06-06T05:24:48.005Z] 🚀 Starting FULL database import...
+[2026-06-06T05:24:48.023Z] ✅ Database connection established
+[2026-06-06T05:24:48.029Z] 📦 Found 123 products to import
+[2026-06-06T05:24:50.761Z] ✅ Using existing brand
+[2026-06-06T05:25:25.433Z] ⏳ Progress: 10/123 products
+[2026-06-06T05:25:58.032Z] ⏳ Progress: 20/123 products
+[2026-06-06T05:26:32.739Z] ⏳ Progress: 30/123 products
+[2026-06-06T05:27:03.781Z] ⏳ Progress: 40/123 products
+[2026-06-06T05:27:38.622Z] ⏳ Progress: 50/123 products
+[2026-06-06T05:28:05.891Z] ⏳ Progress: 60/123 products
+[2026-06-06T05:28:28.226Z] ⏳ Progress: 70/123 products
+[2026-06-06T05:29:00.009Z] ⏳ Progress: 80/123 products
+[2026-06-06T05:29:23.782Z] ⏳ Progress: 90/123 products
+[2026-06-06T05:29:44.114Z] ⏳ Progress: 100/123 products
+[2026-06-06T05:29:55.317Z] ⏳ Progress: 110/123 products
+[2026-06-06T05:30:07.377Z] ⏳ Progress: 120/123 products
+[2026-06-06T05:30:10.245Z] ⏳ Progress: 123/123 products
+[2026-06-06T05:30:10.247Z] 
+============================================================
+[2026-06-06T05:30:10.249Z] ✅ FULL IMPORT COMPLETED SUCCESSFULLY
+[2026-06-06T05:30:10.250Z] ============================================================
+[2026-06-06T05:30:10.251Z] 📊 New products imported: 0
+[2026-06-06T05:30:10.252Z] 🔄 Existing products updated: 123
+[2026-06-06T05:30:10.254Z] ⏭️  Skipped: 0
+[2026-06-06T05:30:10.257Z] 🖼️  Total images: 123
+[2026-06-06T05:30:10.258Z] 📋 Total specs: 417
+[2026-06-06T05:30:10.258Z] 📄 Total documents: 134
+[2026-06-06T05:30:10.260Z] ============================================================

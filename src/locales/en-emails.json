@@ -1,0 +1,72 @@
+{
+  "welcome": {
+    "subject": "Welcome to STEPMOTECH - Your Industrial Motion Control Partner",
+    "heading": "Welcome to STEPMOTECH!",
+    "greeting": "Hello {name},",
+    "body": "Thank you for joining STEPMOTECH. You now have access to our complete catalog of industrial motion control solutions including stepper motors, drivers, and precision components.",
+    "cta": "Browse Products",
+    "support": "Need help? Contact our technical support team",
+    "footer": "STEPMOTECH - Factory Direct Motion Components"
+  },
+  "orderConfirmation": {
+    "subject": "Order Confirmation - Order #{orderNumber}",
+    "heading": "Thank you for your order!",
+    "greeting": "Hello {name},",
+    "body": "Your order #{orderNumber} has been confirmed and is being processed. You will receive a shipping notification once your order is on its way.",
+    "orderSummary": "Order Summary",
+    "orderNumber": "Order Number",
+    "orderDate": "Order Date",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "total": "Total",
+    "cta": "View Order Details",
+    "support": "Questions about your order? Reply to this email or contact our support team."
+  },
+  "shippingNotification": {
+    "subject": "Your order #{orderNumber} has shipped!",
+    "heading": "Your order is on its way!",
+    "greeting": "Hello {name},",
+    "body": "Great news! Your order #{orderNumber} has been shipped and should arrive soon.",
+    "trackingNumber": "Tracking Number",
+    "carrier": "Carrier",
+    "estimatedDelivery": "Estimated Delivery",
+    "cta": "Track Your Package",
+    "support": "Need assistance? Contact our customer service team."
+  },
+  "passwordReset": {
+    "subject": "Reset your STEPMOTECH password",
+    "heading": "Password Reset Request",
+    "greeting": "Hello {name},",
+    "body": "We received a request to reset your password. Click the button below to create a new password. This link will expire in 1 hour.",
+    "cta": "Reset Password",
+    "ignore": "If you didn't request this, you can safely ignore this email.",
+    "support": "Need help? Contact our support team."
+  },
+  "quoteRequest": {
+    "subject": "Quote Request Received - {quoteNumber}",
+    "heading": "Thank you for your quote request!",
+    "greeting": "Hello {name},",
+    "body": "We have received your quote request and our team is reviewing your requirements. You can expect a detailed quotation within 24-48 hours.",
+    "quoteNumber": "Quote Number",
+    "items": "Items Requested",
+    "cta": "View Quote Request",
+    "support": "Need to modify your request? Reply to this email or contact our sales team."
+  },
+  "newsletter": {
+    "subject": "STEPMOTECH Newsletter - {month} {year}",
+    "heading": "This Month at STEPMOTECH",
+    "greeting": "Hello {name},",
+    "body": "Here's what's new in industrial motion control this month:",
+    "cta": "Read More",
+    "unsubscribe": "You're receiving this because you subscribed to STEPMOTECH newsletter.",
+    "unsubscribeLink": "Unsubscribe"
+  },
+  "inquiryResponse": {
+    "subject": "Response to your inquiry - {inquiryId}",
+    "heading": "We've responded to your inquiry",
+    "greeting": "Hello {name},",
+    "body": "Our technical team has reviewed your inquiry and provided a detailed response. Please review the information below.",
+    "cta": "View Response",
+    "support": "Have additional questions? Reply directly to this email."
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/accounts.schema.json",
+  "title": "accounts",
+  "description": "Auth.js 第三方账号映射表。首期可为空，但预留结构以兼容未来 OAuth 登录。provider + providerAccountId 应唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "userId",
+    "provider",
+    "providerAccountId",
+    "type",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "关联 users.id"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["oauth", "oidc", "email", "credentials"]
+    },
+    "provider": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "providerAccountId": {
+      "type": "string",
+      "maxLength": 191
+    },
+    "refreshToken": {
+      "type": ["string", "null"]
+    },
+    "accessToken": {
+      "type": ["string", "null"]
+    },
+    "expiresAt": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "tokenType": {
+      "type": ["string", "null"],
+      "maxLength": 50
+    },
+    "scope": {
+      "type": ["string", "null"]
+    },
+    "idToken": {
+      "type": ["string", "null"]
+    },
+    "sessionState": {
+      "type": ["string", "null"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

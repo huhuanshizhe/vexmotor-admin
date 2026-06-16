@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/attachments.schema.json",
+  "title": "attachments",
+  "description": "商品附件表。用于存储说明书、规格书、认证文件等附件元数据。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "productId", "name", "url", "mimeType", "sortOrder", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "name": {"type": "string", "maxLength": 255},
+    "url": {"type": "string", "format": "uri"},
+    "mimeType": {"type": "string", "maxLength": 100},
+    "sizeBytes": {"type": ["integer", "null"], "minimum": 0},
+    "sortOrder": {"type": "integer", "minimum": 0},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

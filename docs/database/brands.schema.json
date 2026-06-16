@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/brands.schema.json",
+  "title": "brands",
+  "description": "品牌表。slug 唯一，可用于前台品牌页与商品详情品牌信息展示。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "slug", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "name": {"type": "string", "maxLength": 150},
+    "slug": {"type": "string", "maxLength": 180},
+    "description": {"type": ["string", "null"]},
+    "logoUrl": {"type": ["string", "null"], "format": "uri"},
+    "websiteUrl": {"type": ["string", "null"], "format": "uri"},
+    "status": {"type": "string", "enum": ["active", "inactive"]},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

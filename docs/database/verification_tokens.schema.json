@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/verification_tokens.schema.json",
+  "title": "verification_tokens",
+  "description": "邮箱验证或找回密码等短期令牌表。identifier + token 建议唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "identifier",
+    "token",
+    "expires"
+  ],
+  "properties": {
+    "identifier": {
+      "type": "string",
+      "maxLength": 255,
+      "description": "通常为邮箱或业务标识"
+    },
+    "token": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "expires": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

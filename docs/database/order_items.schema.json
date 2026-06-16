@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/order_items.schema.json",
+  "title": "order_items",
+  "description": "订单明细表。保存下单时的商品快照，避免商品信息变更影响历史订单显示。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "orderId", "productId", "productName", "sku", "quantity", "unitPrice", "subtotal", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "orderId": {"type": "string", "format": "uuid", "description": "关联 orders.id"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "variantId": {"type": ["string", "null"], "format": "uuid", "description": "关联 product_variants.id"},
+    "productName": {"type": "string", "maxLength": 255},
+    "sku": {"type": "string", "maxLength": 100},
+    "variantLabel": {"type": ["string", "null"], "maxLength": 255},
+    "quantity": {"type": "integer", "minimum": 1},
+    "unitPrice": {"type": "number", "minimum": 0},
+    "subtotal": {"type": "number", "minimum": 0},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,16 @@
+Create a premium industrial ecommerce brand logo for "STEPMOTECH".
+
+Design direction:
+- Reference style from the legacy mark at: https://www.vexmotor.com/img/logo-1748329863.jpg
+- Keep the brand recognizable but modernize it into a cleaner, sharper, more global B2B identity.
+- Include a distinct icon + wordmark lockup.
+- Icon should imply precision motion, automation, torque, and electronics (no cogs cliche).
+- Wordmark text must read exactly: STEPMOTECH
+- Use a strong geometric sans style, high legibility at small sizes.
+- Palette: deep industrial blue (#0A2D4D / #0F4375) with signal orange accent (#E45A0F / #FF7A26).
+- Produce on transparent background.
+
+Output requirements:
+- One horizontal lockup optimized for website header.
+- Clean vector-like edges and balanced spacing.
+- No mockup scene, no 3D environment, no perspective distortion, no extra slogans.

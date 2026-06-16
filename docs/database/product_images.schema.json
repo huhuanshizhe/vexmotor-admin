@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/product_images.schema.json",
+  "title": "product_images",
+  "description": "商品图片表。一个商品可有多张图片，支持排序与是否封面图。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "productId", "url", "alt", "sortOrder", "isPrimary", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "url": {"type": "string", "format": "uri"},
+    "alt": {"type": "string", "maxLength": 255},
+    "width": {"type": ["integer", "null"], "minimum": 0},
+    "height": {"type": ["integer", "null"], "minimum": 0},
+    "sortOrder": {"type": "integer", "minimum": 0},
+    "isPrimary": {"type": "boolean"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

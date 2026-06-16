@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/wishlists.schema.json",
+  "title": "wishlists",
+  "description": "收藏表。保存用户收藏的商品。userId + productId 组合应唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "userId", "productId", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "userId": {"type": "string", "format": "uuid", "description": "关联 users.id"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

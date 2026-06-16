@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/carts.schema.json",
+  "title": "carts",
+  "description": "购物车主表。游客购物车可使用 anonymousToken，登录用户购物车关联 userId。一个用户通常只有一个 active 购物车。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "status", "currencyCode", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "userId": {"type": ["string", "null"], "format": "uuid", "description": "关联 users.id"},
+    "anonymousToken": {"type": ["string", "null"], "maxLength": 255},
+    "status": {"type": "string", "enum": ["active", "converted", "abandoned"]},
+    "currencyCode": {"type": "string", "minLength": 3, "maxLength": 3},
+    "couponCode": {"type": ["string", "null"], "maxLength": 100},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/products.schema.json",
+  "title": "products",
+  "description": "商品主表。覆盖基础信息、价格、SEO、购买模式、品牌和默认分类。slug 与 sku 应唯一。购买模式决定前台显示加购还是询价入口。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "slug",
+    "sku",
+    "purchaseMode",
+    "status",
+    "price",
+    "currencyCode",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "brandId": {"type": ["string", "null"], "format": "uuid", "description": "关联 brands.id"},
+    "defaultCategoryId": {"type": ["string", "null"], "format": "uuid", "description": "关联 categories.id"},
+    "name": {"type": "string", "maxLength": 255},
+    "slug": {"type": "string", "maxLength": 255},
+    "sku": {"type": "string", "maxLength": 100},
+    "shortDescription": {"type": ["string", "null"]},
+    "description": {"type": ["string", "null"]},
+    "purchaseMode": {"type": "string", "enum": ["buy", "inquiry"]},
+    "status": {"type": "string", "enum": ["draft", "active", "inactive", "archived"]},
+    "price": {"type": "number", "minimum": 0},
+    "compareAtPrice": {"type": ["number", "null"], "minimum": 0},
+    "currencyCode": {"type": "string", "minLength": 3, "maxLength": 3},
+    "stockQuantity": {"type": "integer", "minimum": 0},
+    "allowBackorder": {"type": "boolean"},
+    "featured": {"type": "boolean"},
+    "seoTitle": {"type": ["string", "null"], "maxLength": 255},
+    "seoDescription": {"type": ["string", "null"], "maxLength": 500},
+    "publishedAt": {"type": ["string", "null"], "format": "date-time"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

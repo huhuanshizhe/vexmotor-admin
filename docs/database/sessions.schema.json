@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/sessions.schema.json",
+  "title": "sessions",
+  "description": "Auth.js 会话表。sessionToken 唯一，关联 users.id。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sessionToken",
+    "userId",
+    "expires",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sessionToken": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "userId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "关联 users.id"
+    },
+    "expires": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/product_categories.schema.json",
+  "title": "product_categories",
+  "description": "商品与分类关联表。用于支持一个商品挂多个分类。productId + categoryId 组合应唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "productId", "categoryId", "createdAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "categoryId": {"type": "string", "format": "uuid", "description": "关联 categories.id"},
+    "createdAt": {"type": "string", "format": "date-time"}
+  }
+}

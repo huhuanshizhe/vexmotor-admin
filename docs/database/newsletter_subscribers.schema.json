@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/newsletter_subscribers.schema.json",
+  "title": "newsletter_subscribers",
+  "description": "Newsletter 订阅表。email 唯一，用于首页订阅区收集潜在客户。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "email", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "email": {"type": "string", "format": "email", "maxLength": 320},
+    "status": {"type": "string", "enum": ["subscribed", "unsubscribed"]},
+    "source": {"type": ["string", "null"], "maxLength": 100},
+    "subscribedAt": {"type": ["string", "null"], "format": "date-time"},
+    "unsubscribedAt": {"type": ["string", "null"], "format": "date-time"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

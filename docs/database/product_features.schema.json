@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/product_features.schema.json",
+  "title": "product_features",
+  "description": "商品特征表。保存商品的参数项，例如扭矩、电流、尺寸等。一个商品可对应多条特征。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "productId", "featureKey", "featureValue", "sortOrder", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "featureKey": {"type": "string", "maxLength": 100},
+    "featureValue": {"type": "string", "maxLength": 255},
+    "unit": {"type": ["string", "null"], "maxLength": 50},
+    "sortOrder": {"type": "integer", "minimum": 0},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

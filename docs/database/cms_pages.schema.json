@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/cms_pages.schema.json",
+  "title": "cms_pages",
+  "description": "静态内容页表。用于 About、FAQ、Contact、Shipping 等 CMS 页面。slug 唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "slug", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "title": {"type": "string", "maxLength": 255},
+    "slug": {"type": "string", "maxLength": 180},
+    "summary": {"type": ["string", "null"]},
+    "content": {"type": ["string", "null"]},
+    "seoTitle": {"type": ["string", "null"], "maxLength": 255},
+    "seoDescription": {"type": ["string", "null"], "maxLength": 500},
+    "status": {"type": "string", "enum": ["draft", "published", "archived"]},
+    "publishedAt": {"type": ["string", "null"], "format": "date-time"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

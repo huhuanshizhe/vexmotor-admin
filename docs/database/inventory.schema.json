@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/inventory.schema.json",
+  "title": "inventory",
+  "description": "库存表。用于记录商品或变体级库存。productId 必填，variantId 可空；同一 productId + variantId 组合应唯一。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "productId", "quantity", "reservedQuantity", "availableQuantity", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "variantId": {"type": ["string", "null"], "format": "uuid", "description": "关联 product_variants.id"},
+    "quantity": {"type": "integer", "minimum": 0},
+    "reservedQuantity": {"type": "integer", "minimum": 0},
+    "availableQuantity": {"type": "integer", "minimum": 0},
+    "lowStockThreshold": {"type": ["integer", "null"], "minimum": 0},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,19 @@
+[2026-06-06T05:44:49.896Z] 🚀 Starting auto product relations...
+[2026-06-06T05:44:53.591Z] 📦 Loaded 123 active products
+[2026-06-06T05:44:54.164Z] 📋 Loaded 417 specifications
+[2026-06-06T05:44:54.166Z] 
+🗑️  Clearing existing auto-generated relations...
+[2026-06-06T05:45:52.650Z] ⏳ Progress: 20/123 products (179 relations)
+[2026-06-06T05:46:49.824Z] ⏳ Progress: 40/123 products (357 relations)
+[2026-06-06T05:47:44.590Z] ⏳ Progress: 60/123 products (528 relations)
+[2026-06-06T05:48:38.478Z] ⏳ Progress: 80/123 products (695 relations)
+[2026-06-06T05:49:19.645Z] ⏳ Progress: 100/123 products (814 relations)
+[2026-06-06T05:49:28.283Z] ⏳ Progress: 120/123 products (837 relations)
+[2026-06-06T05:49:30.750Z] ⏳ Progress: 123/123 products (845 relations)
+[2026-06-06T05:49:30.752Z] 
+============================================================
+[2026-06-06T05:49:30.753Z] ✅ AUTO RELATIONS COMPLETED SUCCESSFULLY
+[2026-06-06T05:49:30.754Z] ============================================================
+[2026-06-06T05:49:30.755Z] 🔗 Total relations created: 845
+[2026-06-06T05:49:30.756Z] ⏭️  Skipped (duplicates): 12
+[2026-06-06T05:49:30.757Z] ============================================================

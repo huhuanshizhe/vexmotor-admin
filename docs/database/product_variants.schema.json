@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/product_variants.schema.json",
+  "title": "product_variants",
+  "description": "商品变体表。用于维护规格 SKU、差异价格、差异库存。productId + sku 应唯一。属性明细可使用 JSONB 存储。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "productId", "sku", "attributes", "price", "stockQuantity", "status", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "sku": {"type": "string", "maxLength": 100},
+    "attributes": {
+      "type": "array",
+      "description": "规格键值数组，例如 color/size",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group", "value"],
+        "properties": {
+          "group": {"type": "string"},
+          "value": {"type": "string"}
+        }
+      }
+    },
+    "price": {"type": "number", "minimum": 0},
+    "compareAtPrice": {"type": ["number", "null"], "minimum": 0},
+    "stockQuantity": {"type": "integer", "minimum": 0},
+    "status": {"type": "string", "enum": ["active", "inactive"]},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

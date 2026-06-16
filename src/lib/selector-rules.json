@@ -1,0 +1,278 @@
+{
+  "tips": [
+    "Application details help separate standard catalog fits from projects that should move into RFQ or custom engineering review.",
+    "Mechanical constraints drive the first pass because torque, speed, and frame limits remove most unsuitable SKUs quickly.",
+    "Electrical and feedback inputs then refine the shortlist so the results feel closer to a real pre-sales recommendation workflow."
+  ],
+  "options": {
+    "motorTypes": [
+      { "value": "stepper", "label": "Stepper", "description": "Discrete positioning, simpler control, and the strongest current catalog coverage." },
+      { "value": "bldc", "label": "BLDC", "description": "Higher speed and smoother rotation when a commutated drive stack is acceptable." },
+      { "value": "servo", "label": "Servo", "description": "Closed-loop performance for tighter dynamic response and motion tuning." },
+      { "value": "gearmotor", "label": "Gearmotor", "description": "Higher output torque at lower speed through gearbox reduction." },
+      { "value": "linear-actuator", "label": "Linear actuator", "description": "Direct linear motion where stroke and thrust matter more than rotary output." },
+      { "value": "help-me-decide", "label": "Help me decide", "description": "Start broad and let the selector surface the closest motion families." }
+    ],
+    "industries": [
+      { "value": "factory-automation", "label": "Factory Automation" },
+      { "value": "robotics", "label": "Robotics" },
+      { "value": "cnc-tooling", "label": "CNC & Tooling" },
+      { "value": "medical-devices", "label": "Medical Devices" },
+      { "value": "packaging", "label": "Packaging" },
+      { "value": "lab-automation", "label": "Lab Automation" },
+      { "value": "energy", "label": "Energy" },
+      { "value": "3d-printing", "label": "3D Printing" },
+      { "value": "semiconductor", "label": "Semiconductor" },
+      { "value": "textile", "label": "Textile" },
+      { "value": "photonics", "label": "Photonics" },
+      { "value": "aerospace", "label": "Aerospace" },
+      { "value": "automotive-test", "label": "Automotive Test" },
+      { "value": "renewable", "label": "Renewable" },
+      { "value": "education", "label": "Education" }
+    ],
+    "frameSizes": [
+      { "value": "17", "label": "17 frame" },
+      { "value": "23", "label": "23 frame" },
+      { "value": "42", "label": "42 frame" },
+      { "value": "57", "label": "57 frame" },
+      { "value": "86", "label": "86 frame" }
+    ],
+    "shafts": [
+      { "value": "any", "label": "Any shaft" },
+      { "value": "single-shaft", "label": "Single shaft" },
+      { "value": "dual-shaft", "label": "Dual shaft" },
+      { "value": "geared-output", "label": "Geared output" },
+      { "value": "lead-screw", "label": "Lead screw / actuator" }
+    ],
+    "mountings": [
+      { "value": "any", "label": "Any mounting" },
+      { "value": "nema", "label": "NEMA flange" },
+      { "value": "inline-gearbox", "label": "Inline gearbox" },
+      { "value": "linear-stage", "label": "Linear stage" },
+      { "value": "integrated", "label": "Integrated assembly" }
+    ],
+    "orientations": [
+      { "value": "any", "label": "Any orientation" },
+      { "value": "horizontal", "label": "Horizontal" },
+      { "value": "vertical", "label": "Vertical" }
+    ],
+    "temperatures": [
+      { "value": "any", "label": "Standard or extended" },
+      { "value": "standard", "label": "Standard indoor range" },
+      { "value": "extended", "label": "Extended temperature range" }
+    ],
+    "ipRatings": [
+      { "value": "any", "label": "Any enclosure" },
+      { "value": "IP40", "label": "IP40" },
+      { "value": "IP54", "label": "IP54" },
+      { "value": "IP65", "label": "IP65" }
+    ],
+    "communications": [
+      { "value": "step-dir", "label": "STEP-DIR" },
+      { "value": "pulse-dir", "label": "Pulse-Dir" },
+      { "value": "ethercat", "label": "EtherCAT" },
+      { "value": "canopen", "label": "CANopen" },
+      { "value": "modbus", "label": "Modbus" }
+    ],
+    "feedbackModes": [
+      { "value": "any", "label": "Any feedback mode" },
+      { "value": "open-loop", "label": "Open loop" },
+      { "value": "encoder", "label": "Encoder" },
+      { "value": "closed-loop", "label": "Closed loop" }
+    ],
+    "resolutionOptions": [
+      { "value": "any", "label": "Any resolution" },
+      { "value": "200 steps/rev", "label": "200 steps/rev" },
+      { "value": "1000-line encoder", "label": "1000-line encoder" },
+      { "value": "17-bit encoder", "label": "17-bit encoder" }
+    ]
+  },
+  "products": [
+    {
+      "productId": "prod-1",
+      "motorType": "stepper",
+      "industries": ["factory-automation", "robotics", "lab-automation", "medical-devices", "3d-printing", "textile", "photonics", "education"],
+      "categories": ["Stepper", "Nema 17"],
+      "torqueNcm": 45,
+      "peakTorqueNcm": 62,
+      "speedRpm": 1200,
+      "frameSize": 17,
+      "shaft": "single-shaft",
+      "mounting": "nema",
+      "orientation": "any",
+      "temperature": "standard",
+      "ipRating": "IP40",
+      "supplyVoltage": 24,
+      "currentLimit": 1.5,
+      "driverIncluded": false,
+      "communication": ["step-dir", "pulse-dir"],
+      "feedback": "open-loop",
+      "resolution": "200 steps/rev",
+      "brake": false,
+      "tierHint": "Typical price breaks begin around 25 pcs.",
+      "reasonTags": ["Compact frame", "STEP-DIR ready", "Good for feeders and lab axes"],
+      "keyParameters": [
+        { "label": "Torque", "value": "45 N·cm" },
+        { "label": "Speed", "value": "1200 rpm" },
+        { "label": "Frame", "value": "17" },
+        { "label": "Current", "value": "1.5 A" },
+        { "label": "Feedback", "value": "Open loop" }
+      ]
+    },
+    {
+      "productId": "prod-2",
+      "motorType": "stepper",
+      "industries": ["cnc-tooling", "factory-automation", "robotics", "aerospace", "automotive-test", "renewable"],
+      "categories": ["Stepper", "Nema 23"],
+      "torqueNcm": 240,
+      "peakTorqueNcm": 320,
+      "speedRpm": 900,
+      "frameSize": 23,
+      "shaft": "single-shaft",
+      "mounting": "nema",
+      "orientation": "any",
+      "temperature": "standard",
+      "ipRating": "IP40",
+      "supplyVoltage": 48,
+      "currentLimit": 4,
+      "driverIncluded": false,
+      "communication": ["step-dir", "pulse-dir"],
+      "feedback": "open-loop",
+      "resolution": "200 steps/rev",
+      "brake": false,
+      "tierHint": "Best fit for heavier axes and mid-volume tooling builds.",
+      "reasonTags": ["Higher holding torque", "CNC-ready frame", "Pairs with 48V drivers"],
+      "keyParameters": [
+        { "label": "Torque", "value": "240 N·cm" },
+        { "label": "Speed", "value": "900 rpm" },
+        { "label": "Frame", "value": "23" },
+        { "label": "Current", "value": "4.0 A" },
+        { "label": "Feedback", "value": "Open loop" }
+      ]
+    },
+    {
+      "productId": "prod-3",
+      "motorType": "servo",
+      "industries": ["factory-automation", "robotics", "packaging", "energy", "semiconductor", "photonics", "aerospace", "automotive-test", "renewable"],
+      "categories": ["Custom motion", "OEM assembly"],
+      "torqueNcm": 300,
+      "peakTorqueNcm": 420,
+      "speedRpm": 1500,
+      "frameSize": 57,
+      "shaft": "single-shaft",
+      "mounting": "integrated",
+      "orientation": "any",
+      "temperature": "extended",
+      "ipRating": "IP54",
+      "supplyVoltage": 48,
+      "currentLimit": 5,
+      "driverIncluded": true,
+      "communication": ["ethercat", "canopen", "modbus"],
+      "feedback": "encoder",
+      "resolution": "17-bit encoder",
+      "brake": true,
+      "tierHint": "Inquiry-first build with engineering review and OEM tuning.",
+      "reasonTags": ["Custom integration", "Industrial fieldbus options", "Closed-loop style feedback"],
+      "keyParameters": [
+        { "label": "Torque", "value": "300 N·cm" },
+        { "label": "Speed", "value": "1500 rpm" },
+        { "label": "Frame", "value": "57" },
+        { "label": "Control", "value": "Integrated" },
+        { "label": "Feedback", "value": "17-bit encoder" }
+      ]
+    },
+    {
+      "productId": "prod-4",
+      "motorType": "stepper",
+      "industries": ["robotics", "cnc-tooling", "packaging", "semiconductor", "automotive-test"],
+      "categories": ["Closed loop stepper", "Kit"],
+      "torqueNcm": 200,
+      "peakTorqueNcm": 260,
+      "speedRpm": 1200,
+      "frameSize": 57,
+      "shaft": "single-shaft",
+      "mounting": "nema",
+      "orientation": "any",
+      "temperature": "standard",
+      "ipRating": "IP40",
+      "supplyVoltage": 48,
+      "currentLimit": 2.8,
+      "driverIncluded": true,
+      "communication": ["step-dir", "pulse-dir"],
+      "feedback": "closed-loop",
+      "resolution": "1000-line encoder",
+      "brake": false,
+      "tierHint": "Ideal when missed-step protection matters more than the lowest BOM cost.",
+      "reasonTags": ["Closed-loop kit", "Driver included", "Higher stability under load"],
+      "keyParameters": [
+        { "label": "Torque", "value": "200 N·cm" },
+        { "label": "Speed", "value": "1200 rpm" },
+        { "label": "Frame", "value": "57" },
+        { "label": "Driver", "value": "Included" },
+        { "label": "Feedback", "value": "Closed loop" }
+      ]
+    },
+    {
+      "productId": "prod-7",
+      "motorType": "gearmotor",
+      "industries": ["factory-automation", "packaging", "cnc-tooling", "textile", "automotive-test", "renewable"],
+      "categories": ["Gearmotor", "Planetary gearbox"],
+      "torqueNcm": 500,
+      "peakTorqueNcm": 650,
+      "speedRpm": 180,
+      "frameSize": 57,
+      "shaft": "geared-output",
+      "mounting": "inline-gearbox",
+      "orientation": "any",
+      "temperature": "standard",
+      "ipRating": "IP54",
+      "supplyVoltage": 48,
+      "currentLimit": 4,
+      "driverIncluded": false,
+      "communication": ["step-dir", "pulse-dir"],
+      "feedback": "open-loop",
+      "resolution": "200 steps/rev",
+      "brake": false,
+      "tierHint": "Good option when output torque matters more than top-end speed.",
+      "reasonTags": ["10:1 reduction", "High output torque", "Compact geared output"],
+      "keyParameters": [
+        { "label": "Torque", "value": "500 N·cm" },
+        { "label": "Speed", "value": "180 rpm" },
+        { "label": "Frame", "value": "57" },
+        { "label": "Output", "value": "Geared" },
+        { "label": "IP", "value": "IP54" }
+      ]
+    },
+    {
+      "productId": "prod-8",
+      "motorType": "linear-actuator",
+      "industries": ["medical-devices", "packaging", "factory-automation", "photonics", "education", "semiconductor"],
+      "categories": ["Linear actuator", "24VDC"],
+      "torqueNcm": 260,
+      "peakTorqueNcm": 320,
+      "speedRpm": 180,
+      "frameSize": 42,
+      "shaft": "lead-screw",
+      "mounting": "linear-stage",
+      "orientation": "horizontal",
+      "temperature": "standard",
+      "ipRating": "IP54",
+      "supplyVoltage": 24,
+      "currentLimit": 3.2,
+      "driverIncluded": false,
+      "communication": ["step-dir", "pulse-dir"],
+      "feedback": "open-loop",
+      "resolution": "200 steps/rev",
+      "brake": false,
+      "tierHint": "Useful for compact push-pull travel where stroke is already defined.",
+      "reasonTags": ["Linear output", "24V compatible", "Stroke-based motion"],
+      "keyParameters": [
+        { "label": "Stroke", "value": "100 mm" },
+        { "label": "Speed", "value": "180 rpm equiv." },
+        { "label": "Frame", "value": "42" },
+        { "label": "Voltage", "value": "24 V" },
+        { "label": "IP", "value": "IP54" }
+      ]
+    }
+  ]
+}

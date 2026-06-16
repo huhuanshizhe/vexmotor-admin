@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/orders.schema.json",
+  "title": "orders",
+  "description": "订单主表。orderNumber 唯一；订单与用户、地址、支付方式、配送方式关联。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "orderNumber", "userId", "status", "currencyCode", "subtotal", "shippingAmount", "taxAmount", "totalAmount", "shippingAddressSnapshot", "billingAddressSnapshot", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "orderNumber": {"type": "string", "maxLength": 50},
+    "userId": {"type": "string", "format": "uuid", "description": "关联 users.id"},
+    "cartId": {"type": ["string", "null"], "format": "uuid", "description": "关联 carts.id"},
+    "status": {"type": "string", "enum": ["pending", "paid", "processing", "shipped", "completed", "cancelled", "refunded"]},
+    "currencyCode": {"type": "string", "minLength": 3, "maxLength": 3},
+    "subtotal": {"type": "number", "minimum": 0},
+    "shippingAmount": {"type": "number", "minimum": 0},
+    "taxAmount": {"type": "number", "minimum": 0},
+    "discountAmount": {"type": "number", "minimum": 0},
+    "totalAmount": {"type": "number", "minimum": 0},
+    "shippingMethod": {"type": ["string", "null"], "maxLength": 100},
+    "paymentMethod": {"type": ["string", "null"], "maxLength": 100},
+    "customerNote": {"type": ["string", "null"]},
+    "shippingAddressSnapshot": {
+      "type": "object",
+      "description": "下单时的地址快照",
+      "additionalProperties": true
+    },
+    "billingAddressSnapshot": {
+      "type": "object",
+      "description": "下单时的账单地址快照",
+      "additionalProperties": true
+    },
+    "placedAt": {"type": ["string", "null"], "format": "date-time"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

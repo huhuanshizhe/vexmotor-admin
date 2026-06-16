@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>产品数据导入工具</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #1a202c;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #718096;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .info-box {
+      background: #f7fafc;
+      border-left: 4px solid #667eea;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+    }
+    .info-box h3 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    .info-box ul {
+      list-style: none;
+      padding: 0;
+    }
+    .info-box li {
+      color: #4a5568;
+      padding: 5px 0;
+      font-size: 14px;
+    }
+    .info-box li:before {
+      content: '✓ ';
+      color: #48bb78;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .log {
+      background: #1a202c;
+      color: #a0aec0;
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 30px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .log-line {
+      margin: 2px 0;
+    }
+    .log-line.success { color: #48bb78; }
+    .log-line.error { color: #f56565; }
+    .log-line.info { color: #4299e1; }
+    .log-line.warning { color: #ecc94b; }
+    .progress-bar {
+      background: #e2e8f0;
+      height: 8px;
+      border-radius: 4px;
+      margin-top: 20px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-fill {
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .stat-card {
+      background: #f7fafc;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: 700;
+      color: #667eea;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #718096;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 产品数据导入工具</h1>
+    <p class="subtitle">从旧站导入所有产品数据到新数据库</p>
+
+    <div class="info-box">
+      <h3>📦 将要导入的数据：</h3>
+      <ul>
+        <li>产品基本信息（名称、SKU、价格、描述）</li>
+        <li>所有产品图片（主图 + 图库 + 尺寸图）</li>
+        <li>技术规格参数（规格、扭矩、电流等）</li>
+        <li>可下载文档（PDF 技术手册）</li>
+        <li>分类映射关系</li>
+      </ul>
+    </div>
+
+    <button class="btn" id="importBtn" onclick="startImport()">
+      开始导入产品数据
+    </button>
+
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="stats" id="stats" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-number" id="statNew">0</div>
+        <div class="stat-label">新导入</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="statUpdated">0</div>
+        <div class="stat-label">已更新</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="statImages">0</div>
+        <div class="stat-label">图片</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="statSpecs">0</div>
+        <div class="stat-label">规格</div>
+      </div>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const importBtn = document.getElementById('importBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+
+    function log(message, type = '') {
+      const line = document.createElement('div');
+      line.className = `log-line ${type}`;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function startImport() {
+      importBtn.disabled = true;
+      importBtn.textContent = '导入中...';
+      progressBar.style.display = 'block';
+      logEl.innerHTML = '';
+
+      log('开始导入产品数据...', 'info');
+
+      try {
+        const response = await fetch('/api/admin/import-products', {
+          method: 'POST',
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const text = decoder.decode(value);
+          const lines = text.split('\n');
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+
+            if (line.includes('❌')) {
+              log(line, 'error');
+            } else if (line.includes('✅')) {
+              log(line, 'success');
+            } else if (line.includes('⏳')) {
+              log(line, 'info');
+              // Update progress
+              const match = line.match(/(\d+)\/(\d+)/);
+              if (match) {
+                const progress = (parseInt(match[1]) / parseInt(match[2])) * 100;
+                progressFill.style.width = progress + '%';
+              }
+            } else if (line.includes('📊') || line.includes('📦')) {
+              log(line, 'warning');
+            } else {
+              log(line);
+            }
+          }
+        }
+
+        log('导入完成！', 'success');
+        importBtn.textContent = '导入完成 ✓';
+        importBtn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+
+      } catch (error) {
+        log('导入失败: ' + error.message, 'error');
+        importBtn.disabled = false;
+        importBtn.textContent = '重试导入';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/addresses.schema.json",
+  "title": "addresses",
+  "description": "用户地址簿表。一个用户可有多条地址。默认地址策略由业务层保证。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "userId", "firstName", "lastName", "countryCode", "city", "addressLine1", "postalCode", "isDefault", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "userId": {"type": "string", "format": "uuid", "description": "关联 users.id"},
+    "firstName": {"type": "string", "maxLength": 100},
+    "lastName": {"type": "string", "maxLength": 100},
+    "company": {"type": ["string", "null"], "maxLength": 150},
+    "phone": {"type": ["string", "null"], "maxLength": 50},
+    "countryCode": {"type": "string", "minLength": 2, "maxLength": 2},
+    "state": {"type": ["string", "null"], "maxLength": 100},
+    "city": {"type": "string", "maxLength": 100},
+    "addressLine1": {"type": "string", "maxLength": 255},
+    "addressLine2": {"type": ["string", "null"], "maxLength": 255},
+    "postalCode": {"type": "string", "maxLength": 30},
+    "isDefault": {"type": "boolean"},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}

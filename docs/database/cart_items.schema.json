@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/database/cart_items.schema.json",
+  "title": "cart_items",
+  "description": "购物车明细表。cartId + productId + variantId 组合建议唯一，以避免重复行。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "cartId", "productId", "quantity", "unitPrice", "subtotal", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "cartId": {"type": "string", "format": "uuid", "description": "关联 carts.id"},
+    "productId": {"type": "string", "format": "uuid", "description": "关联 products.id"},
+    "variantId": {"type": ["string", "null"], "format": "uuid", "description": "关联 product_variants.id"},
+    "quantity": {"type": "integer", "minimum": 1},
+    "unitPrice": {"type": "number", "minimum": 0},
+    "subtotal": {"type": "number", "minimum": 0},
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"}
+  }
+}
