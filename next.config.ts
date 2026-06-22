@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [{ source: '/', destination: '/admin', permanent: false }];
   },
+  async rewrites() {
+    return [{ source: '/api/openapi.json', destination: '/api/openapi' }];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },

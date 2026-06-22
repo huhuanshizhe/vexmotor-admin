@@ -45,6 +45,15 @@ pnpm dev               # http://localhost:5100
 
 前台契约：[`docs/openapi.front.yaml`](./docs/openapi.front.yaml)（`servers[0].url` = `http://localhost:5100`）
 
+## API 文档（Swagger）
+
+| 资源 | URI |
+|------|-----|
+| Swagger UI | http://localhost:5100/api-doc |
+| OpenAPI JSON | http://localhost:5100/api/openapi.json |
+
+基于 `next-swagger-doc` + `swagger-ui-react`；契约主体来自 `docs/openapi.front.yaml`，并合并 `src/app/api` 路由上的 `@swagger` JSDoc。
+
 ## 脚本
 
 | 命令 | 说明 |
