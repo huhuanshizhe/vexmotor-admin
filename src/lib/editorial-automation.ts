@@ -88,6 +88,7 @@ export type EditorialCoverageBoard = {
   contentType: EditorialContentType;
   note: string;
   sourceMode: 'code-seeded' | 'admin-managed';
+  enabled?: boolean;
 };
 
 export type EditorialAutomationConfig = {
@@ -115,6 +116,7 @@ export type EditorialCoverageMetric = {
   contentType: EditorialContentType;
   sourceMode: 'code-seeded' | 'admin-managed';
   note: string;
+  enabled: boolean;
   custom?: boolean;
 };
 

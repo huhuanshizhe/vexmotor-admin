@@ -8365,6 +8365,37 @@ main {
   overflow: hidden;
 }
 
+.content-editor-shared-section {
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+  width: 100%;
+}
+
+.brand-editor-modal .content-editor-layout {
+  min-height: 0;
+  align-items: flex-start;
+}
+
+.brand-editor-modal .content-editor-main {
+  flex: 1;
+  min-width: 0;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.brand-editor-modal .content-editor-main .ant-form,
+.brand-editor-modal .content-editor-main .ant-tabs,
+.brand-editor-modal .content-editor-main .ant-tabs-content,
+.brand-editor-modal .content-editor-main .ant-tabs-tabpane {
+  width: 100%;
+}
+
+.brand-editor-modal .content-editor-locale-nav {
+  align-self: flex-start;
+}
+
 .content-editor-locale-nav {
   display: flex;
   flex-direction: column;

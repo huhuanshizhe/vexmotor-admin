@@ -45,6 +45,7 @@ function sanitizeCoverageBoard(board: EditorialCoverageBoard, index: number): Ed
     contentType: toContentType(board.contentType),
     note: sanitizeText(board.note) ?? '自定义内容看板。',
     sourceMode: board.sourceMode === 'admin-managed' ? 'admin-managed' : 'code-seeded',
+    enabled: board.enabled !== false,
   };
 }
 
@@ -175,6 +176,7 @@ async function buildCoverageMetrics(): Promise<EditorialCoverageMetric[]> {
   return defaultEditorialAutomationConfig.coverageBoards.map((board) => ({
     ...board,
     count: entries.filter((entry) => entry.boardKey === board.key).length,
+    enabled: board.enabled !== false,
   }));
 }
 
@@ -189,6 +191,7 @@ async function buildDashboard(config: EditorialAutomationConfig): Promise<AdminE
   const coverage = config.coverageBoards.map((board) => ({
     ...board,
     count: contentCounts.get(board.key) ?? 0,
+    enabled: board.enabled !== false,
     custom: !defaultBoardKeys.has(board.key),
   }));
 

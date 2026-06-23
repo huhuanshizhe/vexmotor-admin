@@ -18,6 +18,7 @@ const coverageBoardSchema = z.object({
   contentType: z.literal('content').default('content'),
   sourceMode: z.enum(['code-seeded', 'admin-managed']).default('admin-managed'),
   note: z.string().trim().min(1),
+  enabled: z.boolean().default(true),
 });
 
 const templateSchema = z.object({

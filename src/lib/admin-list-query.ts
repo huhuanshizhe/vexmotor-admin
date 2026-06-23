@@ -98,3 +98,18 @@ export function buildAdminListUrl(basePath: string, params: Partial<AdminListQue
 export function getTotalPages(total: number, pageSize: number) {
   return Math.max(1, Math.ceil(Math.max(total, 0) / Math.max(pageSize, 1)));
 }
+
+export function getAdminListRowIndex(page: number, pageSize: number, index: number) {
+  return (page - 1) * pageSize + index + 1;
+}
+
+export function buildAdminListRowIndexColumn(page: number, pageSize: number) {
+  return {
+    title: '序号',
+    key: '__rowIndex',
+    width: 64,
+    align: 'center' as const,
+    onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+    render: (_: unknown, __: unknown, index: number) => getAdminListRowIndex(page, pageSize, index),
+  };
+}

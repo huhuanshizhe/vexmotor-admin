@@ -16,6 +16,7 @@ import {
 
 import { storefrontNavigationBase, footerContactBlocks, footerPaymentMethods, footerCopyright } from './site-shell';
 import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
+import { brandNameSql, brandSlugSql } from '@/server/brands/resolve-brand-translation';
 
 const defaultHomeData: HomeData = {
   heroBanners: [],
@@ -133,8 +134,8 @@ export async function getHomeData(): Promise<HomeData> {
         compareAtPrice: products.compareAtPrice,
         currencyCode: products.currencyCode,
         brandId: products.brandId,
-        brandName: brands.name,
-        brandSlug: brands.slug,
+        brandName: brandNameSql(brands.id),
+        brandSlug: brandSlugSql(brands.id),
       })
         .from(products)
         .leftJoin(brands, eq(products.brandId, brands.id))
@@ -160,8 +161,8 @@ export async function getHomeData(): Promise<HomeData> {
               compareAtPrice: products.compareAtPrice,
               currencyCode: products.currencyCode,
               brandId: products.brandId,
-              brandName: brands.name,
-              brandSlug: brands.slug,
+              brandName: brandNameSql(brands.id),
+              brandSlug: brandSlugSql(brands.id),
             })
             .from(products)
             .leftJoin(brands, eq(products.brandId, brands.id))
@@ -384,8 +385,8 @@ export async function getProductList(input: {
             compareAtPrice: products.compareAtPrice,
             currencyCode: products.currencyCode,
             brandId: brands.id,
-            brandName: brands.name,
-            brandSlug: brands.slug,
+            brandName: brandNameSql(brands.id),
+            brandSlug: brandSlugSql(brands.id),
           })
           .from(products)
           .innerJoin(productCategories, eq(productCategories.productId, products.id))
@@ -407,8 +408,8 @@ export async function getProductList(input: {
             compareAtPrice: products.compareAtPrice,
             currencyCode: products.currencyCode,
             brandId: brands.id,
-            brandName: brands.name,
-            brandSlug: brands.slug,
+            brandName: brandNameSql(brands.id),
+            brandSlug: brandSlugSql(brands.id),
           })
           .from(products)
           .leftJoin(brands, eq(products.brandId, brands.id))
@@ -519,8 +520,8 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
         featured: products.featured,
         allowBackorder: products.allowBackorder,
         brandId: brands.id,
-        brandName: brands.name,
-        brandSlug: brands.slug,
+        brandName: brandNameSql(brands.id),
+        brandSlug: brandSlugSql(brands.id),
       })
       .from(products)
       .leftJoin(brands, eq(products.brandId, brands.id))
@@ -640,8 +641,8 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
       coverWidth: productImages.width,
       coverHeight: productImages.height,
       brandId: brands.id,
-      brandName: brands.name,
-      brandSlug: brands.slug,
+      brandName: brandNameSql(brands.id),
+      brandSlug: brandSlugSql(brands.id),
     };
 
     const rows = categoryId
@@ -710,8 +711,8 @@ export async function getCompatibleGroups(productId: string): Promise<Storefront
         coverWidth: productImages.width,
         coverHeight: productImages.height,
         brandId: brands.id,
-        brandName: brands.name,
-        brandSlug: brands.slug,
+        brandName: brandNameSql(brands.id),
+        brandSlug: brandSlugSql(brands.id),
       })
       .from(productRelations)
       .innerJoin(products, eq(products.id, productRelations.relatedProductId))

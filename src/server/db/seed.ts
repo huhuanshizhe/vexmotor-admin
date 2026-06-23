@@ -6,6 +6,7 @@ import { md5Hash } from '@/lib/auth/password';
 import { db } from '@/server/db';
 import {
   addresses,
+  brandTranslations,
   brands,
   cartItems,
   carts,
@@ -79,21 +80,39 @@ async function main() {
     ? insertedCategories
     : await db.select({ id: categories.id, slug: categories.slug }).from(categories);
 
-  const insertedBrands = await db
-    .insert(brands)
-    .values([
-      {
-        name: 'Lianchuan Motion',
-        slug: 'lianchuan-motion',
-        description: 'Industrial motion components for modern automation systems.',
-        status: 'active',
-      },
-    ])
-    .onConflictDoNothing({ target: brands.slug })
-    .returning({ id: brands.id, slug: brands.slug });
+  const existingBrandTranslation = await db
+    .select({ brandId: brandTranslations.brandId, slug: brandTranslations.slug })
+    .from(brandTranslations)
+    .where(eq(brandTranslations.slug, 'lianchuan-motion'))
+    .limit(1);
 
-  const allBrands = insertedBrands.length ? insertedBrands : await db.select({ id: brands.id, slug: brands.slug }).from(brands);
-  const mainBrand = allBrands.find((item) => item.slug === 'lianchuan-motion');
+  let mainBrand = existingBrandTranslation[0]
+    ? { id: existingBrandTranslation[0].brandId, slug: existingBrandTranslation[0].slug }
+    : null;
+
+  if (!mainBrand) {
+    const [insertedBrand] = await db
+      .insert(brands)
+      .values({ status: 'active' })
+      .returning({ id: brands.id });
+
+    if (!insertedBrand) {
+      throw new Error('Failed to seed brand');
+    }
+
+    await db.insert(brandTranslations).values({
+      brandId: insertedBrand.id,
+      locale: 'en',
+      name: 'Lianchuan Motion',
+      slug: 'lianchuan-motion',
+      description: 'Industrial motion components for modern automation systems.',
+      seoTitle: 'Lianchuan Motion',
+      seoDescription: 'Industrial motion components for modern automation systems.',
+      payload: { tags: [] },
+    });
+
+    mainBrand = { id: insertedBrand.id, slug: 'lianchuan-motion' };
+  }
   const nema17 = allCategories.find((item) => item.slug === 'nema-17-stepper-motor');
   const nema23 = allCategories.find((item) => item.slug === 'nema-23-stepper-motor');
   const drivers = allCategories.find((item) => item.slug === 'stepper-drivers');

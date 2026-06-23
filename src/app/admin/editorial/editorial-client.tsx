@@ -24,7 +24,6 @@ export function AdminEditorialClient({
     <BoardContentListClient
       basePath="/admin/editorial"
       contentModule="editorial"
-      pageTitle="博客管理"
       newButtonLabel="新建内容"
       showSlugColumn
       initialDashboard={initialDashboard}

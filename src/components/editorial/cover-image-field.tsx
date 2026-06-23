@@ -11,9 +11,19 @@ type CoverImageFieldProps = {
   value?: string | null;
   onChange?: (value: string | null) => void;
   disabled?: boolean;
+  folder?: string;
+  uploadLabel?: string;
+  previewAlt?: string;
 };
 
-export function CoverImageField({ value, onChange, disabled = false }: CoverImageFieldProps) {
+export function CoverImageField({
+  value,
+  onChange,
+  disabled = false,
+  folder = 'editorial/images',
+  uploadLabel = '上传封面图',
+  previewAlt = '封面预览',
+}: CoverImageFieldProps) {
   const [uploading, setUploading] = useState(false);
 
   const uploadProps: UploadProps = {
@@ -34,7 +44,7 @@ export function CoverImageField({ value, onChange, disabled = false }: CoverImag
     customRequest: async ({ file, onError, onSuccess }) => {
       try {
         setUploading(true);
-        const result = await uploadMediaFile(file as File, { kind: 'image', folder: 'editorial/images' });
+        const result = await uploadMediaFile(file as File, { kind: 'image', folder });
         onChange?.(result.url);
         onSuccess?.(result);
         void message.success('封面上传成功');
@@ -54,7 +64,7 @@ export function CoverImageField({ value, onChange, disabled = false }: CoverImag
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <Image
             src={value}
-            alt="封面预览"
+            alt={previewAlt}
             style={{ maxWidth: 320, borderRadius: 8 }}
           />
           {!disabled ? (
@@ -72,7 +82,7 @@ export function CoverImageField({ value, onChange, disabled = false }: CoverImag
       ) : (
         <Upload {...uploadProps}>
           <Button icon={uploading ? <LoadingOutlined /> : <PlusOutlined />} disabled={disabled || uploading}>
-            上传封面图
+            {uploadLabel}
           </Button>
         </Upload>
       )}

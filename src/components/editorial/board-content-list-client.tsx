@@ -13,6 +13,7 @@ import {
   type AdminListPageSize,
   type AdminListQuery,
   UNASSIGNED_BOARD_KEY,
+  buildAdminListRowIndexColumn,
   buildAdminListUrl,
   parseAdminListQuery,
   readStoredPageSize,
@@ -49,7 +50,6 @@ export type BoardContentListState = {
 type BoardContentListClientProps = {
   basePath: string;
   contentModule: EditorialContentModule;
-  pageTitle: string;
   newButtonLabel?: string;
   showSlugColumn?: boolean;
   initialDashboard: AdminEditorialDashboard;
@@ -105,7 +105,6 @@ async function fetchBoardContentList(options: {
 export function BoardContentListClient({
   basePath,
   contentModule,
-  pageTitle,
   newButtonLabel = '新建内容',
   showSlugColumn = true,
   initialDashboard,
@@ -116,7 +115,10 @@ export function BoardContentListClient({
 }: BoardContentListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const boards = initialDashboard.coverage;
+  const boards = useMemo(
+    () => initialDashboard.coverage.filter((board) => board.enabled !== false),
+    [initialDashboard.coverage],
+  );
   const knownBoardKeys = useMemo(() => boards.map((board) => board.key), [boards]);
   const initialMountRef = useRef(true);
   const hydratedPageSizeRef = useRef(false);
@@ -282,18 +284,56 @@ export function BoardContentListClient({
   }
 
   const contentColumns = [
-    { title: '标题', dataIndex: 'title' },
-    ...(showSlugColumn ? [{ title: 'Slug', dataIndex: 'slug' }] : []),
+    {
+      title: '标题',
+      dataIndex: 'title',
+      width: 180,
+      ellipsis: true,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      render: (value: string) => (
+        <Typography.Text ellipsis title={value}>{value}</Typography.Text>
+      ),
+    },
+    ...(showSlugColumn ? [{
+      title: 'Slug',
+      dataIndex: 'slug',
+      width: 160,
+      ellipsis: true,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      render: (value: string) => (
+        <Typography.Text ellipsis title={value}>{value}</Typography.Text>
+      ),
+    }] : []),
     {
       title: '状态',
       dataIndex: 'status',
+      width: 72,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
       render: (value: EditorialEntryStatus) => <Tag color={entryStatusColors[value]}>{entryStatusLabels[value]}</Tag>,
     },
-    { title: '发布时间', dataIndex: 'publishedAt', render: (value: string | null) => formatAdminDate(value) },
-    { title: '最近更新', dataIndex: 'updatedAt', render: (value: string) => formatAdminDate(value) },
+    {
+      title: '发布时间',
+      dataIndex: 'publishedAt',
+      width: 140,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      render: (value: string | null) => (
+        <Typography.Text style={{ whiteSpace: 'nowrap' }}>{formatAdminDate(value)}</Typography.Text>
+      ),
+    },
+    {
+      title: '最近更新',
+      dataIndex: 'updatedAt',
+      width: 140,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      render: (value: string) => (
+        <Typography.Text style={{ whiteSpace: 'nowrap' }}>{formatAdminDate(value)}</Typography.Text>
+      ),
+    },
     {
       title: '操作',
       key: 'actions',
+      width: 220,
+      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
       render: (_: unknown, row: AdminEditorialContentListItem) => (
         <Space wrap>
           <Button icon={<EditOutlined />} onClick={() => openContentModal(row)} />
@@ -341,13 +381,30 @@ export function BoardContentListClient({
           rowKey="id"
           loading={isPending}
           pagination={false}
-          scroll={{ x: 1280 }}
+          tableLayout="fixed"
+          style={{ width: '100%' }}
           dataSource={listState.items}
           columns={isUnassigned ? [
-            { title: '标题', dataIndex: 'title' },
-            { title: '原看板 Key', dataIndex: 'boardKey', render: (value: string) => <Tag>{value}</Tag> },
+            buildAdminListRowIndexColumn(listState.page, listState.pageSize),
+            {
+              title: '标题',
+              dataIndex: 'title',
+              width: 160,
+              ellipsis: true,
+              onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+            },
+            {
+              title: '原看板 Key',
+              dataIndex: 'boardKey',
+              width: 120,
+              onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+              render: (value: string) => <Tag>{value}</Tag>,
+            },
             ...contentColumns.slice(1),
-          ] : contentColumns}
+          ] : [
+            buildAdminListRowIndexColumn(listState.page, listState.pageSize),
+            ...contentColumns,
+          ]}
           locale={{ emptyText: isUnassigned ? '暂无未归属内容' : '该看板下暂无内容' }}
         />
         <AdminListPagination
@@ -368,31 +425,16 @@ export function BoardContentListClient({
   }));
 
   return (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {contextHolder}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Typography.Title level={2} style={{ margin: 0 }}>
-          {pageTitle}
-        </Typography.Title>
+      <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap align="center">
         <AdminPageHeaderStats items={summaryStats} />
-      </div>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openContentModal()} disabled={!hasBoards}>
+          {newButtonLabel}
+        </Button>
+      </Space>
 
-      <Card
-        title="内容"
-        extra={(
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openContentModal()} disabled={!hasBoards}>
-            {newButtonLabel}
-          </Button>
-        )}
-      >
+      <Card>
         {!hasBoards ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}

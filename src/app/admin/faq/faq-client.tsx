@@ -24,7 +24,6 @@ export function AdminFaqClient({
     <BoardContentListClient
       basePath="/admin/faq"
       contentModule="faq"
-      pageTitle="FAQ 管理"
       newButtonLabel="新建 FAQ"
       showSlugColumn={false}
       initialDashboard={initialDashboard}

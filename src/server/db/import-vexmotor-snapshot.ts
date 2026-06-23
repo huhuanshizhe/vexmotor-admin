@@ -8,6 +8,7 @@ import { eq, inArray, notInArray, and } from 'drizzle-orm';
 import { db } from '@/server/db';
 import {
   attachments,
+  brandTranslations,
   brands,
   categories,
   cmsPages,
@@ -332,27 +333,68 @@ async function main() {
     }
   }
 
-  await db!
-    .insert(brands)
-    .values({
-      name: legacyBrandName,
-      slug: legacyBrandSlug,
-      description: 'Imported from legacy site during migration.',
-      status: 'active',
-    })
-    .onConflictDoUpdate({
-      target: brands.slug,
-      set: {
-        name: legacyBrandName,
-        status: 'active',
-        updatedAt: new Date(),
-      },
-    });
+  const [existingTranslation] = await db!
+    .select({ brandId: brandTranslations.brandId })
+    .from(brandTranslations)
+    .where(eq(brandTranslations.slug, legacyBrandSlug))
+    .limit(1);
 
-  const [brand] = await db!.select({ id: brands.id }).from(brands).where(eq(brands.slug, legacyBrandSlug)).limit(1);
-  if (!brand) {
-    throw new Error('Failed to resolve StepMotech brand record');
+  let brandId = existingTranslation?.brandId;
+
+  if (!brandId) {
+    const [createdBrand] = await db!
+      .insert(brands)
+      .values({ status: 'active' })
+      .returning({ id: brands.id });
+
+    if (!createdBrand) {
+      throw new Error('Failed to resolve StepMotech brand record');
+    }
+
+    brandId = createdBrand.id;
+
+    await db!
+      .insert(brandTranslations)
+      .values({
+        brandId,
+        locale: 'en',
+        name: legacyBrandName,
+        slug: legacyBrandSlug,
+        description: 'Imported from legacy site during migration.',
+        seoTitle: legacyBrandName,
+        seoDescription: 'Imported from legacy site during migration.',
+        payload: { tags: [] },
+      })
+      .onConflictDoUpdate({
+        target: [brandTranslations.slug, brandTranslations.locale],
+        set: {
+          name: legacyBrandName,
+          description: 'Imported from legacy site during migration.',
+          seoTitle: legacyBrandName,
+          updatedAt: new Date(),
+        },
+      });
+  } else {
+    await db!
+      .update(brandTranslations)
+      .set({
+        name: legacyBrandName,
+        description: 'Imported from legacy site during migration.',
+        seoTitle: legacyBrandName,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(brandTranslations.brandId, brandId),
+        eq(brandTranslations.locale, 'en'),
+      ));
+
+    await db!
+      .update(brands)
+      .set({ status: 'active', updatedAt: new Date() })
+      .where(eq(brands.id, brandId));
   }
+
+  const brand = { id: brandId };
 
   const categoryBySlug = new Map<string, string>();
   const importedCategorySlugs = Array.from(

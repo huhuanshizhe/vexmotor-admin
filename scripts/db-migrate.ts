@@ -88,6 +88,18 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0004_brand_translations') && await tableExists(sql, 'brands')) {
+    const [translationTable] = await sql<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'brand_translations'
+      ) AS exists
+    `;
+    if (translationTable?.exists) {
+      baselineTags.push('0004_brand_translations');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);

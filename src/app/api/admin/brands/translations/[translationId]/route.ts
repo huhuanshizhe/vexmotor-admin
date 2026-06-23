@@ -1,0 +1,47 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+import {
+  adminBrandTranslationPatchSchema,
+  findAdminBrandTranslationBySlug,
+  getAdminBrandTranslation,
+  updateAdminBrandTranslation,
+} from '@/server/admin/brands';
+
+export async function GET(_: Request, { params }: { params: Promise<{ translationId: string }> }) {
+  const { translationId } = await params;
+  const item = await getAdminBrandTranslation(translationId);
+
+  if (!item) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Brand translation not found' }, { status: 404 });
+  }
+
+  return NextResponse.json(item);
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ translationId: string }> }) {
+  const body = await request.json();
+  const parsed = adminBrandTranslationPatchSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const { translationId } = await params;
+  const current = await getAdminBrandTranslation(translationId);
+  if (!current) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Brand translation not found' }, { status: 404 });
+  }
+
+  const nextSlug = parsed.data.slug ?? current.slug;
+  const nextLocale = parsed.data.locale ?? current.locale;
+  const existing = await findAdminBrandTranslationBySlug(nextSlug, nextLocale, translationId);
+  if (existing) {
+    return NextResponse.json({ code: 'SLUG_CONFLICT', message: '该语言下 slug 已被占用' }, { status: 409 });
+  }
+
+  const updated = await updateAdminBrandTranslation(translationId, parsed.data);
+  if (!updated) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Brand translation not found' }, { status: 404 });
+  }
+
+  return NextResponse.json(updated);
+}

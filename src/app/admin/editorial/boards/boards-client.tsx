@@ -1,10 +1,11 @@
 'use client';
 
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
+import { CheckOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import { Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip, message } from 'antd';
 import { useMemo, useState, useTransition } from 'react';
 
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
+import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
 import type { AdminEditorialContentListItem } from '@/lib/editorial-content';
 import type {
   AdminEditorialDashboard,
@@ -29,6 +30,7 @@ export function AdminEditorialBoardsClient({
   const [dashboard, setDashboard] = useState(initialDashboard);
   const [entries] = useState(initialEntries);
   const [boardModalOpen, setBoardModalOpen] = useState(false);
+  const [editingBoardKey, setEditingBoardKey] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [messageApi, contextHolder] = message.useMessage();
   const [boardForm] = Form.useForm<BoardFormValues>();
@@ -59,30 +61,47 @@ export function AdminEditorialBoardsClient({
     setDashboard(saved);
   }
 
-  function openBoardModal() {
-    boardForm.setFieldsValue({ key: '', title: '', note: '' });
+  function openBoardModal(board?: EditorialCoverageMetric) {
+    if (board) {
+      setEditingBoardKey(board.key);
+      boardForm.setFieldsValue({ key: board.key, title: board.title, note: board.note });
+    } else {
+      setEditingBoardKey(null);
+      boardForm.setFieldsValue({ key: '', title: '', note: '' });
+    }
     setBoardModalOpen(true);
+  }
+
+  function closeBoardModal() {
+    setBoardModalOpen(false);
+    setEditingBoardKey(null);
+    boardForm.resetFields();
   }
 
   function saveBoard() {
     void boardForm.validateFields().then((values) => {
       startTransition(async () => {
         try {
+          const slug = (editingBoardKey ?? values.key).trim();
+          const existing = dashboard.config.coverageBoards.find((item) => item.key === slug);
           const nextBoard: EditorialCoverageBoard = {
-            key: values.key.trim(),
+            key: slug,
             title: values.title.trim(),
             contentType: 'content',
             note: values.note.trim(),
-            sourceMode: 'admin-managed',
+            sourceMode: existing?.sourceMode ?? 'admin-managed',
+            enabled: existing?.enabled !== false,
           };
 
           await saveEditorialConfig({
             ...dashboard.config,
-            coverageBoards: [...dashboard.config.coverageBoards.filter((item) => item.key !== nextBoard.key), nextBoard],
+            coverageBoards: [
+              ...dashboard.config.coverageBoards.filter((item) => item.key !== slug),
+              nextBoard,
+            ],
           });
-          setBoardModalOpen(false);
-          boardForm.resetFields();
-          void messageApi.success('看板已新增');
+          closeBoardModal();
+          void messageApi.success(editingBoardKey ? '看板已更新' : '看板已新增');
         } catch (error) {
           void messageApi.error(error instanceof Error ? error.message : '看板保存失败');
         }
@@ -90,10 +109,13 @@ export function AdminEditorialBoardsClient({
     });
   }
 
-  function deleteBoard(board: EditorialCoverageMetric) {
-    if (!board.custom) return;
-    if (entries.some((entry) => entry.boardKey === board.key)) {
-      void messageApi.warning('该看板下已有内容，不能删除');
+  function confirmDeleteBoard(board: EditorialCoverageMetric) {
+    if (board.count > 0) {
+      void messageApi.warning('该看板下已有内容，无法删除');
+      return;
+    }
+    if (!board.custom) {
+      void messageApi.warning('系统默认看板不可删除');
       return;
     }
 
@@ -110,52 +132,130 @@ export function AdminEditorialBoardsClient({
     });
   }
 
-  return (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-      {contextHolder}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Typography.Title level={2} style={{ margin: 0 }}>
-          看板管理
-        </Typography.Title>
-        <AdminPageHeaderStats items={summaryStats} />
-      </div>
+  function toggleBoardEnabled(board: EditorialCoverageMetric, enabled: boolean) {
+    startTransition(async () => {
+      try {
+        await saveEditorialConfig({
+          ...dashboard.config,
+          coverageBoards: dashboard.config.coverageBoards.map((item) =>
+            item.key === board.key ? { ...item, enabled } : item
+          ),
+        });
+        void messageApi.success(enabled ? '看板已启用' : '看板已停用');
+      } catch (error) {
+        void messageApi.error(error instanceof Error ? error.message : '看板状态更新失败');
+      }
+    });
+  }
 
-      <Card title="内容看板" extra={<Button type="primary" icon={<PlusOutlined />} onClick={openBoardModal}>新增看板</Button>}>
+  const nowrapHeader = () => ({ style: { whiteSpace: 'nowrap' as const } });
+
+  return (
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+      {contextHolder}
+      <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap align="center">
+        <AdminPageHeaderStats items={summaryStats} />
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openBoardModal()}>新增看板</Button>
+      </Space>
+
+      <Card>
         <Table
           rowKey="key"
           pagination={false}
-          scroll={{ x: 880 }}
+          tableLayout="fixed"
+          style={{ width: '100%' }}
           dataSource={boards}
           columns={[
-            { title: '看板', dataIndex: 'title' },
-            { title: 'Key', dataIndex: 'key', render: (value: string) => <Tag>{value}</Tag> },
-            { title: '内容数量', dataIndex: 'count' },
-            { title: '说明', dataIndex: 'note' },
+            buildAdminListRowIndexColumn(1, Math.max(boards.length, 1)),
+            {
+              title: '看板',
+              dataIndex: 'title',
+              ellipsis: true,
+              onHeaderCell: nowrapHeader,
+            },
+            {
+              title: 'Key',
+              dataIndex: 'key',
+              width: 140,
+              onHeaderCell: nowrapHeader,
+              render: (value: string) => <Tag>{value}</Tag>,
+            },
+            {
+              title: '内容数量',
+              dataIndex: 'count',
+              width: 88,
+              align: 'center' as const,
+              onHeaderCell: nowrapHeader,
+            },
+            {
+              title: '状态',
+              dataIndex: 'enabled',
+              width: 72,
+              onHeaderCell: nowrapHeader,
+              render: (value: boolean) => (
+                <Tag color={value ? 'green' : 'default'}>{value ? '启用' : '停用'}</Tag>
+              ),
+            },
+            {
+              title: '说明',
+              dataIndex: 'note',
+              ellipsis: true,
+              onHeaderCell: nowrapHeader,
+            },
             {
               title: '操作',
               key: 'actions',
-              render: (_, row: EditorialCoverageMetric) => row.custom ? (
-                <Popconfirm title="确定删除该看板吗？" onConfirm={() => deleteBoard(row)}>
-                  <Button danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-              ) : <Typography.Text type="secondary">默认看板</Typography.Text>,
+              width: 112,
+              onHeaderCell: nowrapHeader,
+              render: (_: unknown, row: EditorialCoverageMetric) => (
+                <Space size={0}>
+                  <Tooltip title="编辑">
+                    <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openBoardModal(row)} />
+                  </Tooltip>
+                  {row.enabled ? (
+                    <Popconfirm
+                      title="确定停用该看板吗？"
+                      description="停用后内容管理页将不再显示该看板。"
+                      onConfirm={() => toggleBoardEnabled(row, false)}
+                    >
+                      <Tooltip title="停用">
+                        <Button type="text" size="small" icon={<StopOutlined />} loading={isPending} />
+                      </Tooltip>
+                    </Popconfirm>
+                  ) : (
+                    <Popconfirm
+                      title="确定启用该看板吗？"
+                      description="启用后该看板将恢复在内容管理页展示。"
+                      onConfirm={() => toggleBoardEnabled(row, true)}
+                    >
+                      <Tooltip title="启用">
+                        <Button type="text" size="small" icon={<CheckOutlined />} loading={isPending} />
+                      </Tooltip>
+                    </Popconfirm>
+                  )}
+                  <Popconfirm title="确定删除该看板吗？" onConfirm={() => confirmDeleteBoard(row)}>
+                    <Tooltip title="删除">
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />} loading={isPending} />
+                    </Tooltip>
+                  </Popconfirm>
+                </Space>
+              ),
             },
           ]}
         />
       </Card>
 
-      <Modal open={boardModalOpen} title="新增看板" onCancel={() => setBoardModalOpen(false)} onOk={saveBoard} confirmLoading={isPending} okText="保存">
+      <Modal
+        open={boardModalOpen}
+        title={editingBoardKey ? '编辑看板' : '新增看板'}
+        onCancel={closeBoardModal}
+        onOk={saveBoard}
+        confirmLoading={isPending}
+        okText="保存"
+      >
         <Form<BoardFormValues> form={boardForm} layout="vertical">
           <Form.Item label="Key" name="key" rules={[{ required: true, message: '请输入看板 Key' }]}>
-            <Input placeholder="例如 engineering-guides" />
+            <Input placeholder="例如 engineering-guides" disabled={Boolean(editingBoardKey)} />
           </Form.Item>
           <Form.Item label="看板名称" name="title" rules={[{ required: true, message: '请输入看板名称' }]}>
             <Input />

@@ -15,80 +15,55 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Button, Layout, Menu, Space, Typography } from 'antd';
+import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
+
+import {
+  adminNavItems,
+  getAdminNavOpenKeys,
+  getAdminNavSelectedKey,
+  getAdminPageTitle,
+  type AdminNavItem,
+} from '@/lib/admin-navigation';
 
 const { Header, Sider, Content } = Layout;
 
-const items = [
-  { key: '/admin', icon: <DashboardOutlined />, label: <Link href="/admin">仪表盘</Link> },
-  {
-    key: 'product-management',
-    icon: <ShoppingOutlined />,
-    label: '产品管理',
-    children: [
-      { key: '/admin/products', icon: <ShoppingOutlined />, label: <Link href="/admin/products">产品管理</Link> },
-      { key: '/admin/categories', icon: <AppstoreOutlined />, label: <Link href="/admin/categories">分类管理</Link> },
-      { key: '/admin/brands', icon: <TagsOutlined />, label: <Link href="/admin/brands">品牌管理</Link> },
-      { key: '/admin/commerce', icon: <GlobalOutlined />, label: <Link href="/admin/commerce">定价与物流</Link> },
-    ],
-  },
-  {
-    key: 'order-management',
-    icon: <OrderedListOutlined />,
-    label: '订单管理',
-    children: [
-      { key: '/admin/orders', icon: <OrderedListOutlined />, label: <Link href="/admin/orders">订单管理</Link> },
-      { key: '/admin/inquiries', icon: <InboxOutlined />, label: <Link href="/admin/inquiries">询盘管理</Link> },
-      { key: '/admin/customers', icon: <TeamOutlined />, label: <Link href="/admin/customers">客户管理</Link> },
-    ],
-  },
-  {
-    key: 'content-management',
-    icon: <BarsOutlined />,
-    label: '内容管理',
-    children: [
-      { key: '/admin/editorial/boards', icon: <AppstoreOutlined />, label: <Link href="/admin/editorial/boards">看板管理</Link> },
-      { key: '/admin/faq', icon: <FileTextOutlined />, label: <Link href="/admin/faq">FAQ管理</Link> },
-      { key: '/admin/editorial', icon: <FileTextOutlined />, label: <Link href="/admin/editorial">博客管理</Link> },
-    ],
-  },
-  {
-    key: 'site-management',
-    icon: <SettingOutlined />,
-    label: '站点管理',
-    children: [
-      { key: '/admin/languages', icon: <GlobalOutlined />, label: <Link href="/admin/languages">多语言</Link> },
-    ],
-  },
-];
-
-type MenuItem = {
-  key: string;
-  icon?: ReactNode;
-  label: ReactNode;
-  children?: MenuItem[];
+const iconByKey: Record<string, React.ReactNode> = {
+  '/admin': <DashboardOutlined />,
+  'product-management': <ShoppingOutlined />,
+  '/admin/products': <ShoppingOutlined />,
+  '/admin/categories': <AppstoreOutlined />,
+  '/admin/brands': <TagsOutlined />,
+  '/admin/commerce': <GlobalOutlined />,
+  'order-management': <OrderedListOutlined />,
+  '/admin/orders': <OrderedListOutlined />,
+  '/admin/inquiries': <InboxOutlined />,
+  '/admin/customers': <TeamOutlined />,
+  'content-management': <BarsOutlined />,
+  '/admin/editorial/boards': <AppstoreOutlined />,
+  '/admin/faq': <FileTextOutlined />,
+  '/admin/editorial': <FileTextOutlined />,
+  'site-management': <SettingOutlined />,
+  '/admin/languages': <GlobalOutlined />,
 };
 
-function flattenItems(menuItems: MenuItem[]): MenuItem[] {
-  return menuItems.flatMap((item) => [item, ...(item.children ? flattenItems(item.children) : [])]);
+function toMenuItems(items: AdminNavItem[]): NonNullable<MenuProps['items']> {
+  return items.map((item) => ({
+    key: item.key,
+    icon: iconByKey[item.key],
+    label: item.href ? <Link href={item.href}>{item.title}</Link> : item.title,
+    children: item.children ? toMenuItems(item.children) : undefined,
+  }));
 }
 
-function getOpenKeys(pathname: string) {
-  return items
-    .filter((item) => item.children?.some((child) => pathname === child.key || pathname.startsWith(`${child.key}/`)))
-    .map((item) => item.key);
-}
+const menuItems = toMenuItems(adminNavItems);
 
 export function AdminShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
-  const flattenedItems = flattenItems(items);
-  const selected =
-    [...flattenedItems]
-      .filter((item) => !item.children)
-      .sort((a, b) => b.key.length - a.key.length)
-      .find((item) => pathname === item.key || pathname.startsWith(`${item.key}/`))?.key ?? '/admin';
+  const pageTitle = getAdminPageTitle(pathname);
+  const selected = getAdminNavSelectedKey(pathname);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -101,7 +76,13 @@ export function AdminShell({ children }: PropsWithChildren) {
             工业运动控制电商运营中心
           </Typography.Paragraph>
         </div>
-        <Menu mode="inline" selectedKeys={[selected]} defaultOpenKeys={getOpenKeys(pathname)} items={items} style={{ borderInlineEnd: 0 }} />
+        <Menu
+          mode="inline"
+          selectedKeys={[selected]}
+          defaultOpenKeys={getAdminNavOpenKeys(pathname)}
+          items={menuItems}
+          style={{ borderInlineEnd: 0 }}
+        />
       </Sider>
       <Layout>
         <Header
@@ -112,11 +93,12 @@ export function AdminShell({ children }: PropsWithChildren) {
             justifyContent: 'space-between',
             alignItems: 'center',
             paddingInline: 24,
+            height: 56,
           }}
         >
-          <div>
-            <Typography.Text strong>后台管理系统</Typography.Text>
-          </div>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            {pageTitle}
+          </Typography.Title>
           <Space size="middle">
             <Button href="/" type="default">
               查看商城前台

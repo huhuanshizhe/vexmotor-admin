@@ -188,9 +188,6 @@ export const brands = pgTable(
   'brands',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    name: varchar('name', { length: 150 }).notNull(),
-    slug: varchar('slug', { length: 180 }).notNull(),
-    description: text('description'),
     logoUrl: text('logo_url'),
     websiteUrl: text('website_url'),
     status: brandStatusEnum('status').notNull().default('active'),
@@ -198,7 +195,29 @@ export const brands = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    slugUnique: uniqueIndex('brands_slug_unique').on(table.slug),
+    statusIdx: index('brands_status_idx').on(table.status),
+  }),
+);
+
+export const brandTranslations = pgTable(
+  'brand_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    brandId: uuid('brand_id').notNull().references(() => brands.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    name: varchar('name', { length: 150 }).notNull(),
+    slug: varchar('slug', { length: 180 }).notNull(),
+    description: text('description'),
+    seoTitle: varchar('seo_title', { length: 70 }),
+    seoDescription: varchar('seo_description', { length: 160 }),
+    payload: jsonb('payload').$type<{ tags: string[] }>().notNull().default({ tags: [] }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    brandLocaleUnique: uniqueIndex('brand_translations_brand_locale_unique').on(table.brandId, table.locale),
+    slugLocaleUnique: uniqueIndex('brand_translations_slug_locale_unique').on(table.slug, table.locale),
+    brandIdIdx: index('brand_translations_brand_id_idx').on(table.brandId),
   }),
 );
 
