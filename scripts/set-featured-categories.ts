@@ -5,7 +5,7 @@
 
 import { eq } from 'drizzle-orm';
 import { db } from '../src/server/db';
-import { categories } from '../src/server/db/schema';
+import { categories, categoryTranslations } from '../src/server/db/schema';
 
 const featuredCategories = [
   { slug: 'nema-8-stepper-motor', order: 1 },
@@ -38,23 +38,33 @@ async function main() {
 
   for (const { slug, order } of featuredCategories) {
     try {
-      const [updated] = await db
+      const [translation] = await db
+        .select({
+          categoryId: categoryTranslations.categoryId,
+          name: categoryTranslations.name,
+          slug: categoryTranslations.slug,
+        })
+        .from(categoryTranslations)
+        .where(eq(categoryTranslations.slug, slug))
+        .limit(1);
+
+      if (!translation) {
+        console.log(`⚠️  #${order} 未找到: ${slug}`);
+        notFoundCount++;
+        continue;
+      }
+
+      await db
         .update(categories)
         .set({
           isFeatured: true,
           featuredOrder: order,
           updatedAt: new Date(),
         })
-        .where(eq(categories.slug, slug))
-        .returning({ id: categories.id, name: categories.name, slug: categories.slug });
+        .where(eq(categories.id, translation.categoryId));
 
-      if (updated) {
-        console.log(`✅ #${order} ${updated.name} (${slug})`);
-        successCount++;
-      } else {
-        console.log(`⚠️  #${order} 未找到: ${slug}`);
-        notFoundCount++;
-      }
+      console.log(`✅ #${order} ${translation.name} (${slug})`);
+      successCount++;
     } catch (error) {
       console.error(`❌ #${order} 更新失败 (${slug}):`, error);
     }

@@ -7,6 +7,7 @@ import { asc, count, eq } from 'drizzle-orm';
 
 import { db } from '@/server/db';
 import { categories, products } from '@/server/db/schema';
+import { categoryNameSql, categorySlugSql } from '@/server/categories/resolve-category-translation';
 
 type ProductSnapshot = {
   url: string;
@@ -157,10 +158,15 @@ async function main() {
   }
 
   const dbCategories = await db
-    .select({ id: categories.id, slug: categories.slug, name: categories.name, status: categories.status })
+    .select({
+      id: categories.id,
+      slug: categorySlugSql(categories.id),
+      name: categoryNameSql(categories.id),
+      status: categories.status,
+    })
     .from(categories)
     .where(eq(categories.status, 'active'))
-    .orderBy(asc(categories.name));
+    .orderBy(asc(categoryNameSql(categories.id)));
 
   const dbCounts = await db
     .select({ categoryId: products.defaultCategoryId, total: count() })
@@ -171,7 +177,7 @@ async function main() {
   const dbCountByCategoryId = new Map(dbCounts.map((item) => [item.categoryId, Number(item.total)]));
 
   const comparisonRows = dbCategories.map((item) => {
-    const expected = expectedCounts.get(item.slug) ?? null;
+    const expected = expectedCounts.get(item.slug ?? '') ?? null;
     const actualProductCount = dbCountByCategoryId.get(item.id) ?? 0;
 
     return {

@@ -165,22 +165,39 @@ export const categories = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     parentId: uuid('parent_id').references((): AnyPgColumn => categories.id, { onDelete: 'set null' }),
-    name: varchar('name', { length: 150 }).notNull(),
-    slug: varchar('slug', { length: 180 }).notNull(),
-    description: text('description'),
     imageUrl: text('image_url'),
-    seoTitle: varchar('seo_title', { length: 255 }),
-    seoDescription: varchar('seo_description', { length: 500 }),
     status: categoryStatusEnum('status').notNull().default('active'),
     sortOrder: integer('sort_order').notNull().default(0),
-    isFeatured: boolean('is_featured').notNull().default(false), // 新增：推荐到首页
-    featuredOrder: integer('featured_order').notNull().default(0), // 新增：首页展示顺序
+    isFeatured: boolean('is_featured').notNull().default(false),
+    featuredOrder: integer('featured_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    slugUnique: uniqueIndex('categories_slug_unique').on(table.slug),
-    featuredIdx: index('categories_featured_idx').on(table.isFeatured, table.featuredOrder), // 新增索引
+    featuredIdx: index('categories_featured_idx').on(table.isFeatured, table.featuredOrder),
+    parentIdx: index('categories_parent_id_idx').on(table.parentId),
+  }),
+);
+
+export const categoryTranslations = pgTable(
+  'category_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    categoryId: uuid('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    name: varchar('name', { length: 150 }).notNull(),
+    slug: varchar('slug', { length: 180 }).notNull(),
+    description: text('description'),
+    seoTitle: varchar('seo_title', { length: 70 }),
+    seoDescription: varchar('seo_description', { length: 160 }),
+    payload: jsonb('payload').$type<{ tags: string[] }>().notNull().default({ tags: [] }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    categoryLocaleUnique: uniqueIndex('category_translations_category_locale_unique').on(table.categoryId, table.locale),
+    slugLocaleUnique: uniqueIndex('category_translations_slug_locale_unique').on(table.slug, table.locale),
+    categoryIdIdx: index('category_translations_category_id_idx').on(table.categoryId),
   }),
 );
 

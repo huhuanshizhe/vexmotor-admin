@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/server/db';
-import { categories } from '@/server/db/schema';
+import { categories, categoryTranslations } from '@/server/db/schema';
 
 const featuredCategories = [
   { slug: 'nema-8-stepper-motor', order: 1 },
@@ -22,11 +22,6 @@ const featuredCategories = [
   { slug: 'stepper-motor', order: 15 },
 ];
 
-/**
- * 一次性设置推荐类目
- * 访问: /api/setup-featured-categories
- * 注意：只在生产环境首次部署时调用一次
- */
 export async function GET() {
   try {
     const results = [];
@@ -34,23 +29,33 @@ export async function GET() {
     let notFoundCount = 0;
 
     for (const { slug, order } of featuredCategories) {
-      const [updated] = await db
+      const [translation] = await db
+        .select({
+          categoryId: categoryTranslations.categoryId,
+          name: categoryTranslations.name,
+          slug: categoryTranslations.slug,
+        })
+        .from(categoryTranslations)
+        .where(eq(categoryTranslations.slug, slug))
+        .limit(1);
+
+      if (!translation) {
+        results.push({ order, slug, status: 'not_found' });
+        notFoundCount++;
+        continue;
+      }
+
+      await db
         .update(categories)
         .set({
           isFeatured: true,
           featuredOrder: order,
           updatedAt: new Date(),
         })
-        .where(eq(categories.slug, slug))
-        .returning({ id: categories.id, name: categories.name, slug: categories.slug });
+        .where(eq(categories.id, translation.categoryId));
 
-      if (updated) {
-        results.push({ order, name: updated.name, slug: updated.slug, status: 'success' });
-        successCount++;
-      } else {
-        results.push({ order, slug, status: 'not_found' });
-        notFoundCount++;
-      }
+      results.push({ order, name: translation.name, slug: translation.slug, status: 'success' });
+      successCount++;
     }
 
     return NextResponse.json({
@@ -67,7 +72,7 @@ export async function GET() {
     console.error('设置推荐类目失败:', error);
     return NextResponse.json(
       { error: String(error) },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -24,6 +24,7 @@ import {
   products,
   users,
 } from '@/server/db/schema';
+import { categoryNameSql, categorySlugSql } from '@/server/categories/resolve-category-translation';
 
 let passed = 0;
 let failed = 0;
@@ -202,13 +203,13 @@ async function testStorefrontQueries() {
   const categoriesWithCount = await db
     .select({
       id: categories.id,
-      name: categories.name,
-      slug: categories.slug,
+      name: categoryNameSql(categories.id),
+      slug: categorySlugSql(categories.id),
       productCount: count(productCategories.productId),
     })
     .from(categories)
     .leftJoin(productCategories, eq(productCategories.categoryId, categories.id))
-    .groupBy(categories.id, categories.name, categories.slug)
+    .groupBy(categories.id)
     .orderBy(categories.sortOrder);
   assert(categoriesWithCount.length > 0, `Category with product count query works (${categoriesWithCount.length} categories)`);
 

@@ -1,10 +1,11 @@
 'use client';
 
-import { CheckOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Form, Input, Modal, Space, Table, Tag, message } from 'antd';
 import { useMemo, useState, useTransition } from 'react';
 
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
+import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
 import type { AdminEditorialContentListItem } from '@/lib/editorial-content';
 import type {
@@ -208,37 +209,16 @@ export function AdminEditorialBoardsClient({
               width: 112,
               onHeaderCell: nowrapHeader,
               render: (_: unknown, row: EditorialCoverageMetric) => (
-                <Space size={0}>
-                  <Tooltip title="编辑">
-                    <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openBoardModal(row)} />
-                  </Tooltip>
-                  {row.enabled ? (
-                    <Popconfirm
-                      title="确定停用该看板吗？"
-                      description="停用后内容管理页将不再显示该看板。"
-                      onConfirm={() => toggleBoardEnabled(row, false)}
-                    >
-                      <Tooltip title="停用">
-                        <Button type="text" size="small" icon={<StopOutlined />} loading={isPending} />
-                      </Tooltip>
-                    </Popconfirm>
-                  ) : (
-                    <Popconfirm
-                      title="确定启用该看板吗？"
-                      description="启用后该看板将恢复在内容管理页展示。"
-                      onConfirm={() => toggleBoardEnabled(row, true)}
-                    >
-                      <Tooltip title="启用">
-                        <Button type="text" size="small" icon={<CheckOutlined />} loading={isPending} />
-                      </Tooltip>
-                    </Popconfirm>
-                  )}
-                  <Popconfirm title="确定删除该看板吗？" onConfirm={() => confirmDeleteBoard(row)}>
-                    <Tooltip title="删除">
-                      <Button type="text" size="small" danger icon={<DeleteOutlined />} loading={isPending} />
-                    </Tooltip>
-                  </Popconfirm>
-                </Space>
+                <AdminEntityRowActions
+                  loading={isPending}
+                  isActive={row.enabled}
+                  entityName="看板"
+                  onEdit={() => openBoardModal(row)}
+                  onToggleActive={() => toggleBoardEnabled(row, !row.enabled)}
+                  onDelete={() => confirmDeleteBoard(row)}
+                  toggleDisableDescription="停用后内容管理页将不再显示该看板。"
+                  toggleEnableDescription="启用后该看板将恢复在内容管理页展示。"
+                />
               ),
             },
           ]}

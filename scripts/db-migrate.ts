@@ -100,6 +100,18 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0005_category_translations') && await tableExists(sql, 'categories')) {
+    const [translationTable] = await sql<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'category_translations'
+      ) AS exists
+    `;
+    if (translationTable?.exists) {
+      baselineTags.push('0005_category_translations');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);
@@ -125,6 +137,40 @@ async function runMigrationFile(sql: SqlClient, tag: string) {
   });
 }
 
+async function columnExists(sql: SqlClient, tableName: string, columnName: string) {
+  const [row] = await sql<{ exists: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = ${tableName}
+        AND column_name = ${columnName}
+    ) AS exists
+  `;
+  return Boolean(row?.exists);
+}
+
+async function verifySchemaIntegrity(sql: SqlClient, applied: Set<string>) {
+  if (applied.has('0005_category_translations')) {
+    const hasTranslations = await tableExists(sql, 'category_translations');
+    const categoriesStillHaveName = await columnExists(sql, 'categories', 'name');
+
+    if (!hasTranslations) {
+      throw new Error(
+        '[db:migrate] Migration 0005_category_translations is marked applied, but category_translations is missing. '
+        + 'Delete that row from __app_migrations and run pnpm db:migrate again.',
+      );
+    }
+
+    if (categoriesStillHaveName) {
+      console.warn(
+        '[db:migrate] Warning: categories.name still exists after 0005_category_translations. '
+        + 'Re-run pnpm db:migrate to finish the schema split.',
+      );
+    }
+  }
+}
+
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -148,6 +194,7 @@ async function main() {
     const pending = allTags.filter((tag) => !applied.has(tag));
 
     if (!pending.length) {
+      await verifySchemaIntegrity(sql, applied);
       console.log('[db:migrate] Database is up to date.');
       return;
     }

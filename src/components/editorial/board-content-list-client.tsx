@@ -1,13 +1,14 @@
 'use client';
 
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Input, Popconfirm, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Input, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { AdminListPagination } from '@/components/admin/admin-list-pagination';
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
+import { AdminEditorialRowActions } from '@/components/admin/admin-row-actions';
 import { formatAdminDate } from '@/lib/admin-display';
 import {
   type AdminListPageSize,
@@ -211,6 +212,7 @@ export function BoardContentListClient({
   function applyQueryChange(patch: Partial<AdminListQuery>) {
     const nextQuery: AdminListQuery = {
       board: patch.board ?? query.board,
+      parentId: patch.parentId ?? query.parentId,
       keyword: patch.keyword ?? query.keyword,
       page: patch.page ?? query.page,
       pageSize: patch.pageSize ?? query.pageSize,
@@ -332,33 +334,17 @@ export function BoardContentListClient({
     {
       title: '操作',
       key: 'actions',
-      width: 220,
+      width: 140,
       onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
       render: (_: unknown, row: AdminEditorialContentListItem) => (
-        <Space wrap>
-          <Button icon={<EditOutlined />} onClick={() => openContentModal(row)} />
-          {row.status !== 'published' && row.status !== 'archived' ? (
-            <Popconfirm
-              title="确定立即发布吗？"
-              description="发布后内容将对访客可见。"
-              onConfirm={() => patchEntryStatus(row, 'published')}
-            >
-              <Button loading={isPending}>立即发布</Button>
-            </Popconfirm>
-          ) : null}
-          {row.status !== 'archived' ? (
-            <Popconfirm
-              title="确定归档该内容吗？"
-              description="归档后内容将下线，且无法再从列表直接发布。"
-              onConfirm={() => patchEntryStatus(row, 'archived')}
-            >
-              <Button loading={isPending}>归档</Button>
-            </Popconfirm>
-          ) : null}
-          <Popconfirm title="确定删除该内容吗？" onConfirm={() => deleteContent(row)}>
-            <Button danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
+        <AdminEditorialRowActions
+          loading={isPending}
+          status={row.status}
+          onEdit={() => openContentModal(row)}
+          onPublish={() => patchEntryStatus(row, 'published')}
+          onArchive={() => patchEntryStatus(row, 'archived')}
+          onDelete={() => deleteContent(row)}
+        />
       ),
     },
   ];

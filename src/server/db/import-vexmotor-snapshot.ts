@@ -11,6 +11,7 @@ import {
   brandTranslations,
   brands,
   categories,
+  categoryTranslations,
   cmsPages,
   contentBlocks,
   editorialContentTranslations,
@@ -257,30 +258,51 @@ async function upsertCategory(entry: CategorySnapshot) {
   const seoTitle = entry.seoTitle || entry.title || name;
   const seoDescription = entry.seoDescription || null;
 
-  await db!
-    .insert(categories)
-    .values({
-      name,
-      slug,
-      description: seoDescription,
-      seoTitle,
-      seoDescription,
-      status: 'active',
-    })
-    .onConflictDoUpdate({
-      target: categories.slug,
-      set: {
+  const [existing] = await db!
+    .select({ id: categoryTranslations.id, categoryId: categoryTranslations.categoryId })
+    .from(categoryTranslations)
+    .where(eq(categoryTranslations.slug, slug))
+    .limit(1);
+
+  if (existing) {
+    await db!
+      .update(categoryTranslations)
+      .set({
         name,
         description: seoDescription,
         seoTitle,
         seoDescription,
-        status: 'active',
         updatedAt: new Date(),
-      },
-    });
+      })
+      .where(eq(categoryTranslations.id, existing.id));
 
-  const [saved] = await db!.select({ id: categories.id, slug: categories.slug }).from(categories).where(eq(categories.slug, slug)).limit(1);
-  return saved ?? null;
+    await db!
+      .update(categories)
+      .set({ status: 'active', updatedAt: new Date() })
+      .where(eq(categories.id, existing.categoryId));
+
+    return { id: existing.categoryId, slug };
+  }
+
+  const [createdCategory] = await db!
+    .insert(categories)
+    .values({ status: 'active' })
+    .returning({ id: categories.id });
+
+  if (!createdCategory) return null;
+
+  await db!.insert(categoryTranslations).values({
+    categoryId: createdCategory.id,
+    locale: 'en',
+    name,
+    slug,
+    description: seoDescription,
+    seoTitle,
+    seoDescription,
+    payload: { tags: [] },
+  });
+
+  return { id: createdCategory.id, slug };
 }
 
 async function main() {
@@ -409,13 +431,21 @@ async function main() {
   );
 
   if (importedCategorySlugs.length > 0) {
-    await db!
-      .update(categories)
-      .set({
-        status: 'inactive',
-        updatedAt: new Date(),
-      })
-      .where(notInArray(categories.slug, importedCategorySlugs));
+    const activeRows = await db!
+      .select({ categoryId: categoryTranslations.categoryId })
+      .from(categoryTranslations)
+      .where(inArray(categoryTranslations.slug, importedCategorySlugs));
+
+    const activeIds = activeRows.map((row) => row.categoryId);
+    if (activeIds.length > 0) {
+      await db!
+        .update(categories)
+        .set({
+          status: 'inactive',
+          updatedAt: new Date(),
+        })
+        .where(notInArray(categories.id, activeIds));
+    }
   }
 
   for (const item of categoriesSnapshot) {

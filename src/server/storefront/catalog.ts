@@ -5,6 +5,7 @@ import {
   attachments,
   brands,
   categories,
+  categoryTranslations,
   contentBlocks,
   productCategories,
   productFeatures,
@@ -17,6 +18,12 @@ import {
 import { storefrontNavigationBase, footerContactBlocks, footerPaymentMethods, footerCopyright } from './site-shell';
 import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
 import { brandNameSql, brandSlugSql } from '@/server/brands/resolve-brand-translation';
+import {
+  categoryDescriptionSql,
+  categoryNameSql,
+  categorySlugSql,
+  DEFAULT_CATEGORY_LOCALE,
+} from '@/server/categories/resolve-category-translation';
 
 const defaultHomeData: HomeData = {
   heroBanners: [],
@@ -287,7 +294,20 @@ export async function getNavigationData(): Promise<NavigationData> {
 export async function getCategories(): Promise<StorefrontCategory[]> {
   try {
     const [rows, countRows] = await Promise.all([
-      db.select().from(categories).where(eq(categories.status, 'active')).orderBy(asc(categories.sortOrder), asc(categories.name)),
+      db
+        .select({
+          id: categories.id,
+          parentId: categories.parentId,
+          name: categoryNameSql(categories.id),
+          slug: categorySlugSql(categories.id),
+          description: categoryDescriptionSql(categories.id),
+          imageUrl: categories.imageUrl,
+          isFeatured: categories.isFeatured,
+          featuredOrder: categories.featuredOrder,
+        })
+        .from(categories)
+        .where(eq(categories.status, 'active'))
+        .orderBy(asc(categories.sortOrder), asc(categories.id)),
       db
         .select({ categoryId: products.defaultCategoryId, total: count() })
         .from(products)
@@ -302,12 +322,12 @@ export async function getCategories(): Promise<StorefrontCategory[]> {
 
     return rows.map((item) => ({
       id: item.id,
-      name: item.name,
-      slug: item.slug,
+      name: item.name ?? '',
+      slug: item.slug ?? '',
       description: item.description,
       parentId: item.parentId,
       productCount: productCountByCategoryId.get(item.id) ?? 0,
-      image: item.imageUrl ? { id: `${item.id}-img`, url: item.imageUrl, alt: item.name } : null,
+      image: item.imageUrl ? { id: `${item.id}-img`, url: item.imageUrl, alt: item.name ?? '' } : null,
       isFeatured: item.isFeatured,
       featuredOrder: item.featuredOrder,
     }));
@@ -333,7 +353,15 @@ export async function getProductList(input: {
   try {
     let categoryId: string | null = null;
     if (input.categorySlug) {
-      const [category] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, input.categorySlug)).limit(1);
+      const [category] = await db
+        .select({ id: categoryTranslations.categoryId })
+        .from(categoryTranslations)
+        .innerJoin(categories, eq(categories.id, categoryTranslations.categoryId))
+        .where(and(
+          eq(categoryTranslations.slug, input.categorySlug),
+          eq(categoryTranslations.locale, DEFAULT_CATEGORY_LOCALE),
+        ))
+        .limit(1);
       if (!category) {
         return {
           items: [],
@@ -537,9 +565,9 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       db
         .select({
           id: categories.id,
-          name: categories.name,
-          slug: categories.slug,
-          description: categories.description,
+          name: categoryNameSql(categories.id),
+          slug: categorySlugSql(categories.id),
+          description: categoryDescriptionSql(categories.id),
           parentId: categories.parentId,
           imageUrl: categories.imageUrl,
         })
@@ -582,11 +610,11 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       brand: product.brandId && product.brandName && product.brandSlug ? { id: product.brandId, name: product.brandName, slug: product.brandSlug } : null,
       categories: categoryRows.map((item) => ({
         id: item.id,
-        name: item.name,
-        slug: item.slug,
+        name: item.name ?? '',
+        slug: item.slug ?? '',
         description: item.description,
         parentId: item.parentId,
-        image: item.imageUrl ? { id: `${item.id}-img`, url: item.imageUrl, alt: item.name } : null,
+        image: item.imageUrl ? { id: `${item.id}-img`, url: item.imageUrl, alt: item.name ?? '' } : null,
       })),
       attributes: variantRows.flatMap((row) => row.attributes).slice(0, 8),
       attachments: attachmentRows.map((item) => ({
@@ -621,7 +649,15 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
   try {
     let categoryId: string | null = null;
     if (categorySlug) {
-      const [category] = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, categorySlug)).limit(1);
+      const [category] = await db
+        .select({ id: categoryTranslations.categoryId })
+        .from(categoryTranslations)
+        .innerJoin(categories, eq(categories.id, categoryTranslations.categoryId))
+        .where(and(
+          eq(categoryTranslations.slug, categorySlug),
+          eq(categoryTranslations.locale, DEFAULT_CATEGORY_LOCALE),
+        ))
+        .limit(1);
       categoryId = category?.id ?? null;
     }
 

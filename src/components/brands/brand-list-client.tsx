@@ -1,12 +1,13 @@
 'use client';
 
-import { CheckOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Image, Input, Popconfirm, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Image, Input, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import { AdminListPagination } from '@/components/admin/admin-list-pagination';
+import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { brandStatusColors, brandStatusLabels, formatAdminDate } from '@/lib/admin-display';
 import {
   type AdminListPageSize,
@@ -137,6 +138,7 @@ export function BrandListClient({
   function applyQueryChange(patch: Partial<AdminListQuery>) {
     const nextQuery: AdminListQuery = {
       board: '',
+      parentId: '',
       keyword: patch.keyword ?? query.keyword,
       page: patch.page ?? query.page,
       pageSize: patch.pageSize ?? query.pageSize,
@@ -295,37 +297,14 @@ export function BrandListClient({
       width: 112,
       onHeaderCell: nowrapHeader,
       render: (_: unknown, row: AdminBrandListItem) => (
-        <Space size={0}>
-          <Tooltip title="编辑">
-            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEditor(row)} />
-          </Tooltip>
-          {row.status === 'active' ? (
-            <Popconfirm
-              title="确定停用该品牌吗？"
-              description="停用后前台将不再展示该品牌。"
-              onConfirm={() => patchBrandStatus(row, 'inactive')}
-            >
-              <Tooltip title="停用">
-                <Button type="text" size="small" icon={<StopOutlined />} loading={isPending} />
-              </Tooltip>
-            </Popconfirm>
-          ) : (
-            <Popconfirm
-              title="确定启用该品牌吗？"
-              description="启用后品牌将恢复展示。"
-              onConfirm={() => patchBrandStatus(row, 'active')}
-            >
-              <Tooltip title="启用">
-                <Button type="text" size="small" icon={<CheckOutlined />} loading={isPending} />
-              </Tooltip>
-            </Popconfirm>
-          )}
-          <Popconfirm title="确定删除该品牌吗？" onConfirm={() => deleteBrand(row)}>
-            <Tooltip title="删除">
-              <Button type="text" size="small" danger icon={<DeleteOutlined />} loading={isPending} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
+        <AdminEntityRowActions
+          loading={isPending}
+          isActive={row.status === 'active'}
+          entityName="品牌"
+          onEdit={() => openEditor(row)}
+          onToggleActive={() => patchBrandStatus(row, row.status === 'active' ? 'inactive' : 'active')}
+          onDelete={() => deleteBrand(row)}
+        />
       ),
     },
   ];

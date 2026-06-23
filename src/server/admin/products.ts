@@ -1,9 +1,11 @@
 import { and, asc, count, desc, eq, ilike, or } from 'drizzle-orm';
 
 import { getAdminBrandOptions } from '@/server/admin/brands';
+import { getAdminCategoryOptions } from '@/server/admin/categories';
 import { db } from '@/server/db';
 import { attachments, brands, categories, productFeatures, productImages, productRelations, products } from '@/server/db/schema';
 import { brandNameSql } from '@/server/brands/resolve-brand-translation';
+import { categoryNameSql } from '@/server/categories/resolve-category-translation';
 
 export type AdminProductRow = {
   id: string;
@@ -179,7 +181,7 @@ export async function getAdminProducts(search = '') {
         brandId: products.brandId,
         defaultCategoryId: products.defaultCategoryId,
         brandName: brandNameSql(brands.id),
-        categoryName: categories.name,
+        categoryName: categoryNameSql(categories.id),
       })
       .from(products)
       .leftJoin(brands, eq(products.brandId, brands.id))
@@ -202,7 +204,7 @@ export async function getAdminProducts(search = '') {
 export async function getAdminProductOptions() {
   const [brandRows, categoryRows] = await Promise.all([
     getAdminBrandOptions(),
-    db.select({ value: categories.id, label: categories.name }).from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
+    getAdminCategoryOptions(),
   ]);
 
   return {
@@ -242,7 +244,7 @@ export async function getAdminProductDetail(id: string): Promise<AdminProductDet
         brandId: products.brandId,
         defaultCategoryId: products.defaultCategoryId,
         brandName: brandNameSql(brands.id),
-        categoryName: categories.name,
+        categoryName: categoryNameSql(categories.id),
         seoTitle: products.seoTitle,
         seoDescription: products.seoDescription,
       })

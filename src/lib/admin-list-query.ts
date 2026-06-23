@@ -5,11 +5,13 @@ export const UNASSIGNED_BOARD_KEY = '__unassigned__';
 
 export type AdminListPageSize = (typeof ADMIN_LIST_PAGE_SIZE_OPTIONS)[number];
 
+
 export type AdminListQuery = {
   page: number;
   pageSize: AdminListPageSize;
   keyword: string;
   board: string;
+  parentId: string;
 };
 
 export type AdminEditorialListResult = {
@@ -76,12 +78,16 @@ export function parseAdminListQuery(
     || options?.defaultBoard
     || '';
 
-  return { page, pageSize, keyword, board };
+  const rawParentId = searchParams.parent_id;
+  const parentId = (Array.isArray(rawParentId) ? rawParentId[0] : rawParentId)?.trim() ?? '';
+
+  return { page, pageSize, keyword, board, parentId };
 }
 
 export function buildAdminListQueryString(params: Partial<AdminListQuery>) {
   const query = new URLSearchParams();
   if (params.board) query.set('board', params.board);
+  if (params.parentId) query.set('parent_id', params.parentId);
   if (params.keyword) query.set('keyword', params.keyword);
   if (params.page && params.page > 1) query.set('page', String(params.page));
   if (params.pageSize && params.pageSize !== ADMIN_LIST_DEFAULT_PAGE_SIZE) {

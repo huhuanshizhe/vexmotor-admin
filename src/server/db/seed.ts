@@ -11,6 +11,7 @@ import {
   cartItems,
   carts,
   categories,
+  categoryTranslations,
   contentBlocks,
   inquiries,
   orderItems,
@@ -41,44 +42,74 @@ async function main() {
     throw new Error('Admin user could not be created');
   }
 
-  const insertedCategories = await db
-    .insert(categories)
-    .values([
-      {
-        name: 'Nema 17 Stepper Motor',
-        slug: 'nema-17-stepper-motor',
-        description: 'Compact high-volume motion component family for printers, feeders, and automation fixtures.',
-        status: 'active',
-        sortOrder: 1,
-      },
-      {
-        name: 'Nema 23 Stepper Motor',
-        slug: 'nema-23-stepper-motor',
-        description: 'High torque catalog products for CNC systems and industrial tooling.',
-        status: 'active',
-        sortOrder: 2,
-      },
-      {
-        name: 'Stepper Drivers',
-        slug: 'stepper-drivers',
-        description: 'Controller and drive modules for production-ready motion systems.',
-        status: 'active',
-        sortOrder: 3,
-      },
-      {
-        name: 'Power Supplies',
-        slug: 'power-supplies',
-        description: 'Matched power systems for stable driver and motor performance.',
-        status: 'active',
-        sortOrder: 4,
-      },
-    ])
-    .onConflictDoNothing({ target: categories.slug })
-    .returning({ id: categories.id, slug: categories.slug });
+  const insertedCategories: Array<{ id: string; slug: string }> = [];
+
+  const categoryDefs = [
+    {
+      name: 'Nema 17 Stepper Motor',
+      slug: 'nema-17-stepper-motor',
+      description: 'Compact high-volume motion component family for printers, feeders, and automation fixtures.',
+      sortOrder: 1,
+    },
+    {
+      name: 'Nema 23 Stepper Motor',
+      slug: 'nema-23-stepper-motor',
+      description: 'High torque catalog products for CNC systems and industrial tooling.',
+      sortOrder: 2,
+    },
+    {
+      name: 'Stepper Drivers',
+      slug: 'stepper-drivers',
+      description: 'Controller and drive modules for production-ready motion systems.',
+      sortOrder: 3,
+    },
+    {
+      name: 'Power Supplies',
+      slug: 'power-supplies',
+      description: 'Matched power systems for stable driver and motor performance.',
+      sortOrder: 4,
+    },
+  ];
+
+  for (const def of categoryDefs) {
+    const [existing] = await db
+      .select({ categoryId: categoryTranslations.categoryId, slug: categoryTranslations.slug })
+      .from(categoryTranslations)
+      .where(eq(categoryTranslations.slug, def.slug))
+      .limit(1);
+
+    if (existing) {
+      insertedCategories.push({ id: existing.categoryId, slug: existing.slug });
+      continue;
+    }
+
+    const [createdCategory] = await db
+      .insert(categories)
+      .values({ status: 'active', sortOrder: def.sortOrder })
+      .returning({ id: categories.id });
+
+    if (!createdCategory) continue;
+
+    await db.insert(categoryTranslations).values({
+      categoryId: createdCategory.id,
+      locale: 'en',
+      name: def.name,
+      slug: def.slug,
+      description: def.description,
+      seoTitle: def.name,
+      seoDescription: def.description,
+      payload: { tags: [] },
+    });
+
+    insertedCategories.push({ id: createdCategory.id, slug: def.slug });
+  }
 
   const allCategories = insertedCategories.length
     ? insertedCategories
-    : await db.select({ id: categories.id, slug: categories.slug }).from(categories);
+    : await db
+      .select({ id: categories.id, slug: categoryTranslations.slug })
+      .from(categories)
+      .innerJoin(categoryTranslations, eq(categoryTranslations.categoryId, categories.id));
 
   const existingBrandTranslation = await db
     .select({ brandId: brandTranslations.brandId, slug: brandTranslations.slug })

@@ -1,41 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 
-import { createAdminCategory, getAdminCategories } from '@/server/admin/categories';
+import { ROOT_CATEGORY_PARENT_KEY } from '@/lib/category-content';
+import { normalizePageSize } from '@/lib/admin-list-query';
+import {
+  adminCategoryTranslationSchema,
+  createAdminCategoryTranslation,
+  findAdminCategoryTranslationByCategoryAndLocale,
+  findAdminCategoryTranslationBySlug,
+  getAdminCategoriesPaginated,
+  updateAdminCategoryTranslation,
+} from '@/server/admin/categories';
 
-const categorySchema = z.object({
-  parentId: z.string().uuid().nullable().optional().transform((value) => value ?? null),
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().nullable().optional().transform((value) => value ?? null),
-  imageUrl: z.string().nullable().optional().transform((value) => value ?? null),
-  seoTitle: z.string().nullable().optional().transform((value) => value ?? null),
-  seoDescription: z.string().nullable().optional().transform((value) => value ?? null),
-  status: z.enum(['active', 'inactive']).default('active'),
-  sortOrder: z.coerce.number().int().min(0).default(0),
-  isFeatured: z.boolean().default(false),
-  featuredOrder: z.coerce.number().int().min(0).default(0),
-});
+function parseParentId(value: string | null) {
+  if (!value || value === ROOT_CATEGORY_PARENT_KEY) return null;
+  return value;
+}
 
 export async function GET(request: NextRequest) {
-  const search = request.nextUrl.searchParams.get('search')?.trim().toLowerCase() ?? '';
-  const items = await getAdminCategories();
-  const filtered = search
-    ? items.filter((item) => [item.name, item.slug, item.description ?? ''].join(' ').toLowerCase().includes(search))
-    : items;
+  const params = request.nextUrl.searchParams;
+  const keyword = params.get('keyword')?.trim() ?? params.get('search')?.trim() ?? '';
+  const page = Math.max(1, Number(params.get('page') ?? 1) || 1);
+  const pageSize = normalizePageSize(params.get('page_size') ?? params.get('pageSize'));
+  const parentId = parseParentId(params.get('parent_id'));
 
-  return NextResponse.json({ items: filtered, meta: { total: filtered.length } });
+  const result = await getAdminCategoriesPaginated({
+    parentId,
+    keyword: keyword || undefined,
+    page,
+    pageSize,
+  });
+
+  return NextResponse.json({
+    items: result.items,
+    meta: {
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const parsed = categorySchema.safeParse(body);
-
+  const parsed = adminCategoryTranslationSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const created = await createAdminCategory(parsed.data);
+  if (parsed.data.categoryId) {
+    const existingLocale = await findAdminCategoryTranslationByCategoryAndLocale(
+      parsed.data.categoryId,
+      parsed.data.locale,
+    );
+    if (existingLocale) {
+      const updated = await updateAdminCategoryTranslation(existingLocale.id, parsed.data);
+      if (!updated) {
+        return NextResponse.json({ code: 'UPDATE_FAILED', message: 'Unable to update category translation' }, { status: 500 });
+      }
+      return NextResponse.json(updated);
+    }
+  }
+
+  const existing = await findAdminCategoryTranslationBySlug(
+    parsed.data.slug ?? parsed.data.name,
+    parsed.data.locale,
+  );
+  if (existing) {
+    return NextResponse.json({ code: 'SLUG_CONFLICT', message: '该语言下 slug 已被占用' }, { status: 409 });
+  }
+
+  const created = await createAdminCategoryTranslation(parsed.data);
   if (!created) {
     return NextResponse.json({ code: 'CREATE_FAILED', message: 'Unable to create category' }, { status: 500 });
   }

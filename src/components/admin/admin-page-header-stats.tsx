@@ -12,6 +12,7 @@ export function AdminPageHeaderStats({ items }: { items: AdminPageHeaderStatItem
         display: 'flex',
         alignItems: 'center',
         flexShrink: 0,
+        width: 'fit-content',
         padding: '6px 4px',
         borderRadius: 10,
         background: 'rgba(0, 0, 0, 0.02)',
