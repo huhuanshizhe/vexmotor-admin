@@ -81,3 +81,10 @@ export function getCategoryDeleteBlockReason(
   if (entry.productCount > 0) return '该分类下还有产品，无法删除';
   return null;
 }
+
+export function compareCategoryBySortAndName(
+  a: { sortOrder: number; name: string },
+  b: { sortOrder: number; name: string },
+) {
+  return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'en');
+}

@@ -1,7 +1,7 @@
 import { CategoriesClient } from './categories-client';
 import { ROOT_CATEGORY_PARENT_KEY } from '@/lib/category-content';
 import { parseAdminListQuery } from '@/lib/admin-list-query';
-import { getAdminCategoriesPaginated, getAdminCategoryStats, getAdminCategoryTreeLevel } from '@/server/admin/categories';
+import { getAdminCategoriesPaginated, getAdminCategoryStats, getAdminCategoryTree } from '@/server/admin/categories';
 import { getAdminSiteLanguages } from '@/server/admin/languages';
 
 type PageProps = {
@@ -20,7 +20,7 @@ export default async function AdminCategoriesPage({ searchParams }: PageProps) {
       page: initialQuery.page,
       pageSize: initialQuery.pageSize,
     }),
-    getAdminCategoryTreeLevel(null),
+    getAdminCategoryTree(),
     getAdminCategoryStats(),
     getAdminSiteLanguages(),
   ]);

@@ -3,13 +3,15 @@
 import {
   MoreOutlined,
 } from '@ant-design/icons';
-import { Button, Dropdown, Input, Tooltip, Tree, Typography, message } from 'antd';
+import { Button, Dropdown, Input, Tooltip, Tree, message } from 'antd';
 import type { TreeProps } from 'antd/es/tree';
 import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type Key,
@@ -17,7 +19,6 @@ import {
 
 import { buildAdminEntityActionMenuItems } from '@/components/admin/admin-row-actions';
 
-import { categoryStatusLabels } from '@/lib/admin-display';
 import {
   ROOT_CATEGORY_PARENT_KEY,
   type AdminCategoryTreeNode,
@@ -25,13 +26,25 @@ import {
   type CategoryStatus,
   getCategoryDeleteBlockReason,
 } from '@/lib/category-content';
+import {
+  applyCategoryTreeDropIntent,
+  measureDragNameLeft,
+  resolveCategoryTreeDrop,
+  resolveDragLevelClientX,
+  type CategoryTreeDragLevelAnchor,
+  type CategoryTreeDropIntent,
+  type CategoryTreeGapMarker,
+} from '@/lib/category-tree-drag';
 
 const TREE_HEIGHT = 480;
 const TREE_SEARCH_DEBOUNCE_MS = 400;
+const TREE_NAME_TOOLTIP_DELAY_MS = 3000;
 
 export type CategoryTreeDataNode = {
   key: string;
-  title: string;
+  /** 留空，避免 rc-tree 在整行节点上设置原生 title 属性 */
+  title: '';
+  name: string;
   tooltipTitle: string;
   isLeaf?: boolean;
   children?: CategoryTreeDataNode[];
@@ -62,24 +75,30 @@ function stopTreeClickBubble(event: React.MouseEvent) {
   event.stopPropagation();
 }
 
-function toLevelNodes(nodes: AdminCategoryTreeNode[]): CategoryTreeDataNode[] {
-  return nodes.map((node) => ({
-    key: node.id,
-    title: node.name,
-    tooltipTitle: node.name,
-    isLeaf: !node.hasChildren,
-    categoryStatus: node.status,
-    productCount: node.productCount,
-    hasChildCategories: node.hasChildren,
-    parentId: node.parentId,
-    sortOrder: node.sortOrder,
-  }));
+function toTreeData(nodes: AdminCategoryTreeNode[]): CategoryTreeDataNode[] {
+  return nodes.map((node) => {
+    const children = node.children.length ? toTreeData(node.children) : undefined;
+    return {
+      key: node.id,
+      title: '',
+      name: node.name,
+      tooltipTitle: node.name,
+      isLeaf: !node.hasChildren,
+      categoryStatus: node.status,
+      productCount: node.productCount,
+      hasChildCategories: node.hasChildren,
+      parentId: node.parentId,
+      sortOrder: node.sortOrder,
+      ...(children ? { children } : {}),
+    };
+  });
 }
 
 function toSearchNodes(matches: AdminCategoryTreeSearchMatch[]): CategoryTreeDataNode[] {
   return matches.map((match) => ({
     key: match.id,
-    title: match.name,
+    title: '',
+    name: match.name,
     tooltipTitle: match.pathLabel,
     isLeaf: true,
     categoryStatus: match.status,
@@ -90,28 +109,18 @@ function toSearchNodes(matches: AdminCategoryTreeSearchMatch[]): CategoryTreeDat
   }));
 }
 
-function updateTreeChildren(
-  nodes: CategoryTreeDataNode[],
-  key: Key,
-  children: CategoryTreeDataNode[],
-): CategoryTreeDataNode[] {
-  return nodes.map((node) => {
-    if (node.key === key) {
-      return {
-        ...node,
-        children,
-        isLeaf: children.length === 0,
-        hasChildCategories: children.length > 0,
-      };
-    }
+function syncBranchMeta(nodes: CategoryTreeDataNode[]) {
+  for (const node of nodes) {
     if (node.children?.length) {
-      return {
-        ...node,
-        children: updateTreeChildren(node.children, key, children),
-      };
+      syncBranchMeta(node.children);
+      node.hasChildCategories = true;
+      node.isLeaf = false;
+      continue;
     }
-    return node;
-  });
+    delete node.children;
+    node.hasChildCategories = false;
+    node.isLeaf = true;
+  }
 }
 
 function loopTree(
@@ -167,9 +176,96 @@ function collectMovesFromTree(nodes: CategoryTreeDataNode[], parentId: string | 
   return moves;
 }
 
+type CategoryTreeNameProps = {
+  title: string;
+  tooltipTitle: string;
+  isDragging: boolean;
+};
+
+const CategoryTreeName = memo(function CategoryTreeName({
+  title,
+  tooltipTitle,
+  isDragging,
+}: CategoryTreeNameProps) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  const clearShowTimer = useCallback(() => {
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+  }, []);
+
+  const checkTruncated = useCallback(() => {
+    const element = textRef.current;
+    if (!element) return false;
+    return element.scrollWidth > element.clientWidth;
+  }, []);
+
+  useLayoutEffect(() => {
+    checkTruncated();
+  }, [title, checkTruncated]);
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      checkTruncated();
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [checkTruncated, title]);
+
+  useEffect(() => {
+    if (isDragging) {
+      clearShowTimer();
+      setTooltipOpen(false);
+    }
+  }, [clearShowTimer, isDragging]);
+
+  useEffect(() => () => clearShowTimer(), [clearShowTimer]);
+
+  const handleMouseEnter = () => {
+    if (isDragging) return;
+    clearShowTimer();
+    showTimerRef.current = setTimeout(() => {
+      if (!checkTruncated()) return;
+      setTooltipOpen(true);
+    }, TREE_NAME_TOOLTIP_DELAY_MS);
+  };
+
+  const handleMouseLeave = () => {
+    clearShowTimer();
+    setTooltipOpen(false);
+  };
+
+  return (
+    <Tooltip
+      open={tooltipOpen}
+      title={tooltipTitle}
+      trigger={[]}
+      getPopupContainer={() => document.body}
+    >
+      <span
+        ref={textRef}
+        className="category-tree-title__name category-tree-title__name-ellipsis"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {title}
+      </span>
+    </Tooltip>
+  );
+});
+
 type CategoryTreeTitleProps = {
   node: CategoryTreeDataNode;
   isPending: boolean;
+  isDragging: boolean;
+  isDropChildTarget: boolean;
   onSelectNode: (nodeId: string, name: string) => void;
   onEdit: (nodeId: string) => void;
   onDelete: (node: CategoryTreeDataNode) => void;
@@ -179,6 +275,8 @@ type CategoryTreeTitleProps = {
 const CategoryTreeTitle = memo(function CategoryTreeTitle({
   node,
   isPending,
+  isDragging,
+  isDropChildTarget,
   onSelectNode,
   onEdit,
   onDelete,
@@ -192,32 +290,31 @@ const CategoryTreeTitle = memo(function CategoryTreeTitle({
   });
 
   return (
-    <div className={`category-tree-title${node.categoryStatus === 'inactive' ? ' is-inactive' : ''}`}>
+    <div
+      data-category-id={node.key}
+      className={`category-tree-title${node.categoryStatus === 'inactive' ? ' is-inactive' : ''}${isDropChildTarget ? ' is-drop-target-child' : ''}`}
+    >
       <div
         className="category-tree-title__name-wrap"
         onClick={(event) => {
           stopTreeClickBubble(event);
-          onSelectNode(node.key, String(node.title));
+          onSelectNode(node.key, node.name);
         }}
       >
-        <Typography.Text
-          className="category-tree-title__name"
-          ellipsis={{ tooltip: { title: node.tooltipTitle, mouseEnterDelay: 0.5 } }}
-        >
-          {node.title}
-        </Typography.Text>
+        <CategoryTreeName
+          title={node.name}
+          tooltipTitle={node.tooltipTitle}
+          isDragging={isDragging}
+        />
       </div>
       <div
         className="category-tree-title__actions"
         onMouseDown={blockTreePointerEvent}
         onClick={stopTreeClickBubble}
       >
-        <Tooltip title={categoryStatusLabels[node.categoryStatus]} mouseEnterDelay={0.5}>
-          <span
-            className={`category-tree-title__status-dot category-tree-title__status-dot--${node.categoryStatus}`}
-            aria-label={categoryStatusLabels[node.categoryStatus]}
-          />
-        </Tooltip>
+        <span
+          className={`category-tree-title__status-dot category-tree-title__status-dot--${node.categoryStatus}`}
+        />
         <Dropdown
           menu={{ items: menuItems }}
           trigger={['click']}
@@ -249,13 +346,41 @@ export function CategoryTreePanel({
 }: CategoryTreePanelProps) {
   const [messageApi, contextHolder] = message.useMessage();
   const [isPending, startTransition] = useTransition();
-  const [treeData, setTreeData] = useState<CategoryTreeDataNode[]>(() => toLevelNodes(roots));
+  const [treeData, setTreeData] = useState<CategoryTreeDataNode[]>(() => toTreeData(roots));
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dropChildTargetKey, setDropChildTargetKey] = useState<string | null>(null);
+  const [dropGapMarker, setDropGapMarker] = useState<CategoryTreeGapMarker | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const draggingKeyRef = useRef<Key | null>(null);
+  const dragLevelAnchorRef = useRef<CategoryTreeDragLevelAnchor | null>(null);
+  const dropIntentRef = useRef<CategoryTreeDropIntent | null>(null);
 
   const isSearchMode = debouncedKeyword.length > 0;
+
+  const updateDropPreview = useCallback((clientX: number, clientY: number) => {
+    const panel = panelRef.current;
+    const dragKey = draggingKeyRef.current;
+    const anchor = dragLevelAnchorRef.current;
+    if (!panel || !dragKey || !anchor) return;
+
+    const levelClientX = resolveDragLevelClientX(anchor, clientX);
+
+    const intent = resolveCategoryTreeDrop({
+      panel,
+      treeData,
+      dragKey,
+      clientX,
+      clientY,
+      levelClientX,
+    });
+    dropIntentRef.current = intent;
+    setDropChildTargetKey(intent?.mode === 'child' ? intent.childTargetKey : null);
+    setDropGapMarker(intent?.mode === 'sibling' ? intent.gapMarker : null);
+  }, [treeData]);
 
   const applySearchKeyword = useCallback((value: string) => {
     setDebouncedKeyword(value.trim());
@@ -276,7 +401,7 @@ export function CategoryTreePanel({
 
   useEffect(() => {
     if (debouncedKeyword) return;
-    setTreeData(toLevelNodes(roots));
+    setTreeData(toTreeData(roots));
     setExpandedKeys([]);
   }, [roots, rootsVersion, debouncedKeyword]);
 
@@ -327,67 +452,119 @@ export function CategoryTreePanel({
     <CategoryTreeTitle
       node={node}
       isPending={isPending}
+      isDragging={isDragging}
+      isDropChildTarget={dropChildTargetKey === node.key}
       onSelectNode={onSelect}
       onEdit={onEdit}
       onDelete={handleDeleteNode}
       onToggleStatus={onToggleStatus}
     />
-  ), [handleDeleteNode, isPending, onEdit, onSelect, onToggleStatus]);
+  ), [dropChildTargetKey, handleDeleteNode, isDragging, isPending, onEdit, onSelect, onToggleStatus]);
 
-  const loadData = useCallback(async (treeNode: CategoryTreeDataNode) => {
-    const response = await fetch(`/api/admin/categories/tree?parent_id=${treeNode.key}`);
-    if (!response.ok) {
-      void messageApi.error('加载子分类失败');
-      return;
+  const allowDrop = useCallback<NonNullable<TreeProps['allowDrop']>>(({ dragNode, dropNode, dropPosition }) => {
+    if (dropPosition === 0) {
+      const descendants = collectDescendantKeys(dragNode.key, treeData);
+      if (descendants.has(String(dropNode.key))) return false;
     }
-    const payload = (await response.json()) as { nodes: AdminCategoryTreeNode[] };
-    setTreeData((prev) => updateTreeChildren(prev, treeNode.key, toLevelNodes(payload.nodes)));
-  }, [messageApi]);
+    return true;
+  }, [treeData]);
+
+  const handleDragStart = useCallback<NonNullable<TreeProps['onDragStart']>>((info) => {
+    const panel = panelRef.current;
+    const dragKey = info.node.key;
+    draggingKeyRef.current = dragKey;
+    dropIntentRef.current = null;
+    setDropChildTargetKey(null);
+    setDropGapMarker(null);
+    setIsDragging(true);
+
+    const nameLeft = panel ? measureDragNameLeft(panel, dragKey) : null;
+    dragLevelAnchorRef.current = {
+      startClientX: info.event.clientX,
+      startNameLeft: nameLeft ?? info.event.clientX,
+    };
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    draggingKeyRef.current = null;
+    dragLevelAnchorRef.current = null;
+    dropIntentRef.current = null;
+    setDropChildTargetKey(null);
+    setDropGapMarker(null);
+    setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback<NonNullable<TreeProps['onDragOver']>>((info) => {
+    if (isSearchMode) return;
+    updateDropPreview(info.event.clientX, info.event.clientY);
+  }, [isSearchMode, updateDropPreview]);
+
+  useEffect(() => {
+    if (!isDragging || isSearchMode) return;
+
+    const handleWindowDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      updateDropPreview(event.clientX, event.clientY);
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    return () => window.removeEventListener('dragover', handleWindowDragOver);
+  }, [isDragging, isSearchMode, updateDropPreview]);
+
+  const handleDragEnter = useCallback<NonNullable<TreeProps['onDragEnter']>>((info) => {
+    if (isSearchMode) return;
+    const key = info.node.key;
+    setExpandedKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  }, [isSearchMode]);
 
   const onDrop = useCallback<NonNullable<TreeProps['onDrop']>>((info) => {
     if (isSearchMode) return;
 
     const dragKey = info.dragNode.key;
-    const dropKey = info.node.key;
-    if (dragKey === dropKey) return;
+    const anchor = dragLevelAnchorRef.current;
+    const levelClientX = anchor
+      ? resolveDragLevelClientX(anchor, info.event.clientX)
+      : info.event.clientX;
+    const intent = dropIntentRef.current ?? resolveCategoryTreeDrop({
+      panel: panelRef.current!,
+      treeData,
+      dragKey,
+      clientX: info.event.clientX,
+      clientY: info.event.clientY,
+      levelClientX,
+    });
+
+    draggingKeyRef.current = null;
+    dragLevelAnchorRef.current = null;
+    dropIntentRef.current = null;
+    setDropChildTargetKey(null);
+    setDropGapMarker(null);
+    setIsDragging(false);
+
+    if (!intent) return;
 
     const descendants = collectDescendantKeys(dragKey, treeData);
-    if (descendants.has(String(dropKey))) {
+    if (intent.mode === 'child' && descendants.has(intent.targetParentKey!)) {
       void messageApi.warning('不能将分类移动到其子分类下');
       return;
     }
 
-    const data = structuredClone(treeData);
-    let dragObj: CategoryTreeDataNode | undefined;
+    const applied = applyCategoryTreeDropIntent(treeData, dragKey, intent);
+    if (!applied) return;
 
-    loopTree(data, dragKey, (item, index, arr) => {
-      arr.splice(index, 1);
-      dragObj = item;
+    const { data, parentId } = applied;
+    syncBranchMeta(data);
+
+    loopTree(data, dragKey, (item) => {
+      item.parentId = parentId;
     });
-    if (!dragObj) return;
-
-    const dropPos = info.node.pos.split('-');
-    const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1]);
-
-    if (!info.dropToGap) {
-      loopTree(data, dropKey, (item) => {
-        item.children = item.children ?? [];
-        item.children.unshift(dragObj!);
-        item.isLeaf = false;
-        item.hasChildCategories = true;
-      });
-    } else {
-      let siblings: CategoryTreeDataNode[] = [];
-      let index = 0;
-      loopTree(data, dropKey, (_item, itemIndex, arr) => {
-        siblings = arr;
-        index = itemIndex;
-      });
-      siblings.splice(dropPosition === -1 ? index : index + 1, 0, dragObj);
-    }
 
     const moves = collectMovesFromTree(data);
     setTreeData(data);
+
+    if (parentId) {
+      setExpandedKeys((prev) => (prev.includes(parentId) ? prev : [...prev, parentId]));
+    }
 
     startTransition(async () => {
       const response = await fetch('/api/admin/categories/reorder', {
@@ -410,8 +587,38 @@ export function CategoryTreePanel({
     [selectedId],
   );
 
+  useLayoutEffect(() => {
+    const root = panelRef.current;
+    if (!root) return;
+    root.querySelectorAll<HTMLElement>('.ant-tree-node-content-wrapper[title]').forEach((element) => {
+      element.removeAttribute('title');
+    });
+  }, [treeData, expandedKeys, isSearchMode, dropChildTargetKey, dropGapMarker]);
+
+  useLayoutEffect(() => {
+    const root = panelRef.current;
+    if (!root) return;
+
+    root.querySelectorAll('.category-tree-gap-before, .category-tree-gap-after').forEach((element) => {
+      element.classList.remove('category-tree-gap-before', 'category-tree-gap-after');
+    });
+
+    if (!isDragging || !dropGapMarker) return;
+
+    const anchor = root.querySelector<HTMLElement>(`[data-category-id="${dropGapMarker.anchorKey}"]`);
+    const treenode = anchor?.closest<HTMLElement>('.ant-tree-treenode');
+    if (!treenode) return;
+
+    treenode.classList.add(
+      dropGapMarker.position === 'before' ? 'category-tree-gap-before' : 'category-tree-gap-after',
+    );
+  }, [dropGapMarker, isDragging]);
+
   return (
-    <div className="category-tree-panel">
+    <div
+      ref={panelRef}
+      className={`category-tree-panel${isDragging ? ' is-category-tree-dragging' : ''}`}
+    >
       {contextHolder}
       <Input.Search
         allowClear
@@ -432,21 +639,27 @@ export function CategoryTreePanel({
       >
         全部分类
       </button>
-      <Tree
-        blockNode
-        virtual
-        height={TREE_HEIGHT}
-        selectable={false}
-        draggable={!isSearchMode}
-        showLine={false}
-        treeData={treeData}
-        selectedKeys={selectedKeys}
-        expandedKeys={expandedKeys}
-        loadData={isSearchMode ? undefined : loadData}
-        titleRender={(node) => titleRender(node as CategoryTreeDataNode)}
-        onExpand={(keys) => setExpandedKeys(keys)}
-        onDrop={isSearchMode ? undefined : onDrop}
-      />
+      <div className="category-tree-panel__scroll" style={{ maxHeight: TREE_HEIGHT, overflow: 'auto' }}>
+        <Tree
+          key={`category-tree-${rootsVersion}`}
+          blockNode
+          selectable={false}
+          draggable={!isSearchMode}
+          showLine={false}
+          treeData={treeData}
+          selectedKeys={selectedKeys}
+          expandedKeys={expandedKeys}
+          allowDrop={isSearchMode ? undefined : allowDrop}
+          dropIndicatorRender={() => null}
+          titleRender={(node) => titleRender(node as CategoryTreeDataNode)}
+          onExpand={(keys) => setExpandedKeys(keys)}
+          onDragStart={isSearchMode ? undefined : handleDragStart}
+          onDragEnd={isSearchMode ? undefined : handleDragEnd}
+          onDragEnter={isSearchMode ? undefined : handleDragEnter}
+          onDragOver={isSearchMode ? undefined : handleDragOver}
+          onDrop={isSearchMode ? undefined : onDrop}
+        />
+      </div>
     </div>
   );
 }

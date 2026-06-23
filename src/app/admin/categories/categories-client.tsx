@@ -97,7 +97,7 @@ async function fetchCategoryList(options: {
 }
 
 async function fetchCategoryTree() {
-  const response = await fetch('/api/admin/categories/tree');
+  const response = await fetch('/api/admin/categories/tree?full=1');
   if (!response.ok) throw new Error('加载分类树失败');
   const payload = (await response.json()) as {
     tree: AdminCategoryTreeNode[];

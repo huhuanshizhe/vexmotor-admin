@@ -15,6 +15,7 @@ import {
   type AdminCategoryTreeSearchMatch,
   type CategoryStatus,
   categoryStatuses,
+  compareCategoryBySortAndName,
 } from '@/lib/category-content';
 import { db } from '@/server/db';
 import { categories, categoryTranslations, productCategories, products } from '@/server/db/schema';
@@ -284,13 +285,6 @@ async function findCategoryIdsByNameSearch(search: string) {
     .where(ilike(categoryTranslations.name, pattern));
 
   return rows.map((row) => row.categoryId);
-}
-
-export function compareCategoryBySortAndName(
-  a: { sortOrder: number; name: string },
-  b: { sortOrder: number; name: string },
-) {
-  return a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'en');
 }
 
 export type { AdminCategoryTreeSearchMatch };

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { CoverImageField } from '@/components/editorial/cover-image-field';
+import { buildCategoryParentTreeSelectData } from '@/lib/category-parent-tree-select';
 import {
   type AdminCategoryListItem,
   type AdminCategoryTranslation,
@@ -123,18 +124,6 @@ function collectDescendantIds(nodeId: string, tree: AdminCategoryTreeNode[]): Se
   return result;
 }
 
-function buildTreeSelectData(
-  nodes: AdminCategoryTreeNode[],
-  disabledIds: Set<string>,
-): Array<{ value: string; title: string; disabled?: boolean; children?: ReturnType<typeof buildTreeSelectData> }> {
-  return nodes.map((node) => ({
-    value: node.id,
-    title: node.name,
-    disabled: disabledIds.has(node.id),
-    children: node.children.length ? buildTreeSelectData(node.children, disabledIds) : undefined,
-  }));
-}
-
 function buildTranslationPayload(
   draft: LocaleDraft,
   locale: string,
@@ -212,7 +201,7 @@ export function CategoryEditorModal({
   const parentTreeData = useMemo(() => {
     const disabled = editingEntry ? collectDescendantIds(editingEntry.id, tree) : new Set<string>();
     if (editingEntry) disabled.add(editingEntry.id);
-    return buildTreeSelectData(tree, disabled);
+    return buildCategoryParentTreeSelectData(tree, disabled);
   }, [editingEntry, tree]);
 
   function loadDraft(locale: string, nextDrafts: Record<string, LocaleDraft>) {
@@ -497,10 +486,21 @@ export function CategoryEditorModal({
           <Form.Item label="上级分类" layout="vertical" style={{ marginBottom: 16 }}>
             <TreeSelect
               allowClear
-              treeDefaultExpandAll
+              showSearch
               placeholder="顶级分类"
               value={parentId ?? undefined}
               treeData={parentTreeData}
+              treeLine
+              treeDefaultExpandAll
+              treeNodeFilterProp="title"
+              filterTreeNode={(search, treeNode) => {
+                const title = String(treeNode.title ?? '');
+                return title.toLowerCase().includes(search.trim().toLowerCase());
+              }}
+              listHeight={360}
+              popupMatchSelectWidth={false}
+              classNames={{ popup: { root: 'category-parent-tree-select-popup' } }}
+              styles={{ popup: { root: { minWidth: 360, maxHeight: 400 } } }}
               onChange={(value) => setParentId((value as string | undefined) ?? null)}
               style={{ width: '100%' }}
             />
