@@ -44,6 +44,7 @@ export const cmsStatusEnum = pgEnum('cms_status', ['draft', 'published', 'archiv
 export const newsletterStatusEnum = pgEnum('newsletter_status', ['subscribed', 'unsubscribed']);
 export const accountTypeEnum = pgEnum('account_type', ['oauth', 'oidc', 'email', 'credentials']);
 export const editorialContentTypeEnum = pgEnum('editorial_content_type', ['content']);
+export const editorialContentModuleEnum = pgEnum('editorial_content_module', ['editorial', 'faq']);
 export const productRelationTypeEnum = pgEnum('product_relation_type', ['drivers', 'mechanical-integration', 'power-control', 'custom']);
 export const textDirectionEnum = pgEnum('text_direction', ['ltr', 'rtl']);
 
@@ -547,6 +548,7 @@ export const editorialContents = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     contentType: editorialContentTypeEnum('content_type').notNull().default('content'),
+    contentModule: editorialContentModuleEnum('content_module').notNull().default('editorial'),
     boardKey: varchar('board_key', { length: 100 }).notNull().default('content'),
     status: cmsStatusEnum('status').notNull().default('draft'),
     publishedAt: timestamp('published_at', { withTimezone: true }),
@@ -556,6 +558,7 @@ export const editorialContents = pgTable(
   (table) => ({
     typeStatusPublishedIdx: index('editorial_contents_type_status_published_idx').on(table.contentType, table.status, table.publishedAt),
     boardKeyIdx: index('editorial_contents_board_key_idx').on(table.boardKey),
+    contentModuleBoardIdx: index('editorial_contents_content_module_board_idx').on(table.contentModule, table.boardKey),
   }),
 );
 
@@ -565,6 +568,7 @@ export const editorialContentTranslations = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     contentId: uuid('content_id').notNull().references(() => editorialContents.id, { onDelete: 'cascade' }),
     contentType: editorialContentTypeEnum('content_type').notNull().default('content'),
+    contentModule: editorialContentModuleEnum('content_module').notNull().default('editorial'),
     locale: varchar('locale', { length: 16 }).notNull().default('en-US'),
     title: varchar('title', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 180 }).notNull(),
@@ -583,7 +587,7 @@ export const editorialContentTranslations = pgTable(
   },
   (table) => ({
     contentLocaleUnique: uniqueIndex('editorial_content_translations_content_locale_unique').on(table.contentId, table.locale),
-    typeSlugLocaleUnique: uniqueIndex('editorial_content_translations_type_slug_locale_unique').on(table.contentType, table.slug, table.locale),
+    moduleSlugLocaleUnique: uniqueIndex('editorial_content_translations_module_slug_locale_unique').on(table.contentModule, table.slug, table.locale),
     contentIdIdx: index('editorial_content_translations_content_id_idx').on(table.contentId),
   }),
 );

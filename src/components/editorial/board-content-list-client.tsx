@@ -1,0 +1,424 @@
+'use client';
+
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Input, Popconfirm, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+
+import { AdminListPagination } from '@/components/admin/admin-list-pagination';
+import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
+import { formatAdminDate } from '@/lib/admin-display';
+import {
+  type AdminListPageSize,
+  type AdminListQuery,
+  UNASSIGNED_BOARD_KEY,
+  buildAdminListUrl,
+  parseAdminListQuery,
+  readStoredPageSize,
+  writeStoredPageSize,
+} from '@/lib/admin-list-query';
+import {
+  type AdminEditorialContentListItem,
+  type AdminEditorialContentTranslation,
+  type EditorialContentModule,
+  type EditorialEntryStatus,
+} from '@/lib/editorial-content';
+import type { AdminEditorialDashboard } from '@/lib/editorial-automation';
+import type { AdminSiteLanguageRow } from '@/server/admin/languages';
+
+const entryStatusLabels: Record<EditorialEntryStatus, string> = {
+  draft: '草稿',
+  published: '已发布',
+  archived: '已归档',
+};
+
+const entryStatusColors: Record<EditorialEntryStatus, string> = {
+  draft: 'default',
+  published: 'green',
+  archived: 'red',
+};
+
+export type BoardContentListState = {
+  items: AdminEditorialContentListItem[];
+  total: number;
+  page: number;
+  pageSize: AdminListPageSize;
+};
+
+type BoardContentListClientProps = {
+  basePath: string;
+  contentModule: EditorialContentModule;
+  pageTitle: string;
+  newButtonLabel?: string;
+  showSlugColumn?: boolean;
+  initialDashboard: AdminEditorialDashboard;
+  initialList: BoardContentListState;
+  initialQuery: AdminListQuery;
+  activeLanguages: AdminSiteLanguageRow[];
+  renderEditorModal: (props: {
+    open: boolean;
+    boardKey: string;
+    boardLabel: string;
+    editingEntry: AdminEditorialContentListItem | null;
+    onClose: () => void;
+    onSaved: (saved: AdminEditorialContentTranslation) => void;
+  }) => ReactNode;
+};
+
+async function fetchBoardContentList(options: {
+  contentModule: EditorialContentModule;
+  boardKey: string;
+  keyword: string;
+  page: number;
+  pageSize: AdminListPageSize;
+  knownBoardKeys: string[];
+}) {
+  const params = new URLSearchParams();
+  params.set('module', options.contentModule);
+  params.set('board_key', options.boardKey);
+  params.set('page', String(options.page));
+  params.set('page_size', String(options.pageSize));
+  if (options.keyword) params.set('keyword', options.keyword);
+  if (options.boardKey === UNASSIGNED_BOARD_KEY && options.knownBoardKeys.length) {
+    params.set('known_board_keys', options.knownBoardKeys.join(','));
+  }
+
+  const response = await fetch(`/api/admin/editorial/content?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error('加载内容列表失败');
+  }
+
+  const payload = (await response.json()) as {
+    items: AdminEditorialContentListItem[];
+    meta: { total: number; page: number; pageSize: number };
+  };
+
+  return {
+    items: payload.items,
+    total: payload.meta.total,
+    page: payload.meta.page,
+    pageSize: payload.meta.pageSize as AdminListPageSize,
+  };
+}
+
+export function BoardContentListClient({
+  basePath,
+  contentModule,
+  pageTitle,
+  newButtonLabel = '新建内容',
+  showSlugColumn = true,
+  initialDashboard,
+  initialList,
+  initialQuery,
+  activeLanguages,
+  renderEditorModal,
+}: BoardContentListClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const boards = initialDashboard.coverage;
+  const knownBoardKeys = useMemo(() => boards.map((board) => board.key), [boards]);
+  const initialMountRef = useRef(true);
+  const hydratedPageSizeRef = useRef(false);
+
+  const [listState, setListState] = useState<BoardContentListState>(initialList);
+  const [query, setQuery] = useState<AdminListQuery>(initialQuery);
+  const [searchInput, setSearchInput] = useState(initialQuery.keyword);
+  const [activeBoardKey, setActiveBoardKey] = useState(initialQuery.board || boards[0]?.key || UNASSIGNED_BOARD_KEY);
+  const [contentModalOpen, setContentModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<AdminEditorialContentListItem | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [messageApi, contextHolder] = message.useMessage();
+
+  const hasBoards = boards.length > 0;
+  const activeBoard = boards.find((board) => board.key === activeBoardKey);
+
+  const replaceUrl = useCallback((nextQuery: AdminListQuery) => {
+    router.replace(buildAdminListUrl(basePath, nextQuery), { scroll: false });
+  }, [basePath, router]);
+
+  useEffect(() => {
+    if (hydratedPageSizeRef.current) return;
+    hydratedPageSizeRef.current = true;
+    const stored = readStoredPageSize();
+    if (!searchParams.get('page_size') && stored && stored !== initialQuery.pageSize) {
+      replaceUrl({ ...initialQuery, pageSize: stored, page: 1 });
+    }
+  }, [searchParams, initialQuery, replaceUrl]);
+
+  const reloadList = useCallback((nextQuery: AdminListQuery) => {
+    startTransition(async () => {
+      try {
+        const result = await fetchBoardContentList({
+          contentModule,
+          boardKey: nextQuery.board,
+          keyword: nextQuery.keyword,
+          page: nextQuery.page,
+          pageSize: nextQuery.pageSize,
+          knownBoardKeys,
+        });
+        setListState(result);
+        setQuery(nextQuery);
+      } catch {
+        void messageApi.error('加载内容列表失败');
+      }
+    });
+  }, [contentModule, knownBoardKeys, messageApi]);
+
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+
+    const urlQuery = parseAdminListQuery(
+      Object.fromEntries(searchParams.entries()),
+      {
+        defaultBoard: boards[0]?.key ?? UNASSIGNED_BOARD_KEY,
+        storedPageSize: readStoredPageSize(),
+      },
+    );
+
+    if (searchParams.get('page_size')) {
+      writeStoredPageSize(urlQuery.pageSize);
+    }
+
+    setSearchInput(urlQuery.keyword);
+    setActiveBoardKey(urlQuery.board);
+    reloadList(urlQuery);
+  }, [searchParams, boards, reloadList]);
+
+  const summary = useMemo(() => ({
+    documents: listState.total,
+    published: listState.items.filter((item) => item.status === 'published').length,
+    currentBoardCount: listState.items.length,
+  }), [listState]);
+
+  const modalBoardKey = editingEntry?.boardKey
+    ?? (activeBoardKey !== UNASSIGNED_BOARD_KEY ? activeBoardKey : boards[0]?.key ?? '');
+  const modalBoardLabel = editingEntry
+    ? boards.find((board) => board.key === editingEntry.boardKey)?.title ?? editingEntry.boardKey
+    : activeBoard?.title ?? boards[0]?.title ?? '';
+
+  const summaryStats = useMemo(() => [
+    { label: '内容总量', value: summary.documents },
+    { label: '已发布', value: summary.published },
+    { label: hasBoards ? '当前页' : '看板', value: hasBoards ? summary.currentBoardCount : 0 },
+  ], [hasBoards, summary]);
+
+  function applyQueryChange(patch: Partial<AdminListQuery>) {
+    const nextQuery: AdminListQuery = {
+      board: patch.board ?? query.board,
+      keyword: patch.keyword ?? query.keyword,
+      page: patch.page ?? query.page,
+      pageSize: patch.pageSize ?? query.pageSize,
+    };
+
+    if (patch.pageSize) {
+      writeStoredPageSize(patch.pageSize);
+    }
+
+    setSearchInput(nextQuery.keyword);
+    setActiveBoardKey(nextQuery.board);
+    replaceUrl(nextQuery);
+  }
+
+  function openContentModal(entry?: AdminEditorialContentListItem) {
+    if (!entry && !hasBoards) {
+      void messageApi.warning('请先在「看板管理」中创建看板，再新建内容');
+      return;
+    }
+    if (!entry && !activeLanguages.length) {
+      void messageApi.warning('请先在「多语言管理」中添加并启用语言');
+    }
+    setEditingEntry(entry ?? null);
+    setContentModalOpen(true);
+  }
+
+  function closeContentModal() {
+    setContentModalOpen(false);
+    setEditingEntry(null);
+  }
+
+  function handleEntrySaved(saved: AdminEditorialContentTranslation) {
+    void (async () => {
+      const response = await fetch(`/api/admin/editorial/content/${saved.contentId}`);
+      if (response.ok) {
+        const payload = (await response.json()) as { item: AdminEditorialContentListItem };
+        setEditingEntry(payload.item);
+      }
+      reloadList(query);
+    })();
+  }
+
+  function patchEntryStatus(entry: AdminEditorialContentListItem, status: EditorialEntryStatus) {
+    startTransition(async () => {
+      const response = await fetch(`/api/admin/editorial/content/${entry.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        void messageApi.error('状态更新失败');
+        return;
+      }
+
+      void messageApi.success(`内容已${entryStatusLabels[status]}`);
+      reloadList(query);
+    });
+  }
+
+  function deleteContent(entry: AdminEditorialContentListItem) {
+    startTransition(async () => {
+      const response = await fetch(`/api/admin/editorial/content/${entry.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        void messageApi.error('内容删除失败');
+        return;
+      }
+      void messageApi.success('内容已删除');
+      reloadList(query);
+    });
+  }
+
+  const contentColumns = [
+    { title: '标题', dataIndex: 'title' },
+    ...(showSlugColumn ? [{ title: 'Slug', dataIndex: 'slug' }] : []),
+    {
+      title: '状态',
+      dataIndex: 'status',
+      render: (value: EditorialEntryStatus) => <Tag color={entryStatusColors[value]}>{entryStatusLabels[value]}</Tag>,
+    },
+    { title: '发布时间', dataIndex: 'publishedAt', render: (value: string | null) => formatAdminDate(value) },
+    { title: '最近更新', dataIndex: 'updatedAt', render: (value: string) => formatAdminDate(value) },
+    {
+      title: '操作',
+      key: 'actions',
+      render: (_: unknown, row: AdminEditorialContentListItem) => (
+        <Space wrap>
+          <Button icon={<EditOutlined />} onClick={() => openContentModal(row)} />
+          {row.status !== 'published' && row.status !== 'archived' ? (
+            <Popconfirm
+              title="确定立即发布吗？"
+              description="发布后内容将对访客可见。"
+              onConfirm={() => patchEntryStatus(row, 'published')}
+            >
+              <Button loading={isPending}>立即发布</Button>
+            </Popconfirm>
+          ) : null}
+          {row.status !== 'archived' ? (
+            <Popconfirm
+              title="确定归档该内容吗？"
+              description="归档后内容将下线，且无法再从列表直接发布。"
+              onConfirm={() => patchEntryStatus(row, 'archived')}
+            >
+              <Button loading={isPending}>归档</Button>
+            </Popconfirm>
+          ) : null}
+          <Popconfirm title="确定删除该内容吗？" onConfirm={() => deleteContent(row)}>
+            <Button danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  function renderBoardPanel(boardKey: string, isUnassigned = false) {
+    return (
+      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+        <Input.Search
+          placeholder="搜索标题、Slug、正文"
+          allowClear
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          onSearch={(value) => applyQueryChange({ board: boardKey, keyword: value.trim(), page: 1 })}
+          style={{ maxWidth: 360 }}
+        />
+        {isUnassigned ? (
+          <Typography.Text type="secondary">以下内容所属看板已不存在，可继续编辑或删除。</Typography.Text>
+        ) : null}
+        <Table
+          rowKey="id"
+          loading={isPending}
+          pagination={false}
+          scroll={{ x: 1280 }}
+          dataSource={listState.items}
+          columns={isUnassigned ? [
+            { title: '标题', dataIndex: 'title' },
+            { title: '原看板 Key', dataIndex: 'boardKey', render: (value: string) => <Tag>{value}</Tag> },
+            ...contentColumns.slice(1),
+          ] : contentColumns}
+          locale={{ emptyText: isUnassigned ? '暂无未归属内容' : '该看板下暂无内容' }}
+        />
+        <AdminListPagination
+          page={listState.page}
+          pageSize={listState.pageSize}
+          total={listState.total}
+          disabled={isPending}
+          onChange={({ page, pageSize }) => applyQueryChange({ board: boardKey, page, pageSize })}
+        />
+      </Space>
+    );
+  }
+
+  const tabItems = boards.map((board) => ({
+    key: board.key,
+    label: board.title,
+    children: activeBoardKey === board.key ? renderBoardPanel(board.key) : null,
+  }));
+
+  return (
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      {contextHolder}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography.Title level={2} style={{ margin: 0 }}>
+          {pageTitle}
+        </Typography.Title>
+        <AdminPageHeaderStats items={summaryStats} />
+      </div>
+
+      <Card
+        title="内容"
+        extra={(
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => openContentModal()} disabled={!hasBoards}>
+            {newButtonLabel}
+          </Button>
+        )}
+      >
+        {!hasBoards ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="还没有内容看板，创建看板后即可按分类管理内容。"
+          >
+            <Link href="/admin/editorial/boards">
+              <Button type="primary">前往看板管理</Button>
+            </Link>
+          </Empty>
+        ) : (
+          <Tabs
+            activeKey={activeBoardKey}
+            onChange={(nextBoard) => applyQueryChange({ board: nextBoard, page: 1 })}
+            items={tabItems}
+          />
+        )}
+      </Card>
+
+      {renderEditorModal({
+        open: contentModalOpen,
+        boardKey: modalBoardKey,
+        boardLabel: modalBoardLabel,
+        editingEntry,
+        onClose: closeContentModal,
+        onSaved: handleEntrySaved,
+      })}
+    </Space>
+  );
+}

@@ -50,7 +50,7 @@ const items = [
     label: '内容管理',
     children: [
       { key: '/admin/editorial/boards', icon: <AppstoreOutlined />, label: <Link href="/admin/editorial/boards">看板管理</Link> },
-      { key: '/admin/content/faq', icon: <FileTextOutlined />, label: <Link href="/admin/content/faq">FAQ管理</Link> },
+      { key: '/admin/faq', icon: <FileTextOutlined />, label: <Link href="/admin/faq">FAQ管理</Link> },
       { key: '/admin/editorial', icon: <FileTextOutlined />, label: <Link href="/admin/editorial">博客管理</Link> },
     ],
   },

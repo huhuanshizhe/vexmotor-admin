@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 
-import { AdminEditorialClient } from './editorial-client';
+import { AdminFaqClient } from './faq-client';
 
 import { parseAdminListQuery } from '@/lib/admin-list-query';
 import { filterCoverageByModule } from '@/lib/editorial-content';
@@ -12,32 +12,32 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-async function EditorialPageContent({ searchParams }: PageProps) {
+async function FaqPageContent({ searchParams }: PageProps) {
   const [dashboard, siteLanguages, params] = await Promise.all([
     getAdminEditorialDashboard(),
     getAdminSiteLanguages(),
     searchParams,
   ]);
 
-  const editorialBoards = filterCoverageByModule(dashboard.coverage, 'editorial');
-  const filteredDashboard = { ...dashboard, coverage: editorialBoards };
-  const boardKeys = new Set(editorialBoards.map((board) => board.key));
-  const defaultBoard = editorialBoards[0]?.key ?? '';
+  const faqBoards = filterCoverageByModule(dashboard.coverage, 'faq');
+  const filteredDashboard = { ...dashboard, coverage: faqBoards };
+  const boardKeys = new Set(faqBoards.map((board) => board.key));
+  const defaultBoard = faqBoards[0]?.key ?? '';
   const initialQuery = parseAdminListQuery(params, { defaultBoard });
   const boardKey = initialQuery.board && boardKeys.has(initialQuery.board) ? initialQuery.board : defaultBoard;
   const initialList = await getAdminEditorialContentListPaginated({
-    contentModule: 'editorial',
+    contentModule: 'faq',
     boardKey: boardKey || defaultBoard,
     keyword: initialQuery.keyword || undefined,
     page: initialQuery.page,
     pageSize: initialQuery.pageSize,
-    knownBoardKeys: editorialBoards.map((board) => board.key),
+    knownBoardKeys: faqBoards.map((board) => board.key),
   });
 
   const activeLanguages = siteLanguages.filter((language) => language.status === 'active');
 
   return (
-    <AdminEditorialClient
+    <AdminFaqClient
       initialDashboard={filteredDashboard}
       initialList={initialList}
       initialQuery={{ ...initialQuery, board: boardKey || defaultBoard }}
@@ -46,10 +46,10 @@ async function EditorialPageContent({ searchParams }: PageProps) {
   );
 }
 
-export default function AdminEditorialPage({ searchParams }: PageProps) {
+export default function AdminFaqPage({ searchParams }: PageProps) {
   return (
     <Suspense fallback={null}>
-      <EditorialPageContent searchParams={searchParams} />
+      <FaqPageContent searchParams={searchParams} />
     </Suspense>
   );
 }

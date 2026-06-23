@@ -1,13 +1,20 @@
 import 'server-only';
 
-import { and, asc, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, ne, notInArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
+  type AdminListPageSize,
+  normalizePageSize,
+} from '@/lib/admin-list-query';
+import {
   type AdminEditorialContentListItem,
   type AdminEditorialContentTranslation,
+  type EditorialContentModule,
   type EditorialContentPayload,
+  editorialContentModules,
   editorialEntryStatuses,
+  resolveContentModuleByBoard,
 } from '@/lib/editorial-content';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
 import { db } from '@/server/db';
@@ -27,9 +34,10 @@ const payloadSchema = z.object({
 export const adminEditorialContentTranslationSchema = z.object({
   contentId: z.string().uuid().optional(),
   contentType: z.literal('content').optional(),
+  contentModule: z.enum(editorialContentModules).optional(),
   boardKey: z.string().trim().min(1),
   title: z.string().trim().min(1),
-  slug: z.string().trim().min(1),
+  slug: z.string().trim().min(1).optional(),
   summary: z.string().trim().nullable().optional(),
   locale: z.string().trim().min(2).default('en'),
   status: z.enum(editorialEntryStatuses).default('draft'),
@@ -108,11 +116,17 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedTitle = input.title.trim();
   const normalizedSummary = normalizeText(input.summary);
   const normalizedPayload = normalizePayload(input.payload);
+  const normalizedSlug = input.slug?.trim()
+    ? normalizeSlug(input.slug)
+    : normalizeSlug(normalizedTitle);
+  const boardKey = normalizeBoardKey(input.boardKey);
+  const contentModule = input.contentModule ?? resolveContentModuleByBoard(boardKey);
 
   return {
-    boardKey: normalizeBoardKey(input.boardKey),
+    boardKey,
+    contentModule,
     title: normalizedTitle,
-    slug: normalizeSlug(input.slug),
+    slug: normalizedSlug || `item-${Date.now()}`,
     summary: normalizedSummary,
     locale: normalizeLocale(input.locale),
     status: input.status,
@@ -212,14 +226,33 @@ async function loadTranslationsByContentIds(contentIds: string[]) {
   return grouped;
 }
 
-async function findContentIdsBySearch(search: string) {
+async function findContentIdsBySearch(
+  search: string,
+  options: {
+    boardKey?: string;
+    knownBoardKeys?: string[];
+    contentModule?: EditorialContentModule;
+  },
+) {
   const pattern = `%${search.trim()}%`;
+  const boardConditions = [eq(editorialContents.contentType, 'content')];
+
+  if (options.contentModule) {
+    boardConditions.push(eq(editorialContents.contentModule, options.contentModule));
+  }
+
+  if (options.boardKey === '__unassigned__' && options.knownBoardKeys?.length) {
+    boardConditions.push(notInArray(editorialContents.boardKey, options.knownBoardKeys.map(normalizeBoardKey)));
+  } else if (options.boardKey && options.boardKey !== '__unassigned__') {
+    boardConditions.push(eq(editorialContents.boardKey, normalizeBoardKey(options.boardKey)));
+  }
+
   const rows = await db
     .selectDistinct({ contentId: editorialContentTranslations.contentId })
     .from(editorialContentTranslations)
     .innerJoin(editorialContents, eq(editorialContents.id, editorialContentTranslations.contentId))
     .where(and(
-      eq(editorialContents.contentType, 'content'),
+      ...boardConditions,
       or(
         ilike(editorialContentTranslations.title, pattern),
         ilike(editorialContentTranslations.slug, pattern),
@@ -233,32 +266,112 @@ async function findContentIdsBySearch(search: string) {
   return rows.map((row) => row.contentId);
 }
 
-export async function getAdminEditorialContentList(search?: string): Promise<AdminEditorialContentListItem[]> {
-  const matchingIds = search?.trim() ? await findContentIdsBySearch(search) : null;
+function buildContentListConditions(options: {
+  boardKey?: string;
+  keyword?: string;
+  knownBoardKeys?: string[];
+  matchingIds?: string[] | null;
+  contentModule?: EditorialContentModule;
+}) {
+  const conditions = [eq(editorialContents.contentType, 'content')];
 
-  const contentRows = matchingIds
-    ? matchingIds.length
-      ? await db
-        .select()
-        .from(editorialContents)
-        .where(and(
-          eq(editorialContents.contentType, 'content'),
-          inArray(editorialContents.id, matchingIds),
-        ))
-        .orderBy(desc(editorialContents.updatedAt))
-      : []
-    : await db
-      .select()
-      .from(editorialContents)
-      .where(eq(editorialContents.contentType, 'content'))
-      .orderBy(desc(editorialContents.updatedAt));
+  if (options.contentModule) {
+    conditions.push(eq(editorialContents.contentModule, options.contentModule));
+  }
+
+  if (options.boardKey === '__unassigned__' && options.knownBoardKeys?.length) {
+    conditions.push(notInArray(editorialContents.boardKey, options.knownBoardKeys.map(normalizeBoardKey)));
+  } else if (options.boardKey && options.boardKey !== '__unassigned__') {
+    conditions.push(eq(editorialContents.boardKey, normalizeBoardKey(options.boardKey)));
+  }
+
+  if (options.matchingIds !== undefined && options.matchingIds !== null) {
+    if (!options.matchingIds.length) {
+      return null;
+    }
+    conditions.push(inArray(editorialContents.id, options.matchingIds));
+  }
+
+  return conditions;
+}
+
+export type AdminEditorialContentListQuery = {
+  boardKey?: string;
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
+  knownBoardKeys?: string[];
+  contentModule?: EditorialContentModule;
+};
+
+export type AdminEditorialContentListPage = {
+  items: AdminEditorialContentListItem[];
+  total: number;
+  page: number;
+  pageSize: AdminListPageSize;
+};
+
+export async function getAdminEditorialContentListPaginated(
+  options: AdminEditorialContentListQuery = {},
+): Promise<AdminEditorialContentListPage> {
+  const page = Math.max(1, Math.floor(options.page ?? 1));
+  const pageSize = normalizePageSize(options.pageSize ?? 20);
+  const keyword = options.keyword?.trim() ?? '';
+
+  const matchingIds = keyword
+    ? await findContentIdsBySearch(keyword, {
+      boardKey: options.boardKey,
+      knownBoardKeys: options.knownBoardKeys,
+      contentModule: options.contentModule,
+    })
+    : undefined;
+
+  const conditions = buildContentListConditions({
+    boardKey: options.boardKey,
+    knownBoardKeys: options.knownBoardKeys,
+    matchingIds: keyword ? matchingIds ?? [] : undefined,
+    contentModule: options.contentModule,
+  });
+
+  if (!conditions) {
+    return { items: [], total: 0, page, pageSize };
+  }
+
+  const whereClause = and(...conditions);
+
+  const [totalRow] = await db
+    .select({ value: count() })
+    .from(editorialContents)
+    .where(whereClause);
+
+  const total = Number(totalRow?.value ?? 0);
+  const offset = (page - 1) * pageSize;
+
+  const contentRows = await db
+    .select()
+    .from(editorialContents)
+    .where(whereClause)
+    .orderBy(desc(editorialContents.updatedAt))
+    .limit(pageSize)
+    .offset(offset);
 
   const translationMap = await loadTranslationsByContentIds(contentRows.map((row) => row.id));
 
-  return contentRows
+  const items = contentRows
     .map((content) => toListItem(content, translationMap.get(content.id) ?? []))
     .filter((item): item is AdminEditorialContentListItem => Boolean(item))
     .sort(sortListItems);
+
+  return { items, total, page, pageSize };
+}
+
+export async function getAdminEditorialContentList(search?: string): Promise<AdminEditorialContentListItem[]> {
+  const result = await getAdminEditorialContentListPaginated({
+    keyword: search,
+    page: 1,
+    pageSize: 10000,
+  });
+  return result.items;
 }
 
 /** @deprecated 使用 getAdminEditorialContentList */
@@ -328,7 +441,12 @@ export async function getAdminEditorialContentEntry(id: string) {
   return getAdminEditorialContentTranslation(id);
 }
 
-export async function findAdminEditorialContentTranslationBySlug(slug: string, locale?: string, excludeTranslationId?: string) {
+export async function findAdminEditorialContentTranslationBySlug(
+  slug: string,
+  locale?: string,
+  excludeTranslationId?: string,
+  contentModule?: EditorialContentModule,
+) {
   const normalizedSlug = normalizeSlug(slug);
   const normalizedLocale = normalizeLocale(locale);
 
@@ -337,6 +455,9 @@ export async function findAdminEditorialContentTranslationBySlug(slug: string, l
     eq(editorialContentTranslations.slug, normalizedSlug),
     eq(editorialContentTranslations.locale, normalizedLocale),
   ];
+  if (contentModule) {
+    conditions.push(eq(editorialContentTranslations.contentModule, contentModule));
+  }
   if (excludeTranslationId) {
     conditions.push(ne(editorialContentTranslations.id, excludeTranslationId));
   }
@@ -390,12 +511,23 @@ export async function findAdminEditorialContentEntryByGroupAndLocale(groupId: st
 export async function createAdminEditorialContentTranslation(input: TranslationCreateInput) {
   const next = sanitizeTranslationInput(input);
 
+  if (input.contentId) {
+    const existingLocale = await findAdminEditorialContentTranslationByContentAndLocale(
+      input.contentId,
+      next.locale,
+    );
+    if (existingLocale) {
+      return updateAdminEditorialContentTranslation(existingLocale.id, input);
+    }
+  }
+
   const contentId = input.contentId
     ? input.contentId
     : (await db
       .insert(editorialContents)
       .values({
         contentType: 'content',
+        contentModule: next.contentModule,
         boardKey: next.boardKey,
         status: next.status,
         publishedAt: next.publishedAt ? new Date(next.publishedAt) : null,
@@ -405,9 +537,20 @@ export async function createAdminEditorialContentTranslation(input: TranslationC
   if (!contentId) return null;
 
   if (input.contentId) {
+    const [existingContent] = await db
+      .select()
+      .from(editorialContents)
+      .where(eq(editorialContents.id, contentId))
+      .limit(1);
+
+    if (existingContent && existingContent.contentModule !== next.contentModule) {
+      return null;
+    }
+
     await db
       .update(editorialContents)
       .set({
+        contentModule: next.contentModule,
         boardKey: next.boardKey,
         status: next.status,
         publishedAt: next.publishedAt ? new Date(next.publishedAt) : null,
@@ -421,6 +564,7 @@ export async function createAdminEditorialContentTranslation(input: TranslationC
     .values({
       contentId,
       contentType: 'content',
+      contentModule: next.contentModule,
       locale: next.locale,
       title: next.title,
       slug: next.slug,
@@ -456,6 +600,7 @@ export async function updateAdminEditorialContentTranslation(translationId: stri
 
   const merged = sanitizeTranslationInput({
     contentId: current.contentId,
+    contentModule: input.contentModule ?? resolveContentModuleByBoard(input.boardKey ?? current.boardKey),
     boardKey: input.boardKey ?? current.boardKey,
     title: input.title ?? current.title,
     slug: input.slug ?? current.slug,
@@ -471,6 +616,7 @@ export async function updateAdminEditorialContentTranslation(translationId: stri
   await db
     .update(editorialContents)
     .set({
+      contentModule: merged.contentModule,
       boardKey: merged.boardKey,
       status: merged.status,
       publishedAt: merged.publishedAt ? new Date(merged.publishedAt) : null,
@@ -481,6 +627,7 @@ export async function updateAdminEditorialContentTranslation(translationId: stri
   const [updated] = await db
     .update(editorialContentTranslations)
     .set({
+      contentModule: merged.contentModule,
       locale: merged.locale,
       title: merged.title,
       slug: merged.slug,

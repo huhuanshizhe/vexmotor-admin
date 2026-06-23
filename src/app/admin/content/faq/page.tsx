@@ -1,5 +1,5 @@
-import { ContentEditorClient } from '@/components/admin/content-editor-client';
+import { redirect } from 'next/navigation';
 
-export default function FaqAdminPage() {
-  return <ContentEditorClient initialRows={[]} contentType="faq" />;
+export default function LegacyFaqAdminPage() {
+  redirect('/admin/faq');
 }

@@ -73,6 +73,21 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     baselineTags.push('0002_editorial_content_split');
   }
 
+  if (allTags.includes('0003_editorial_content_module') && hasNewEditorial) {
+    const [moduleColumn] = await sql<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'editorial_contents'
+          AND column_name = 'content_module'
+      ) AS exists
+    `;
+    if (moduleColumn?.exists) {
+      baselineTags.push('0003_editorial_content_module');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);

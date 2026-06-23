@@ -2,6 +2,31 @@ export const editorialEntryStatuses = ['draft', 'published', 'archived'] as cons
 
 export type EditorialEntryStatus = (typeof editorialEntryStatuses)[number];
 
+export const editorialContentModules = ['editorial', 'faq'] as const;
+export type EditorialContentModule = (typeof editorialContentModules)[number];
+
+export const FAQ_BOARD_KEYS = ['faq', 'tech-faq'] as const;
+
+export function normalizeBoardKeyForModule(value: string | null | undefined) {
+  return value?.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'content';
+}
+
+export function resolveContentModuleByBoard(boardKey: string): EditorialContentModule {
+  const normalized = normalizeBoardKeyForModule(boardKey);
+  return (FAQ_BOARD_KEYS as readonly string[]).includes(normalized) ? 'faq' : 'editorial';
+}
+
+export function isFaqBoardKey(boardKey: string) {
+  return resolveContentModuleByBoard(boardKey) === 'faq';
+}
+
+export function filterCoverageByModule<T extends { key: string }>(
+  boards: T[],
+  contentModule: EditorialContentModule,
+): T[] {
+  return boards.filter((board) => resolveContentModuleByBoard(board.key) === contentModule);
+}
+
 export type EditorialContentPayload = {
   body: string;
   coverUrl: string | null;

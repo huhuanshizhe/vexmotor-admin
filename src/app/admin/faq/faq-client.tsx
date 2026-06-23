@@ -1,15 +1,15 @@
 'use client';
 
-import { ContentEditorModal } from '@/components/editorial/content-editor-modal';
 import {
   BoardContentListClient,
   type BoardContentListState,
 } from '@/components/editorial/board-content-list-client';
+import { FaqEditorModal } from '@/components/editorial/faq-editor-modal';
 import type { AdminListQuery } from '@/lib/admin-list-query';
 import type { AdminEditorialDashboard } from '@/lib/editorial-automation';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
-export function AdminEditorialClient({
+export function AdminFaqClient({
   initialDashboard,
   initialList,
   initialQuery,
@@ -22,17 +22,17 @@ export function AdminEditorialClient({
 }) {
   return (
     <BoardContentListClient
-      basePath="/admin/editorial"
-      contentModule="editorial"
-      pageTitle="博客管理"
-      newButtonLabel="新建内容"
-      showSlugColumn
+      basePath="/admin/faq"
+      contentModule="faq"
+      pageTitle="FAQ 管理"
+      newButtonLabel="新建 FAQ"
+      showSlugColumn={false}
       initialDashboard={initialDashboard}
       initialList={initialList}
       initialQuery={initialQuery}
       activeLanguages={activeLanguages}
       renderEditorModal={(props) => (
-        <ContentEditorModal
+        <FaqEditorModal
           open={props.open}
           boardKey={props.boardKey}
           boardLabel={props.boardLabel}

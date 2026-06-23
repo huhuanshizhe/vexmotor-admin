@@ -1,9 +1,10 @@
 'use client';
 
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Form, Input, Modal, Popconfirm, Row, Space, Statistic, Table, Tag, Typography, message } from 'antd';
+import { Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
 import { useMemo, useState, useTransition } from 'react';
 
+import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
 import type { AdminEditorialContentListItem } from '@/lib/editorial-content';
 import type {
   AdminEditorialDashboard,
@@ -39,6 +40,12 @@ export function AdminEditorialBoardsClient({
     customBoards: boards.filter((item) => item.custom).length,
     documents: entries.length,
   }), [boards, entries.length]);
+
+  const summaryStats = useMemo(() => [
+    { label: '看板总数', value: summary.boards },
+    { label: '自定义', value: summary.customBoards },
+    { label: '关联内容', value: summary.documents },
+  ], [summary]);
 
   async function saveEditorialConfig(nextConfig: EditorialAutomationConfig) {
     const response = await fetch('/api/admin/editorial', {
@@ -104,18 +111,22 @@ export function AdminEditorialBoardsClient({
   }
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
       {contextHolder}
-      <div>
-        <Typography.Title level={2}>看板管理</Typography.Title>
-        <Typography.Paragraph type="secondary">维护内容看板分类。博客管理中的内容将按看板分组展示。</Typography.Paragraph>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography.Title level={2} style={{ margin: 0 }}>
+          看板管理
+        </Typography.Title>
+        <AdminPageHeaderStats items={summaryStats} />
       </div>
-
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}><Card><Statistic title="看板总数" value={summary.boards} /></Card></Col>
-        <Col xs={24} md={8}><Card><Statistic title="自定义看板" value={summary.customBoards} /></Card></Col>
-        <Col xs={24} md={8}><Card><Statistic title="关联内容" value={summary.documents} /></Card></Col>
-      </Row>
 
       <Card title="内容看板" extra={<Button type="primary" icon={<PlusOutlined />} onClick={openBoardModal}>新增看板</Button>}>
         <Table
