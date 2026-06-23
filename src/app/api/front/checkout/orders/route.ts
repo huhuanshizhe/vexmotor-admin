@@ -105,7 +105,8 @@ export async function POST(request: NextRequest) {
   }
 
   const redirectPath = userId ? `/account/orders/${order.orderNumber}` : `/checkout/confirmation/${order.orderNumber}`;
-  const guestAccessToken = !userId && 'guestAccessToken' in order ? order.guestAccessToken : undefined;
+  const guestAccessTokenCandidate = !userId ? (order as unknown as { guestAccessToken?: string }).guestAccessToken : undefined;
+  const guestAccessToken = typeof guestAccessTokenCandidate === 'string' ? guestAccessTokenCandidate : undefined;
   const response = NextResponse.json(
     { orderNumber: order.orderNumber, redirectPath, guestAccessToken },
     { status: 201, headers: corsHeaders() },

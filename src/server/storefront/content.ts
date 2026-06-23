@@ -1,6 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
 
-import { listMemoryCmsPages } from '@/server/admin/memory-store';
 import { db } from '@/server/db';
 import { cmsPages } from '@/server/db/schema';
 import type { Locale } from '@/lib/i18n';
@@ -49,47 +48,31 @@ export async function getCmsPageByLegacySlug(legacySlug: string, locale: Locale)
     return null;
   }
 
-  if (!db) {
-    const memoryPages = listMemoryCmsPages().filter((item) => item.status === 'published');
-    const pageBySlug = new Map(memoryPages.map((item) => [item.slug, item]));
-    for (const slug of candidates) {
-      const page = pageBySlug.get(slug);
-      if (page) {
-        return page;
-      }
-    }
+  const rows = await db
+    .select({
+      id: cmsPages.id,
+      title: cmsPages.title,
+      slug: cmsPages.slug,
+      summary: cmsPages.summary,
+      content: cmsPages.content,
+      seoTitle: cmsPages.seoTitle,
+      seoDescription: cmsPages.seoDescription,
+      publishedAt: cmsPages.publishedAt,
+    })
+    .from(cmsPages)
+    .where(and(inArray(cmsPages.slug, candidates), eq(cmsPages.status, 'published')));
+
+  if (!rows.length) {
     return null;
   }
 
-  try {
-    const rows = await db
-      .select({
-        id: cmsPages.id,
-        title: cmsPages.title,
-        slug: cmsPages.slug,
-        summary: cmsPages.summary,
-        content: cmsPages.content,
-        seoTitle: cmsPages.seoTitle,
-        seoDescription: cmsPages.seoDescription,
-        publishedAt: cmsPages.publishedAt,
-      })
-      .from(cmsPages)
-      .where(and(inArray(cmsPages.slug, candidates), eq(cmsPages.status, 'published')));
-
-    if (!rows.length) {
-      return null;
+  const pageBySlug = new Map(rows.map((row) => [row.slug, row]));
+  for (const slug of candidates) {
+    const page = pageBySlug.get(slug);
+    if (page) {
+      return page;
     }
-
-    const pageBySlug = new Map(rows.map((row) => [row.slug, row]));
-    for (const slug of candidates) {
-      const page = pageBySlug.get(slug);
-      if (page) {
-        return page;
-      }
-    }
-
-    return rows[0] ?? null;
-  } catch {
-    return null;
   }
+
+  return rows[0] ?? null;
 }

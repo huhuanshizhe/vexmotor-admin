@@ -1,13 +1,5 @@
 import { asc, eq } from 'drizzle-orm';
 
-import {
-  createMemoryCategory,
-  deleteMemoryCategory,
-  getMemoryCategory,
-  getMemoryProductCountForCategory,
-  listMemoryCategories,
-  updateMemoryCategory,
-} from '@/server/admin/memory-store';
 import { db } from '@/server/db';
 import { categories, products } from '@/server/db/schema';
 
@@ -44,58 +36,39 @@ export type AdminCategoryInput = {
   featuredOrder?: number;
 };
 
-function mapMemoryCategories(): AdminCategoryRow[] {
-  const rows = listMemoryCategories();
-  const nameMap = new Map(rows.map((item) => [item.id, item.name]));
-  return rows.map((item) => ({
-    ...item,
-    parentName: item.parentId ? nameMap.get(item.parentId) ?? null : null,
-    productCount: getMemoryProductCountForCategory(item.id),
-  }));
-}
-
 export async function getAdminCategories() {
-  if (!db) {
-    return mapMemoryCategories();
-  }
+  const [categoryRows, productRows] = await Promise.all([
+    db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
+    db.select({ categoryId: products.defaultCategoryId }).from(products),
+  ]);
 
-  try {
-    const [categoryRows, productRows] = await Promise.all([
-      db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name)),
-      db.select({ categoryId: products.defaultCategoryId }).from(products),
-    ]);
-
-    const nameMap = new Map(categoryRows.map((item) => [item.id, item.name]));
-    const productCountMap = new Map<string, number>();
-    for (const row of productRows) {
-      if (!row.categoryId) {
-        continue;
-      }
-
-      productCountMap.set(row.categoryId, (productCountMap.get(row.categoryId) ?? 0) + 1);
+  const nameMap = new Map(categoryRows.map((item) => [item.id, item.name]));
+  const productCountMap = new Map<string, number>();
+  for (const row of productRows) {
+    if (!row.categoryId) {
+      continue;
     }
-
-    return categoryRows.map((item) => ({
-      id: item.id,
-      parentId: item.parentId,
-      parentName: item.parentId ? nameMap.get(item.parentId) ?? null : null,
-      name: item.name,
-      slug: item.slug,
-      description: item.description,
-      imageUrl: item.imageUrl,
-      seoTitle: item.seoTitle,
-      seoDescription: item.seoDescription,
-      status: item.status,
-      sortOrder: item.sortOrder,
-      isFeatured: item.isFeatured,
-      featuredOrder: item.featuredOrder,
-      productCount: productCountMap.get(item.id) ?? 0,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-    }));
-  } catch {
-    return mapMemoryCategories();
+    productCountMap.set(row.categoryId, (productCountMap.get(row.categoryId) ?? 0) + 1);
   }
+
+  return categoryRows.map((item) => ({
+    id: item.id,
+    parentId: item.parentId,
+    parentName: item.parentId ? nameMap.get(item.parentId) ?? null : null,
+    name: item.name,
+    slug: item.slug,
+    description: item.description,
+    imageUrl: item.imageUrl,
+    seoTitle: item.seoTitle,
+    seoDescription: item.seoDescription,
+    status: item.status,
+    sortOrder: item.sortOrder,
+    isFeatured: item.isFeatured,
+    featuredOrder: item.featuredOrder,
+    productCount: productCountMap.get(item.id) ?? 0,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }));
 }
 
 export async function getAdminCategoryOptions() {
@@ -109,8 +82,9 @@ export async function getAdminCategory(id: string) {
 }
 
 export async function createAdminCategory(input: AdminCategoryInput) {
-  if (!db) {
-    return createMemoryCategory({
+  const [created] = await db
+    .insert(categories)
+    .values({
       parentId: input.parentId ?? null,
       name: input.name,
       slug: input.slug,
@@ -122,48 +96,16 @@ export async function createAdminCategory(input: AdminCategoryInput) {
       sortOrder: input.sortOrder ?? 0,
       isFeatured: input.isFeatured ?? false,
       featuredOrder: input.featuredOrder ?? 0,
-    });
-  }
+    })
+    .returning();
 
-  try {
-    const [created] = await db
-      .insert(categories)
-      .values({
-        parentId: input.parentId ?? null,
-        name: input.name,
-        slug: input.slug,
-        description: input.description ?? null,
-        imageUrl: input.imageUrl ?? null,
-        seoTitle: input.seoTitle ?? null,
-        seoDescription: input.seoDescription ?? null,
-        status: input.status,
-        sortOrder: input.sortOrder ?? 0,
-        isFeatured: input.isFeatured ?? false,
-        featuredOrder: input.featuredOrder ?? 0,
-      })
-      .returning();
-
-    return created ?? null;
-  } catch {
-    return createMemoryCategory({
-      parentId: input.parentId ?? null,
-      name: input.name,
-      slug: input.slug,
-      description: input.description ?? null,
-      imageUrl: input.imageUrl ?? null,
-      seoTitle: input.seoTitle ?? null,
-      seoDescription: input.seoDescription ?? null,
-      status: input.status,
-      sortOrder: input.sortOrder ?? 0,
-      isFeatured: input.isFeatured ?? false,
-      featuredOrder: input.featuredOrder ?? 0,
-    });
-  }
+  return created ?? null;
 }
 
 export async function updateAdminCategory(id: string, input: Partial<AdminCategoryInput>) {
-  if (!db) {
-    return updateMemoryCategory(id, {
+  const [updated] = await db
+    .update(categories)
+    .set({
       parentId: input.parentId,
       name: input.name,
       slug: input.slug,
@@ -175,56 +117,15 @@ export async function updateAdminCategory(id: string, input: Partial<AdminCatego
       sortOrder: input.sortOrder,
       isFeatured: input.isFeatured,
       featuredOrder: input.featuredOrder,
-    });
-  }
+      updatedAt: new Date(),
+    })
+    .where(eq(categories.id, id))
+    .returning();
 
-  try {
-    const [updated] = await db
-      .update(categories)
-      .set({
-        parentId: input.parentId,
-        name: input.name,
-        slug: input.slug,
-        description: input.description,
-        imageUrl: input.imageUrl,
-        seoTitle: input.seoTitle,
-        seoDescription: input.seoDescription,
-        status: input.status,
-        sortOrder: input.sortOrder,
-        isFeatured: input.isFeatured,
-        featuredOrder: input.featuredOrder,
-        updatedAt: new Date(),
-      })
-      .where(eq(categories.id, id))
-      .returning();
-
-    return updated ?? null;
-  } catch {
-    return updateMemoryCategory(id, {
-      parentId: input.parentId,
-      name: input.name,
-      slug: input.slug,
-      description: input.description,
-      imageUrl: input.imageUrl,
-      seoTitle: input.seoTitle,
-      seoDescription: input.seoDescription,
-      status: input.status,
-      sortOrder: input.sortOrder,
-      isFeatured: input.isFeatured,
-      featuredOrder: input.featuredOrder,
-    });
-  }
+  return updated ?? null;
 }
 
 export async function deleteAdminCategory(id: string) {
-  if (!db) {
-    return deleteMemoryCategory(id);
-  }
-
-  try {
-    const [deleted] = await db.delete(categories).where(eq(categories.id, id)).returning({ id: categories.id });
-    return Boolean(deleted);
-  } catch {
-    return deleteMemoryCategory(id);
-  }
+  const [deleted] = await db.delete(categories).where(eq(categories.id, id)).returning({ id: categories.id });
+  return Boolean(deleted);
 }

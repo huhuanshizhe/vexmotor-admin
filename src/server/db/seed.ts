@@ -23,10 +23,6 @@ import {
 } from '@/server/db/schema';
 
 async function main() {
-  if (!db) {
-    throw new Error('DATABASE_URL is required before running db:seed');
-  }
-
   const [existingAdmin] = await db.select().from(users).where(eq(users.email, 'admin@lianchuan.local')).limit(1);
   if (!existingAdmin) {
     await db.insert(users).values({

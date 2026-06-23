@@ -10,9 +10,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!userId) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Authentication required' }, { status: 401 });
   }
-  if (!db) {
-    return NextResponse.json({ code: 'DB_UNAVAILABLE', message: 'Database is not configured' }, { status: 503 });
-  }
 
   const { productId } = await params;
   await db.delete(wishlists).where(and(eq(wishlists.userId, userId), eq(wishlists.productId, productId)));

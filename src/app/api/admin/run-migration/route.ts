@@ -4,10 +4,6 @@ import { db } from '@/server/db';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  if (!db) {
-    return NextResponse.json({ error: 'Database connection not available' }, { status: 500 });
-  }
-
   try {
     // 1. Create enum (ignore if exists)
     await db.execute(`

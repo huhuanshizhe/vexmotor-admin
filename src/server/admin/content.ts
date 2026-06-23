@@ -1,17 +1,5 @@
 import { asc, desc, eq } from 'drizzle-orm';
 
-import {
-  createMemoryCmsPage,
-  createMemoryContentBlock,
-  deleteMemoryCmsPage,
-  deleteMemoryContentBlock,
-  getMemoryCmsPage,
-  getMemoryContentBlock,
-  listMemoryCmsPages,
-  listMemoryContentBlocks,
-  updateMemoryCmsPage,
-  updateMemoryContentBlock,
-} from '@/server/admin/memory-store';
 import { db } from '@/server/db';
 import { cmsPages, contentBlocks } from '@/server/db/schema';
 
@@ -64,25 +52,18 @@ export type AdminCmsPageInput = {
 };
 
 export async function getAdminContentBlocks() {
-  if (!db) {
-    return listMemoryContentBlocks();
-  }
-
-  try {
-    return await db.select().from(contentBlocks).orderBy(asc(contentBlocks.sortOrder), desc(contentBlocks.updatedAt));
-  } catch {
-    return listMemoryContentBlocks();
-  }
+  return db.select().from(contentBlocks).orderBy(asc(contentBlocks.sortOrder), desc(contentBlocks.updatedAt));
 }
 
 export async function getAdminContentBlock(id: string) {
   const rows = await getAdminContentBlocks();
-  return rows.find((item) => item.id === id) ?? getMemoryContentBlock(id);
+  return rows.find((item) => item.id === id) ?? null;
 }
 
 export async function createAdminContentBlock(input: AdminContentBlockInput) {
-  if (!db) {
-    return createMemoryContentBlock({
+  const [created] = await db
+    .insert(contentBlocks)
+    .values({
       placement: input.placement,
       blockKey: input.blockKey,
       title: input.title ?? null,
@@ -90,40 +71,16 @@ export async function createAdminContentBlock(input: AdminContentBlockInput) {
       content: input.content ?? {},
       status: input.status,
       sortOrder: input.sortOrder ?? 0,
-    });
-  }
+    })
+    .returning();
 
-  try {
-    const [created] = await db
-      .insert(contentBlocks)
-      .values({
-        placement: input.placement,
-        blockKey: input.blockKey,
-        title: input.title ?? null,
-        subtitle: input.subtitle ?? null,
-        content: input.content ?? {},
-        status: input.status,
-        sortOrder: input.sortOrder ?? 0,
-      })
-      .returning();
-
-    return created ?? null;
-  } catch {
-    return createMemoryContentBlock({
-      placement: input.placement,
-      blockKey: input.blockKey,
-      title: input.title ?? null,
-      subtitle: input.subtitle ?? null,
-      content: input.content ?? {},
-      status: input.status,
-      sortOrder: input.sortOrder ?? 0,
-    });
-  }
+  return created ?? null;
 }
 
 export async function updateAdminContentBlock(id: string, input: Partial<AdminContentBlockInput>) {
-  if (!db) {
-    return updateMemoryContentBlock(id, {
+  const [updated] = await db
+    .update(contentBlocks)
+    .set({
       placement: input.placement,
       blockKey: input.blockKey,
       title: input.title,
@@ -131,74 +88,33 @@ export async function updateAdminContentBlock(id: string, input: Partial<AdminCo
       content: input.content,
       status: input.status,
       sortOrder: input.sortOrder,
-    });
-  }
+      updatedAt: new Date(),
+    })
+    .where(eq(contentBlocks.id, id))
+    .returning();
 
-  try {
-    const [updated] = await db
-      .update(contentBlocks)
-      .set({
-        placement: input.placement,
-        blockKey: input.blockKey,
-        title: input.title,
-        subtitle: input.subtitle,
-        content: input.content,
-        status: input.status,
-        sortOrder: input.sortOrder,
-        updatedAt: new Date(),
-      })
-      .where(eq(contentBlocks.id, id))
-      .returning();
-
-    return updated ?? null;
-  } catch {
-    return updateMemoryContentBlock(id, {
-      placement: input.placement,
-      blockKey: input.blockKey,
-      title: input.title,
-      subtitle: input.subtitle,
-      content: input.content,
-      status: input.status,
-      sortOrder: input.sortOrder,
-    });
-  }
+  return updated ?? null;
 }
 
 export async function deleteAdminContentBlock(id: string) {
-  if (!db) {
-    return deleteMemoryContentBlock(id);
-  }
-
-  try {
-    const [deleted] = await db.delete(contentBlocks).where(eq(contentBlocks.id, id)).returning({ id: contentBlocks.id });
-    return Boolean(deleted);
-  } catch {
-    return deleteMemoryContentBlock(id);
-  }
+  const [deleted] = await db.delete(contentBlocks).where(eq(contentBlocks.id, id)).returning({ id: contentBlocks.id });
+  return Boolean(deleted);
 }
 
 export async function getAdminCmsPages() {
-  if (!db) {
-    return listMemoryCmsPages();
-  }
-
-  try {
-    return await db.select().from(cmsPages).orderBy(desc(cmsPages.updatedAt), asc(cmsPages.title));
-  } catch {
-    return listMemoryCmsPages();
-  }
+  return db.select().from(cmsPages).orderBy(desc(cmsPages.updatedAt), asc(cmsPages.title));
 }
 
 export async function getAdminCmsPage(id: string) {
   const rows = await getAdminCmsPages();
-  return rows.find((item) => item.id === id) ?? getMemoryCmsPage(id);
+  return rows.find((item) => item.id === id) ?? null;
 }
 
 export async function createAdminCmsPage(input: AdminCmsPageInput) {
   const publishedAt = input.status === 'published' ? input.publishedAt ?? new Date() : input.publishedAt ?? null;
-
-  if (!db) {
-    return createMemoryCmsPage({
+  const [created] = await db
+    .insert(cmsPages)
+    .values({
       title: input.title,
       slug: input.slug,
       summary: input.summary ?? null,
@@ -207,37 +123,10 @@ export async function createAdminCmsPage(input: AdminCmsPageInput) {
       seoDescription: input.seoDescription ?? null,
       status: input.status,
       publishedAt,
-    });
-  }
+    })
+    .returning();
 
-  try {
-    const [created] = await db
-      .insert(cmsPages)
-      .values({
-        title: input.title,
-        slug: input.slug,
-        summary: input.summary ?? null,
-        content: input.content ?? null,
-        seoTitle: input.seoTitle ?? null,
-        seoDescription: input.seoDescription ?? null,
-        status: input.status,
-        publishedAt,
-      })
-      .returning();
-
-    return created ?? null;
-  } catch {
-    return createMemoryCmsPage({
-      title: input.title,
-      slug: input.slug,
-      summary: input.summary ?? null,
-      content: input.content ?? null,
-      seoTitle: input.seoTitle ?? null,
-      seoDescription: input.seoDescription ?? null,
-      status: input.status,
-      publishedAt,
-    });
-  }
+  return created ?? null;
 }
 
 export async function updateAdminCmsPage(id: string, input: Partial<AdminCmsPageInput>) {
@@ -247,8 +136,9 @@ export async function updateAdminCmsPage(id: string, input: Partial<AdminCmsPage
       ? input.publishedAt ?? new Date()
       : null;
 
-  if (!db) {
-    return updateMemoryCmsPage(id, {
+  const [updated] = await db
+    .update(cmsPages)
+    .set({
       title: input.title,
       slug: input.slug,
       summary: input.summary,
@@ -257,50 +147,15 @@ export async function updateAdminCmsPage(id: string, input: Partial<AdminCmsPage
       seoDescription: input.seoDescription,
       status: input.status,
       publishedAt,
-    });
-  }
+      updatedAt: new Date(),
+    })
+    .where(eq(cmsPages.id, id))
+    .returning();
 
-  try {
-    const [updated] = await db
-      .update(cmsPages)
-      .set({
-        title: input.title,
-        slug: input.slug,
-        summary: input.summary,
-        content: input.content,
-        seoTitle: input.seoTitle,
-        seoDescription: input.seoDescription,
-        status: input.status,
-        publishedAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(cmsPages.id, id))
-      .returning();
-
-    return updated ?? null;
-  } catch {
-    return updateMemoryCmsPage(id, {
-      title: input.title,
-      slug: input.slug,
-      summary: input.summary,
-      content: input.content,
-      seoTitle: input.seoTitle,
-      seoDescription: input.seoDescription,
-      status: input.status,
-      publishedAt,
-    });
-  }
+  return updated ?? null;
 }
 
 export async function deleteAdminCmsPage(id: string) {
-  if (!db) {
-    return deleteMemoryCmsPage(id);
-  }
-
-  try {
-    const [deleted] = await db.delete(cmsPages).where(eq(cmsPages.id, id)).returning({ id: cmsPages.id });
-    return Boolean(deleted);
-  } catch {
-    return deleteMemoryCmsPage(id);
-  }
+  const [deleted] = await db.delete(cmsPages).where(eq(cmsPages.id, id)).returning({ id: cmsPages.id });
+  return Boolean(deleted);
 }

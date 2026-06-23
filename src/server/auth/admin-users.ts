@@ -24,13 +24,6 @@ const LOCAL_DEV_ADMIN: AdminAuthRecord = {
 
 export async function getAdminByEmail(email: string): Promise<AdminAuthRecord | null> {
   const normalized = email.trim().toLowerCase();
-  if (!db) {
-    if (process.env.NODE_ENV !== 'production' && normalized === LOCAL_DEV_ADMIN.email) {
-      return LOCAL_DEV_ADMIN;
-    }
-    return null;
-  }
-
   const [row] = await db.select().from(admins).where(eq(admins.email, normalized)).limit(1);
   if (!row) {
     if (process.env.NODE_ENV !== 'production' && normalized === LOCAL_DEV_ADMIN.email) {

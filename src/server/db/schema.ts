@@ -21,6 +21,7 @@ import {
   defaultEditorialAutomationConfig,
   type EditorialAiTemplate,
   type EditorialAutomationRule,
+  type EditorialCoverageBoard,
   type EditorialBrief,
   type EditorialGenerationRun,
   type EditorialWorkflowSettings,
@@ -42,8 +43,9 @@ export const contentStatusEnum = pgEnum('content_status', ['active', 'inactive']
 export const cmsStatusEnum = pgEnum('cms_status', ['draft', 'published', 'archived']);
 export const newsletterStatusEnum = pgEnum('newsletter_status', ['subscribed', 'unsubscribed']);
 export const accountTypeEnum = pgEnum('account_type', ['oauth', 'oidc', 'email', 'credentials']);
-export const editorialContentTypeEnum = pgEnum('editorial_content_type', ['blog', 'press', 'faq', 'tech-faq', 'glossary', 'support']);
+export const editorialContentTypeEnum = pgEnum('editorial_content_type', ['content']);
 export const productRelationTypeEnum = pgEnum('product_relation_type', ['drivers', 'mechanical-integration', 'power-control', 'custom']);
+export const textDirectionEnum = pgEnum('text_direction', ['ltr', 'rtl']);
 
 export const users = pgTable(
   'users',
@@ -106,6 +108,27 @@ export const accounts = pgTable(
   },
   (table) => ({
     providerUnique: uniqueIndex('accounts_provider_unique').on(table.provider, table.providerAccountId),
+  }),
+);
+
+export const siteLanguages = pgTable(
+  'site_languages',
+  {
+    code: varchar('code', { length: 16 }).primaryKey(),
+    name: varchar('name', { length: 120 }).notNull(),
+    nativeName: varchar('native_name', { length: 120 }).notNull(),
+    region: varchar('region', { length: 80 }).notNull(),
+    direction: textDirectionEnum('direction').notNull().default('ltr'),
+    countryCodes: jsonb('country_codes').$type<string[]>().notNull().default([]),
+    status: simpleStatusEnum('status').notNull().default('active'),
+    isDefault: boolean('is_default').notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusSortIdx: index('site_languages_status_sort_idx').on(table.status, table.sortOrder),
+    defaultIdx: index('site_languages_default_idx').on(table.isDefault),
   }),
 );
 
@@ -240,6 +263,7 @@ export const commerceSettings = pgTable('commerce_settings', {
 export const editorialSettings = pgTable('editorial_settings', {
   id: varchar('id', { length: 32 }).primaryKey(),
   workflowSettings: jsonb('workflow_settings').$type<EditorialWorkflowSettings>().notNull().default(defaultEditorialAutomationConfig.workflowSettings),
+  coverageBoards: jsonb('coverage_boards').$type<EditorialCoverageBoard[]>().notNull().default([]),
   templates: jsonb('templates').$type<EditorialAiTemplate[]>().notNull().default([]),
   rules: jsonb('rules').$type<EditorialAutomationRule[]>().notNull().default([]),
   briefs: jsonb('briefs').$type<EditorialBrief[]>().notNull().default([]),
@@ -518,26 +542,49 @@ export const contentBlocks = pgTable(
   }),
 );
 
-export const editorialContentEntries = pgTable(
-  'editorial_content_entries',
+export const editorialContents = pgTable(
+  'editorial_contents',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    contentType: editorialContentTypeEnum('content_type').notNull(),
-    title: varchar('title', { length: 255 }).notNull(),
-    slug: varchar('slug', { length: 180 }).notNull(),
-    summary: text('summary'),
-    locale: varchar('locale', { length: 16 }).notNull().default('en-US'),
+    contentType: editorialContentTypeEnum('content_type').notNull().default('content'),
+    boardKey: varchar('board_key', { length: 100 }).notNull().default('content'),
     status: cmsStatusEnum('status').notNull().default('draft'),
-    seoTitle: varchar('seo_title', { length: 255 }),
-    seoDescription: varchar('seo_description', { length: 500 }),
     publishedAt: timestamp('published_at', { withTimezone: true }),
-    payload: jsonb('payload').$type<EditorialContentPayload>().notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    typeSlugLocaleUnique: uniqueIndex('editorial_content_entries_type_slug_locale_unique').on(table.contentType, table.slug, table.locale),
-    typeStatusPublishedIdx: index('editorial_content_entries_type_status_published_idx').on(table.contentType, table.status, table.publishedAt),
+    typeStatusPublishedIdx: index('editorial_contents_type_status_published_idx').on(table.contentType, table.status, table.publishedAt),
+    boardKeyIdx: index('editorial_contents_board_key_idx').on(table.boardKey),
+  }),
+);
+
+export const editorialContentTranslations = pgTable(
+  'editorial_content_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    contentId: uuid('content_id').notNull().references(() => editorialContents.id, { onDelete: 'cascade' }),
+    contentType: editorialContentTypeEnum('content_type').notNull().default('content'),
+    locale: varchar('locale', { length: 16 }).notNull().default('en-US'),
+    title: varchar('title', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 180 }).notNull(),
+    summary: text('summary'),
+    seoTitle: varchar('seo_title', { length: 255 }),
+    seoDescription: varchar('seo_description', { length: 500 }),
+    payload: jsonb('payload').$type<EditorialContentPayload>().notNull().default({
+      body: '',
+      coverUrl: null,
+      coverAlt: null,
+      tags: [],
+      relatedProductSlugs: [],
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    contentLocaleUnique: uniqueIndex('editorial_content_translations_content_locale_unique').on(table.contentId, table.locale),
+    typeSlugLocaleUnique: uniqueIndex('editorial_content_translations_type_slug_locale_unique').on(table.contentType, table.slug, table.locale),
+    contentIdIdx: index('editorial_content_translations_content_id_idx').on(table.contentId),
   }),
 );
 

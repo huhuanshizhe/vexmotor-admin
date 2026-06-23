@@ -1,16 +1,23 @@
 import { AdminEditorialClient } from './editorial-client';
 
-import { getAdminEditorialBlogEntries, getAdminEditorialPressEntries } from '@/server/admin/editorial-content';
+import { getAdminEditorialContentList } from '@/server/admin/editorial-content';
 import { getAdminEditorialDashboard } from '@/server/admin/editorial';
+import { getAdminSiteLanguages } from '@/server/admin/languages';
 
 export default async function AdminEditorialPage() {
-  const dashboardPromise = getAdminEditorialDashboard();
-  const blogEntriesPromise = getAdminEditorialBlogEntries();
-  const pressEntriesPromise = getAdminEditorialPressEntries();
+  const [dashboard, contentEntries, siteLanguages] = await Promise.all([
+    getAdminEditorialDashboard(),
+    getAdminEditorialContentList(),
+    getAdminSiteLanguages(),
+  ]);
 
-  const dashboard = await dashboardPromise;
-  const blogEntries = await blogEntriesPromise;
-  const pressEntries = await pressEntriesPromise;
+  const activeLanguages = siteLanguages.filter((language) => language.status === 'active');
 
-  return <AdminEditorialClient initialDashboard={dashboard} initialBlogEntries={blogEntries} initialPressEntries={pressEntries} />;
+  return (
+    <AdminEditorialClient
+      initialDashboard={dashboard}
+      initialEntries={contentEntries}
+      activeLanguages={activeLanguages}
+    />
+  );
 }

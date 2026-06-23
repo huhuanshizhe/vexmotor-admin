@@ -41,10 +41,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  if (!db) {
-    console.warn('[stripe-webhook] Database not available, event received but not processed:', event.type);
-    return NextResponse.json({ received: true, processed: false });
-  }
 
   try {
     switch (event.type) {

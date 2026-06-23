@@ -15,24 +15,18 @@ import {
   type EditorialAutomationConfig,
   type EditorialAutomationRule,
   type EditorialBrief,
+  type EditorialCoverageBoard,
   type EditorialBriefStatus,
   type EditorialCoverageMetric,
   type EditorialGenerationRun,
   type EditorialRunStatus,
   type EditorialWorkflowSettings,
 } from '@/lib/editorial-automation';
-import { getBlogCatalog } from '@/server/content/blog';
-import { getKnowledgeCatalog } from '@/server/content/knowledge';
-import { getPressCatalog } from '@/server/content/press';
-import { getSupportCatalog } from '@/server/content/support';
+import { getAdminEditorialContentList } from '@/server/admin/editorial-content';
 import { db } from '@/server/db';
 import { editorialSettings } from '@/server/db/schema';
 
 const EDITORIAL_SETTINGS_ROW_ID = 'default';
-
-declare global {
-  var __vexmotorEditorialAutomationStore__: EditorialAutomationConfig | undefined;
-}
 
 function sanitizeText(value: string | null | undefined) {
   const normalized = value?.trim();
@@ -43,10 +37,21 @@ function sanitizeStringArray(values: string[] | null | undefined) {
   return (values ?? []).map((value) => value.trim()).filter(Boolean);
 }
 
+function sanitizeCoverageBoard(board: EditorialCoverageBoard, index: number): EditorialCoverageBoard {
+  const key = sanitizeText(board.key)?.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || `board-${index + 1}`;
+  return {
+    key,
+    title: sanitizeText(board.title) ?? `内容看板 ${index + 1}`,
+    contentType: toContentType(board.contentType),
+    note: sanitizeText(board.note) ?? '自定义内容看板。',
+    sourceMode: board.sourceMode === 'admin-managed' ? 'admin-managed' : 'code-seeded',
+  };
+}
+
 function toContentType(value: string | null | undefined) {
   return editorialContentTypes.includes(value as (typeof editorialContentTypes)[number])
     ? (value as (typeof editorialContentTypes)[number])
-    : 'blog';
+    : 'content';
 }
 
 function toTriggerType(value: string | null | undefined) {
@@ -156,6 +161,7 @@ function sanitizeEditorialAutomationConfig(config: EditorialAutomationConfig): E
 
   return {
     workflowSettings: sanitizeWorkflowSettings(config.workflowSettings ?? base.workflowSettings),
+    coverageBoards: (config.coverageBoards?.length ? config.coverageBoards : base.coverageBoards).map(sanitizeCoverageBoard),
     templates: (config.templates?.length ? config.templates : base.templates).map(sanitizeTemplate),
     rules: (config.rules?.length ? config.rules : base.rules).map(sanitizeRule),
     briefs: (config.briefs ?? base.briefs).map(sanitizeBrief),
@@ -164,77 +170,27 @@ function sanitizeEditorialAutomationConfig(config: EditorialAutomationConfig): E
 }
 
 async function buildCoverageMetrics(): Promise<EditorialCoverageMetric[]> {
-  const [blogCatalog, knowledgeCatalog, pressCatalog, supportCatalog] = await Promise.all([
-    getBlogCatalog(),
-    getKnowledgeCatalog(),
-    getPressCatalog(),
-    getSupportCatalog(),
-  ]);
+  const entries = await getAdminEditorialContentList();
 
-  return [
-    {
-      key: 'blog',
-      title: '工程博客',
-      route: '/blog',
-      count: blogCatalog.posts.length,
-      schemaType: 'BlogPosting',
-      sourceMode: blogCatalog.sourceMode,
-      note: blogCatalog.sourceMode === 'admin-managed'
-        ? 'Blog 已支持后台可发布文章，前台优先读取后台记录并对同 slug 做覆盖。'
-        : '前台已上线，但当前文章仍来自代码种子，未进入后台工作流。',
-    },
-    {
-      key: 'press',
-      title: '资讯 / 新闻稿',
-      route: '/company/press',
-      count: pressCatalog.releases.length,
-      schemaType: 'Article',
-      sourceMode: pressCatalog.sourceMode,
-      note: pressCatalog.sourceMode === 'admin-managed'
-        ? 'Press 已支持后台发布记录，前台新闻稿页会优先读取后台已发布内容。'
-        : '公司资讯已上线，适合接 AI 新闻稿和产品更新自动化。',
-    },
-    {
-      key: 'faq',
-      title: '商城 FAQ',
-      route: '/faq',
-      count: knowledgeCatalog.storefrontFaqs.length,
-      schemaType: 'FAQPage',
-      sourceMode: 'code-seeded',
-      note: '交易型 FAQ 已有基础覆盖，但缺后台化扩写与去重机制。',
-    },
-    {
-      key: 'tech-faq',
-      title: '技术 FAQ',
-      route: '/tech-faq',
-      count: knowledgeCatalog.techFaqEntries.length,
-      schemaType: 'FAQPage / TechArticle',
-      sourceMode: 'code-seeded',
-      note: '技术 FAQ 已具备 SEO / GEO 价值，适合接入问题缺口扫描与 AI 初稿。',
-    },
-    {
-      key: 'glossary',
-      title: '术语词典',
-      route: '/glossary',
-      count: knowledgeCatalog.glossaryTerms.length,
-      schemaType: 'DefinedTermSet',
-      sourceMode: 'code-seeded',
-      note: '术语解释页已上线，适合围绕长尾术语批量补词条。',
-    },
-    {
-      key: 'support',
-      title: '支持文章',
-      route: '/support',
-      count: supportCatalog.pages.length,
-      schemaType: 'Article',
-      sourceMode: 'code-seeded',
-      note: '帮助中心和支持文章已具备规模，但需要和产品/物流/售后变更自动联动。',
-    },
-  ];
+  return defaultEditorialAutomationConfig.coverageBoards.map((board) => ({
+    ...board,
+    count: entries.filter((entry) => entry.boardKey === board.key).length,
+  }));
 }
 
 async function buildDashboard(config: EditorialAutomationConfig): Promise<AdminEditorialDashboard> {
-  const coverage = await buildCoverageMetrics();
+  const entries = await getAdminEditorialContentList();
+  const defaultCoverage = await buildCoverageMetrics();
+  const defaultBoardKeys = new Set(defaultCoverage.map((board) => board.key));
+  const contentCounts = new Map<string, number>();
+  for (const entry of entries) {
+    contentCounts.set(entry.boardKey, (contentCounts.get(entry.boardKey) ?? 0) + 1);
+  }
+  const coverage = config.coverageBoards.map((board) => ({
+    ...board,
+    count: contentCounts.get(board.key) ?? 0,
+    custom: !defaultBoardKeys.has(board.key),
+  }));
 
   return {
     coverage,
@@ -250,21 +206,9 @@ async function buildDashboard(config: EditorialAutomationConfig): Promise<AdminE
   };
 }
 
-function getMemoryEditorialStore() {
-  if (!globalThis.__vexmotorEditorialAutomationStore__) {
-    globalThis.__vexmotorEditorialAutomationStore__ = sanitizeEditorialAutomationConfig(cloneEditorialAutomationConfig(defaultEditorialAutomationConfig));
-  }
-
-  return globalThis.__vexmotorEditorialAutomationStore__;
-}
-
-function setMemoryEditorialStore(config: EditorialAutomationConfig) {
-  globalThis.__vexmotorEditorialAutomationStore__ = sanitizeEditorialAutomationConfig(cloneEditorialAutomationConfig(config));
-  return globalThis.__vexmotorEditorialAutomationStore__;
-}
-
 function mapDbConfig(row: {
   workflowSettings: EditorialWorkflowSettings;
+  coverageBoards?: EditorialCoverageBoard[];
   templates: EditorialAiTemplate[];
   rules: EditorialAutomationRule[];
   briefs: EditorialBrief[];
@@ -272,6 +216,7 @@ function mapDbConfig(row: {
 }) {
   return sanitizeEditorialAutomationConfig({
     workflowSettings: row.workflowSettings,
+    coverageBoards: row.coverageBoards ?? [],
     templates: row.templates,
     rules: row.rules,
     briefs: row.briefs,
@@ -279,62 +224,67 @@ function mapDbConfig(row: {
   });
 }
 
-export async function getAdminEditorialDashboard(): Promise<AdminEditorialDashboard> {
-  if (!db) {
-    return buildDashboard(cloneEditorialAutomationConfig(getMemoryEditorialStore()));
-  }
-
-  try {
-    const [row] = await db.select().from(editorialSettings).where(eq(editorialSettings.id, EDITORIAL_SETTINGS_ROW_ID)).limit(1);
-    if (!row) {
-      return buildDashboard(cloneEditorialAutomationConfig(getMemoryEditorialStore()));
-    }
-
+async function ensureEditorialConfig() {
+  const [row] = await db.select().from(editorialSettings).where(eq(editorialSettings.id, EDITORIAL_SETTINGS_ROW_ID)).limit(1);
+  if (row) {
     const config = mapDbConfig(row);
-    setMemoryEditorialStore(config);
-    return buildDashboard(cloneEditorialAutomationConfig(config));
-  } catch {
-    return buildDashboard(cloneEditorialAutomationConfig(getMemoryEditorialStore()));
+    if (!row.coverageBoards?.length) {
+      await db
+        .update(editorialSettings)
+        .set({ coverageBoards: config.coverageBoards, updatedAt: new Date() })
+        .where(eq(editorialSettings.id, EDITORIAL_SETTINGS_ROW_ID));
+    }
+    return config;
   }
+
+  const seeded = sanitizeEditorialAutomationConfig(cloneEditorialAutomationConfig(defaultEditorialAutomationConfig));
+  await db.insert(editorialSettings).values({
+    id: EDITORIAL_SETTINGS_ROW_ID,
+    workflowSettings: seeded.workflowSettings,
+    coverageBoards: seeded.coverageBoards,
+    templates: seeded.templates,
+    rules: seeded.rules,
+    briefs: seeded.briefs,
+    runs: seeded.runs,
+    updatedAt: new Date(),
+  });
+  return seeded;
+}
+
+export async function getAdminEditorialDashboard(): Promise<AdminEditorialDashboard> {
+  const config = await ensureEditorialConfig();
+  return buildDashboard(cloneEditorialAutomationConfig(config));
 }
 
 export async function updateAdminEditorialConfig(input: EditorialAutomationConfig): Promise<AdminEditorialDashboard> {
   const normalized = sanitizeEditorialAutomationConfig(input);
-
-  if (!db) {
-    return buildDashboard(cloneEditorialAutomationConfig(setMemoryEditorialStore(normalized)));
-  }
-
-  try {
-    const now = new Date();
-    const [row] = await db
-      .insert(editorialSettings)
-      .values({
-        id: EDITORIAL_SETTINGS_ROW_ID,
+  const now = new Date();
+  const [row] = await db
+    .insert(editorialSettings)
+    .values({
+      id: EDITORIAL_SETTINGS_ROW_ID,
+      workflowSettings: normalized.workflowSettings,
+      coverageBoards: normalized.coverageBoards,
+      templates: normalized.templates,
+      rules: normalized.rules,
+      briefs: normalized.briefs,
+      runs: normalized.runs,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: editorialSettings.id,
+      set: {
         workflowSettings: normalized.workflowSettings,
+        coverageBoards: normalized.coverageBoards,
         templates: normalized.templates,
         rules: normalized.rules,
         briefs: normalized.briefs,
         runs: normalized.runs,
         updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: editorialSettings.id,
-        set: {
-          workflowSettings: normalized.workflowSettings,
-          templates: normalized.templates,
-          rules: normalized.rules,
-          briefs: normalized.briefs,
-          runs: normalized.runs,
-          updatedAt: now,
-        },
-      })
-      .returning();
+      },
+    })
+    .returning();
 
-    const saved = row ? mapDbConfig(row) : normalized;
-    setMemoryEditorialStore(saved);
-    return buildDashboard(cloneEditorialAutomationConfig(saved));
-  } catch {
-    return buildDashboard(cloneEditorialAutomationConfig(setMemoryEditorialStore(normalized)));
-  }
+  const saved = row ? mapDbConfig(row) : normalized;
+  return buildDashboard(cloneEditorialAutomationConfig(saved));
 }

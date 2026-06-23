@@ -1,21 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { auth } from '@/auth/admin-auth';
+import {
+  DOCUMENT_UPLOAD_MIME_TYPES,
+  IMAGE_UPLOAD_MIME_TYPES,
+  MAX_DOCUMENT_UPLOAD_BYTES,
+  MAX_IMAGE_UPLOAD_BYTES,
+  MAX_VIDEO_UPLOAD_BYTES,
+  VIDEO_UPLOAD_MIME_TYPES,
+  defaultUploadFolder,
+  type MediaUploadKind,
+} from '@/lib/media-upload';
 import { uploadToOss } from '@/server/oss';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-];
+const KIND_MIME_MAP: Record<MediaUploadKind, readonly string[]> = {
+  image: IMAGE_UPLOAD_MIME_TYPES,
+  video: VIDEO_UPLOAD_MIME_TYPES,
+  document: DOCUMENT_UPLOAD_MIME_TYPES,
+};
+
+const KIND_SIZE_MAP: Record<MediaUploadKind, number> = {
+  image: MAX_IMAGE_UPLOAD_BYTES,
+  video: MAX_VIDEO_UPLOAD_BYTES,
+  document: MAX_DOCUMENT_UPLOAD_BYTES,
+};
+
+function parseKind(value: FormDataEntryValue | null): MediaUploadKind | null {
+  if (value === 'image' || value === 'video' || value === 'document') {
+    return value;
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -28,17 +43,32 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const folder = formData.get('folder') as string | null;
+    const kindInput = parseKind(formData.get('kind'));
 
     if (!file) {
       return NextResponse.json({ message: 'No file provided' }, { status: 400 });
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ message: 'File too large (max 10 MB)' }, { status: 400 });
+    const inferredKind = (IMAGE_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type)
+      ? 'image'
+      : (VIDEO_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type)
+        ? 'video'
+        : (DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type)
+          ? 'document'
+          : null;
+    const kind = kindInput ?? inferredKind;
+
+    if (!kind) {
+      return NextResponse.json({ message: `File type not allowed: ${file.type}` }, { status: 400 });
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ message: `File type not allowed: ${file.type}` }, { status: 400 });
+    if (!KIND_MIME_MAP[kind].includes(file.type)) {
+      return NextResponse.json({ message: `File type not allowed for ${kind}: ${file.type}` }, { status: 400 });
+    }
+
+    const maxSize = KIND_SIZE_MAP[kind];
+    if (file.size > maxSize) {
+      return NextResponse.json({ message: `File too large (max ${Math.round(maxSize / (1024 * 1024))} MB)` }, { status: 400 });
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -48,7 +78,7 @@ export async function POST(request: NextRequest) {
       buffer,
       filename: file.name,
       contentType: file.type,
-      folder: folder ?? 'uploads',
+      folder: folder ?? defaultUploadFolder(kind),
     });
 
     if (!result.ok) {

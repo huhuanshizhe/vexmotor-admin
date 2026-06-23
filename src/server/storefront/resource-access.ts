@@ -11,8 +11,6 @@ export type ResourceAccessLead = {
   createdAt: string;
 };
 
-const memoryResourceAccessLeads: ResourceAccessLead[] = [];
-
 export async function recordResourceAccessLead(input: Omit<ResourceAccessLead, 'createdAt'>) {
   const resource = getResourceItemBySlug(input.resourceSlug);
 
@@ -26,10 +24,9 @@ export async function recordResourceAccessLead(input: Omit<ResourceAccessLead, '
     createdAt: new Date().toISOString(),
   };
 
-  memoryResourceAccessLeads.push(lead);
   return lead;
 }
 
 export function getResourceAccessLeads() {
-  return [...memoryResourceAccessLeads];
+  return [] as ResourceAccessLead[];
 }

@@ -9,12 +9,7 @@ export const revalidate = 0;
 export async function GET(_: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  if (!db) {
-    return NextResponse.json({ price: null, stockQuantity: 0, moq: 1, leadTimeMin: 3, leadTimeMax: 15, leadTimeUnit: 'business_days', inStock: false, purchaseMode: 'buy' }, { status: 200 });
-  }
-
-  try {
-    const [product] = await db
+  const [product] = await db
       .select({
         price: products.price,
         currencyCode: products.currencyCode,
@@ -46,7 +41,4 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ slug: 
       inStock: product.stockQuantity > 0,
       purchaseMode: product.purchaseMode,
     });
-  } catch {
-    return NextResponse.json({ price: null, stockQuantity: 0, moq: 1, leadTimeMin: 3, leadTimeMax: 15, leadTimeUnit: 'business_days', inStock: false, purchaseMode: 'buy' }, { status: 200 });
-  }
 }

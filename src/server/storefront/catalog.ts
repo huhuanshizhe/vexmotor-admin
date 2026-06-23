@@ -15,7 +15,6 @@ import {
 } from '@/server/db/schema';
 
 import { storefrontNavigationBase, footerContactBlocks, footerPaymentMethods, footerCopyright } from './site-shell';
-import { getSeedCategories, getSeedHomeData, getSeedProductBySlug, getSeedProductsResult } from './seed';
 import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
 
 const defaultHomeData: HomeData = {
@@ -120,10 +119,6 @@ function toImage(row: {
 }
 
 export async function getHomeData(): Promise<HomeData> {
-  if (!db) {
-    return getSeedHomeData();
-  }
-
   try {
     const [featuredProducts, categoryRows] = await Promise.all([
       db.select({
@@ -197,7 +192,7 @@ export async function getHomeData(): Promise<HomeData> {
     }
 
     if (!dbProducts.length) {
-      return getSeedHomeData();
+      return defaultHomeData;
     }
 
     const dynamicCards = dbProducts.map((item) => ({
@@ -257,7 +252,7 @@ export async function getHomeData(): Promise<HomeData> {
       homepageBlocks.map((b) => [b.blockKey, b.content as Record<string, unknown>]),
     );
 
-    const seedBase = getSeedHomeData();
+    const seedBase = defaultHomeData;
     const heroBanners =
       Array.isArray(blockOverrides.heroBanners) && (blockOverrides.heroBanners as Array<{ id?: unknown }>).length > 0
         ? (blockOverrides.heroBanners as typeof seedBase.heroBanners)
@@ -276,7 +271,7 @@ export async function getHomeData(): Promise<HomeData> {
       mostViewedProducts: dynamicCards.slice(0, 4),
     };
   } catch {
-    return getSeedHomeData();
+    return defaultHomeData;
   }
 }
 
@@ -289,11 +284,6 @@ export async function getNavigationData(): Promise<NavigationData> {
 }
 
 export async function getCategories(): Promise<StorefrontCategory[]> {
-  if (!db) {
-    // Fallback to seed data when no database
-    return getSeedCategories();
-  }
-
   try {
     const [rows, countRows] = await Promise.all([
       db.select().from(categories).where(eq(categories.status, 'active')).orderBy(asc(categories.sortOrder), asc(categories.name)),
@@ -304,8 +294,7 @@ export async function getCategories(): Promise<StorefrontCategory[]> {
         .groupBy(products.defaultCategoryId),
     ]);
     if (!rows.length) {
-      // Fallback to seed data when database is empty
-      return getSeedCategories();
+      return [];
     }
 
     const productCountByCategoryId = new Map(countRows.map((item) => [item.categoryId, Number(item.total)]));
@@ -322,8 +311,7 @@ export async function getCategories(): Promise<StorefrontCategory[]> {
       featuredOrder: item.featuredOrder,
     }));
   } catch {
-    // Fallback to seed data on error
-    return getSeedCategories();
+    return [];
   }
 }
 
@@ -336,10 +324,6 @@ export async function getProductList(input: {
   sort?: ProductListSort;
   inStockOnly?: boolean;
 }): Promise<ProductListResult> {
-  if (!db) {
-    return getSeedProductsResult(input);
-  }
-
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 12;
   const offset = (page - 1) * pageSize;
@@ -515,10 +499,6 @@ export async function getProductList(input: {
 }
 
 export async function getProductBySlug(slug: string): Promise<StorefrontProductDetail | null> {
-  if (!db) {
-    return getSeedProductBySlug(slug);
-  }
-
   try {
     const [product] = await db
       .select({
@@ -637,10 +617,6 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
 }
 
 export async function getRelatedProducts(slug: string, categorySlug?: string | null, excludeId?: string): Promise<StorefrontProductCard[]> {
-  if (!db) {
-    return [];
-  }
-
   try {
     let categoryId: string | null = null;
     if (categorySlug) {
@@ -713,8 +689,6 @@ const RELATION_TYPE_LABELS: Record<string, string> = {
 };
 
 export async function getCompatibleGroups(productId: string): Promise<StorefrontCompatibleGroup[]> {
-  if (!db) return [];
-
   try {
     const rows = await db
       .select({

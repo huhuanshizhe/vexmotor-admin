@@ -30,9 +30,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: 'MISSING_ORDER', message: 'orderNumber is required' }, { status: 400 });
   }
 
-  if (!db) {
-    return NextResponse.json({ code: 'DB_UNAVAILABLE', message: 'Database not available' }, { status: 503 });
-  }
 
   const [order] = await db
     .select()

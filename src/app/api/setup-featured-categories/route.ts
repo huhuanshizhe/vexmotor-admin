@@ -28,10 +28,6 @@ const featuredCategories = [
  * 注意：只在生产环境首次部署时调用一次
  */
 export async function GET() {
-  if (!db) {
-    return NextResponse.json({ error: '数据库连接失败' }, { status: 500 });
-  }
-
   try {
     const results = [];
     let successCount = 0;

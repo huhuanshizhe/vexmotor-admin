@@ -1,10 +1,4 @@
 import { md5Hash } from '@/lib/auth/password';
-import {
-  createMemoryCustomer,
-  getMemoryCustomer,
-  listMemoryCustomers,
-  updateMemoryCustomer,
-} from '@/server/admin/memory-store';
 import { db } from '@/server/db';
 import { addresses, inquiries, orders, users, wishlists } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -41,23 +35,14 @@ export type AdminCustomerInput = {
   status: 'active' | 'disabled' | 'pending';
 };
 
-function mapMemoryCustomers(): AdminCustomerRow[] {
-  return listMemoryCustomers();
-}
-
 export async function getAdminCustomers() {
-  if (!db) {
-    return mapMemoryCustomers();
-  }
-
-  try {
-    const [customerRows, orderRows, inquiryRows, addressRows, wishlistRows] = await Promise.all([
-      db.select().from(users),
-      db.select({ userId: orders.userId, totalAmount: orders.totalAmount, status: orders.status }).from(orders),
-      db.select({ userId: inquiries.userId }).from(inquiries),
-      db.select({ userId: addresses.userId }).from(addresses),
-      db.select({ userId: wishlists.userId }).from(wishlists),
-    ]);
+  const [customerRows, orderRows, inquiryRows, addressRows, wishlistRows] = await Promise.all([
+    db.select().from(users),
+    db.select({ userId: orders.userId, totalAmount: orders.totalAmount, status: orders.status }).from(orders),
+    db.select({ userId: inquiries.userId }).from(inquiries),
+    db.select({ userId: addresses.userId }).from(addresses),
+    db.select({ userId: wishlists.userId }).from(wishlists),
+  ]);
 
     const orderCountMap = new Map<string, number>();
     const totalSpentMap = new Map<string, number>();
@@ -88,40 +73,39 @@ export async function getAdminCustomers() {
       wishlistCountMap.set(row.userId, (wishlistCountMap.get(row.userId) ?? 0) + 1);
     }
 
-    return customerRows.map((item) => ({
-      id: item.id,
-      email: item.email,
-      firstName: item.firstName,
-      lastName: item.lastName,
-      company: item.company,
-      phone: item.phone,
-      avatarUrl: item.avatarUrl,
-      role: item.role,
-      status: item.status,
-      emailVerifiedAt: item.emailVerifiedAt,
-      lastLoginAt: item.lastLoginAt,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
-      orderCount: orderCountMap.get(item.id) ?? 0,
-      inquiryCount: inquiryCountMap.get(item.id) ?? 0,
-      addressCount: addressCountMap.get(item.id) ?? 0,
-      wishlistCount: wishlistCountMap.get(item.id) ?? 0,
-      totalSpent: totalSpentMap.get(item.id) ?? 0,
-    }));
-  } catch {
-    return mapMemoryCustomers();
-  }
+  return customerRows.map((item) => ({
+    id: item.id,
+    email: item.email,
+    firstName: item.firstName,
+    lastName: item.lastName,
+    company: item.company,
+    phone: item.phone,
+    avatarUrl: item.avatarUrl,
+    role: item.role,
+    status: item.status,
+    emailVerifiedAt: item.emailVerifiedAt,
+    lastLoginAt: item.lastLoginAt,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    orderCount: orderCountMap.get(item.id) ?? 0,
+    inquiryCount: inquiryCountMap.get(item.id) ?? 0,
+    addressCount: addressCountMap.get(item.id) ?? 0,
+    wishlistCount: wishlistCountMap.get(item.id) ?? 0,
+    totalSpent: totalSpentMap.get(item.id) ?? 0,
+  }));
 }
 
 export async function getAdminCustomer(id: string) {
   const rows = await getAdminCustomers();
-  return rows.find((item) => item.id === id) ?? getMemoryCustomer(id);
+  return rows.find((item) => item.id === id) ?? null;
 }
 
 export async function createAdminCustomer(input: AdminCustomerInput) {
-  if (!db) {
-    return createMemoryCustomer({
+  const [created] = await db
+    .insert(users)
+    .values({
       email: input.email.trim().toLowerCase(),
+      passwordHash: md5Hash('Temp123456'),
       firstName: input.firstName,
       lastName: input.lastName,
       company: input.company ?? null,
@@ -130,57 +114,16 @@ export async function createAdminCustomer(input: AdminCustomerInput) {
       role: input.role,
       status: input.status,
       emailVerifiedAt: input.status === 'active' ? new Date() : null,
-      lastLoginAt: null,
-      orderCount: 0,
-      inquiryCount: 0,
-      addressCount: 0,
-      wishlistCount: 0,
-      totalSpent: 0,
-    });
-  }
+    })
+    .returning();
 
-  try {
-    const [created] = await db
-      .insert(users)
-      .values({
-        email: input.email.trim().toLowerCase(),
-        passwordHash: md5Hash('Temp123456'),
-        firstName: input.firstName,
-        lastName: input.lastName,
-        company: input.company ?? null,
-        phone: input.phone ?? null,
-        avatarUrl: input.avatarUrl ?? null,
-        role: input.role,
-        status: input.status,
-        emailVerifiedAt: input.status === 'active' ? new Date() : null,
-      })
-      .returning();
-
-    return created ?? null;
-  } catch {
-    return createMemoryCustomer({
-      email: input.email.trim().toLowerCase(),
-      firstName: input.firstName,
-      lastName: input.lastName,
-      company: input.company ?? null,
-      phone: input.phone ?? null,
-      avatarUrl: input.avatarUrl ?? null,
-      role: input.role,
-      status: input.status,
-      emailVerifiedAt: input.status === 'active' ? new Date() : null,
-      lastLoginAt: null,
-      orderCount: 0,
-      inquiryCount: 0,
-      addressCount: 0,
-      wishlistCount: 0,
-      totalSpent: 0,
-    });
-  }
+  return created ?? null;
 }
 
 export async function updateAdminCustomer(id: string, input: Partial<AdminCustomerInput>) {
-  if (!db) {
-    return updateMemoryCustomer(id, {
+  const [updated] = await db
+    .update(users)
+    .set({
       email: input.email?.trim().toLowerCase(),
       firstName: input.firstName,
       lastName: input.lastName,
@@ -190,39 +133,10 @@ export async function updateAdminCustomer(id: string, input: Partial<AdminCustom
       role: input.role,
       status: input.status,
       emailVerifiedAt: typeof input.status === 'undefined' ? undefined : input.status === 'active' ? new Date() : null,
-    });
-  }
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, id))
+    .returning();
 
-  try {
-    const [updated] = await db
-      .update(users)
-      .set({
-        email: input.email?.trim().toLowerCase(),
-        firstName: input.firstName,
-        lastName: input.lastName,
-        company: input.company,
-        phone: input.phone,
-        avatarUrl: input.avatarUrl,
-        role: input.role,
-        status: input.status,
-        emailVerifiedAt: typeof input.status === 'undefined' ? undefined : input.status === 'active' ? new Date() : null,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, id))
-      .returning();
-
-    return updated ?? null;
-  } catch {
-    return updateMemoryCustomer(id, {
-      email: input.email?.trim().toLowerCase(),
-      firstName: input.firstName,
-      lastName: input.lastName,
-      company: input.company,
-      phone: input.phone,
-      avatarUrl: input.avatarUrl,
-      role: input.role,
-      status: input.status,
-      emailVerifiedAt: typeof input.status === 'undefined' ? undefined : input.status === 'active' ? new Date() : null,
-    });
-  }
+  return updated ?? null;
 }

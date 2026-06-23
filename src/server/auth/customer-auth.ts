@@ -58,32 +58,6 @@ type PasswordResetResult =
   | { ok: true; email: string }
   | { ok: false; code: 'INVALID_TOKEN'; message: string };
 
-type MemoryResetToken = {
-  identifier: string;
-  token: string;
-  expires: Date;
-};
-
-declare global {
-  var __vexmotorMemoryAuthStore__:
-    | {
-        users: AuthUserRecord[];
-        resetTokens: MemoryResetToken[];
-      }
-    | undefined;
-}
-
-function getMemoryAuthStore() {
-  if (!globalThis.__vexmotorMemoryAuthStore__) {
-    globalThis.__vexmotorMemoryAuthStore__ = {
-      users: [],
-      resetTokens: [],
-    };
-  }
-
-  return globalThis.__vexmotorMemoryAuthStore__;
-}
-
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -97,16 +71,8 @@ function splitName(input: { firstName: string; lastName: string }) {
 
 async function resolveAuthIntakeProductId() {
   const fallbackId = 'legacy-registration-intake';
-  if (!db) {
-    return fallbackId;
-  }
-
-  try {
-    const [product] = await db.select({ id: products.id }).from(products).limit(1);
-    return product?.id ?? fallbackId;
-  } catch {
-    return fallbackId;
-  }
+  const [product] = await db.select({ id: products.id }).from(products).limit(1);
+  return product?.id ?? fallbackId;
 }
 
 function buildRegistrationReviewMessage(input: RegisterBusinessAccountInput) {
@@ -146,30 +112,21 @@ async function createRegistrationReview(input: RegisterBusinessAccountInput, use
 
 export async function getAuthUserByEmail(email: string): Promise<AuthUserRecord | null> {
   const normalizedEmail = normalizeEmail(email);
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      passwordHash: users.passwordHash,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      company: users.company,
+      status: users.status,
+    })
+    .from(users)
+    .where(eq(users.email, normalizedEmail))
+    .limit(1);
 
-  if (!db) {
-    return getMemoryAuthStore().users.find((item) => item.email === normalizedEmail) ?? null;
-  }
-
-  try {
-    const [user] = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        passwordHash: users.passwordHash,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        company: users.company,
-        status: users.status,
-      })
-      .from(users)
-      .where(eq(users.email, normalizedEmail))
-      .limit(1);
-
-    return user ?? null;
-  } catch {
-    return getMemoryAuthStore().users.find((item) => item.email === normalizedEmail) ?? null;
-  }
+  return user ?? null;
 }
 
 export async function registerBusinessAccount(input: RegisterBusinessAccountInput): Promise<RegisterBusinessAccountResult> {
@@ -193,109 +150,47 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
     };
   }
 
-  if (!db) {
-    const created: AuthUserRecord = {
-      id: randomUUID(),
+  const [created] = await db
+    .insert(users)
+    .values({
       email: normalizedEmail,
       passwordHash: md5Hash(input.password),
       firstName,
       lastName,
       company: input.companyName.trim() || null,
+      role: 'customer',
       status: 'pending',
-    };
+    })
+    .returning({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      company: users.company,
+      status: users.status,
+    });
 
-    getMemoryAuthStore().users.unshift(created);
-    await createRegistrationReview(input, created.id);
-
+  if (!created) {
     return {
-      ok: true,
-      user: {
-        id: created.id,
-        email: created.email,
-        firstName: created.firstName,
-        lastName: created.lastName,
-        company: created.company,
-        status: created.status,
-      },
+      ok: false,
+      code: 'INVALID_STATE',
+      message: 'Unable to create the business account right now.',
     };
   }
 
-  try {
-    const [created] = await db
-      .insert(users)
-      .values({
-        email: normalizedEmail,
-        passwordHash: md5Hash(input.password),
-        firstName,
-        lastName,
-        company: input.companyName.trim() || null,
-        role: 'customer',
-        status: 'pending',
-      })
-      .returning({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        company: users.company,
-        status: users.status,
-      });
+  await createRegistrationReview(input, created.id);
 
-    if (!created) {
-      return {
-        ok: false,
-        code: 'INVALID_STATE',
-        message: 'Unable to create the business account right now.',
-      };
-    }
+  sendWelcomeEmail({
+    to: normalizedEmail,
+    firstName: created.firstName,
+    companyName: created.company,
+    accountStatus: created.status,
+  }).catch((err) => console.error('[auth] Welcome email error:', err));
 
-    await createRegistrationReview(input, created.id);
-
-    // Fire welcome email (non-blocking)
-    sendWelcomeEmail({
-      to: normalizedEmail,
-      firstName: created.firstName,
-      companyName: created.company,
-      accountStatus: created.status,
-    }).catch((err) => console.error('[auth] Welcome email error:', err));
-
-    return {
-      ok: true,
-      user: created,
-    };
-  } catch {
-    const created: AuthUserRecord = {
-      id: randomUUID(),
-      email: normalizedEmail,
-      passwordHash: md5Hash(input.password),
-      firstName,
-      lastName,
-      company: input.companyName.trim() || null,
-      status: 'pending',
-    };
-
-    getMemoryAuthStore().users.unshift(created);
-    await createRegistrationReview(input, created.id);
-
-    sendWelcomeEmail({
-      to: normalizedEmail,
-      firstName: created.firstName,
-      companyName: created.company,
-      accountStatus: created.status,
-    }).catch((err) => console.error('[auth] Welcome email error:', err));
-
-    return {
-      ok: true,
-      user: {
-        id: created.id,
-        email: created.email,
-        firstName: created.firstName,
-        lastName: created.lastName,
-        company: created.company,
-        status: created.status,
-      },
-    };
-  }
+  return {
+    ok: true,
+    user: created,
+  };
 }
 
 export async function createPasswordResetRequest(email: string): Promise<PasswordResetRequestResult> {
@@ -315,103 +210,50 @@ export async function createPasswordResetRequest(email: string): Promise<Passwor
   sendPasswordResetEmail({ to: normalizedEmail, resetUrl: fullResetUrl })
     .catch((err) => console.error('[auth] Password reset email error:', err));
 
-  if (!db) {
-    const store = getMemoryAuthStore();
-    store.resetTokens = store.resetTokens.filter((item) => item.identifier !== normalizedEmail);
-    store.resetTokens.unshift({ identifier: normalizedEmail, token, expires });
-    return {
-      ok: true,
-      resetUrl: process.env.NODE_ENV === 'production' ? null : fullResetUrl,
-    };
-  }
+  await db.delete(verificationTokens).where(eq(verificationTokens.identifier, normalizedEmail));
+  await db.insert(verificationTokens).values({
+    identifier: normalizedEmail,
+    token,
+    expires,
+  });
 
-  try {
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, normalizedEmail));
-    await db.insert(verificationTokens).values({
-      identifier: normalizedEmail,
-      token,
-      expires,
-    });
-
-    return {
-      ok: true,
-      resetUrl: process.env.NODE_ENV === 'production' ? null : fullResetUrl,
-    };
-  } catch {
-    const store = getMemoryAuthStore();
-    store.resetTokens = store.resetTokens.filter((item) => item.identifier !== normalizedEmail);
-    store.resetTokens.unshift({ identifier: normalizedEmail, token, expires });
-    return {
-      ok: true,
-      resetUrl: process.env.NODE_ENV === 'production' ? null : fullResetUrl,
-    };
-  }
+  return {
+    ok: true,
+    resetUrl: process.env.NODE_ENV === 'production' ? null : fullResetUrl,
+  };
 }
 
 export async function resetPasswordWithToken(input: { token: string; password: string }): Promise<PasswordResetResult> {
-  if (!db) {
-    const store = getMemoryAuthStore();
-    const tokenRecord = store.resetTokens.find((item) => item.token === input.token && item.expires > new Date());
+  const [tokenRecord] = await db
+    .select({
+      identifier: verificationTokens.identifier,
+      token: verificationTokens.token,
+    })
+    .from(verificationTokens)
+    .where(and(eq(verificationTokens.token, input.token), gt(verificationTokens.expires, new Date())))
+    .limit(1);
 
-    if (!tokenRecord) {
-      return {
-        ok: false,
-        code: 'INVALID_TOKEN',
-        message: 'This reset link is invalid or has expired.',
-      };
-    }
-
-    store.users = store.users.map((user) => (
-      user.email === tokenRecord.identifier
-        ? { ...user, passwordHash: md5Hash(input.password), status: user.status === 'disabled' ? 'disabled' : 'active' }
-        : user
-    ));
-    store.resetTokens = store.resetTokens.filter((item) => item.identifier !== tokenRecord.identifier);
-
-    return {
-      ok: true,
-      email: tokenRecord.identifier,
-    };
-  }
-
-  try {
-    const [tokenRecord] = await db
-      .select({
-        identifier: verificationTokens.identifier,
-        token: verificationTokens.token,
-      })
-      .from(verificationTokens)
-      .where(and(eq(verificationTokens.token, input.token), gt(verificationTokens.expires, new Date())))
-      .limit(1);
-
-    if (!tokenRecord) {
-      return {
-        ok: false,
-        code: 'INVALID_TOKEN',
-        message: 'This reset link is invalid or has expired.',
-      };
-    }
-
-    await db
-      .update(users)
-      .set({
-        passwordHash: md5Hash(input.password),
-        status: 'active',
-        updatedAt: new Date(),
-      })
-      .where(eq(users.email, tokenRecord.identifier));
-
-    await db.delete(verificationTokens).where(eq(verificationTokens.identifier, tokenRecord.identifier));
-
-    return {
-      ok: true,
-      email: tokenRecord.identifier,
-    };
-  } catch {
+  if (!tokenRecord) {
     return {
       ok: false,
       code: 'INVALID_TOKEN',
       message: 'This reset link is invalid or has expired.',
     };
   }
+
+  await db
+    .update(users)
+    .set({
+      passwordHash: md5Hash(input.password),
+      status: 'active',
+      updatedAt: new Date(),
+    })
+    .where(eq(users.email, tokenRecord.identifier));
+
+  await db.delete(verificationTokens).where(eq(verificationTokens.identifier, tokenRecord.identifier));
+
+  return {
+    ok: true,
+    email: tokenRecord.identifier,
+  };
 }

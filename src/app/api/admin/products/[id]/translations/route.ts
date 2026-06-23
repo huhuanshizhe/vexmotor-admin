@@ -16,7 +16,6 @@ const translationSchema = z.object({
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!db) return NextResponse.json([]);
 
   const rows = await db
     .select()
@@ -36,10 +35,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { locale, ...fields } = parsed.data;
-
-  if (!db) {
-    return NextResponse.json({ code: 'DB_UNAVAILABLE' }, { status: 503 });
-  }
 
   const existing = await db
     .select({ id: productTranslations.id })

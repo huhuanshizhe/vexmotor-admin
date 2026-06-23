@@ -2,8 +2,6 @@ import { sql } from 'drizzle-orm';
 import { db } from './index';
 
 export async function runMigrations() {
-  if (!db) return;
-
   const statements = [
     // Enum type
     `DO $$ BEGIN CREATE TYPE product_lifecycle AS ENUM ('new', 'active', 'nfd', 'eol', 'last_time_buy'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`,

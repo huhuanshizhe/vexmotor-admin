@@ -16,10 +16,6 @@ import { commerceSettings } from '@/server/db/schema';
 
 const COMMERCE_SETTINGS_ROW_ID = 'default';
 
-declare global {
-  var __vexmotorCommerceConfigStore__: CommerceConfig | undefined;
-}
-
 function sanitizeText(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
@@ -143,19 +139,6 @@ function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
   };
 }
 
-function getMemoryCommerceConfigStore() {
-  if (!globalThis.__vexmotorCommerceConfigStore__) {
-    globalThis.__vexmotorCommerceConfigStore__ = sanitizeCommerceConfig(cloneCommerceConfig(defaultCommerceConfig));
-  }
-
-  return globalThis.__vexmotorCommerceConfigStore__;
-}
-
-function setMemoryCommerceConfig(config: CommerceConfig) {
-  globalThis.__vexmotorCommerceConfigStore__ = sanitizeCommerceConfig(cloneCommerceConfig(config));
-  return globalThis.__vexmotorCommerceConfigStore__;
-}
-
 function mapDbConfig(row: {
   currencyCode: string;
   defaultCountryCode: string;
@@ -174,38 +157,49 @@ function mapDbConfig(row: {
   });
 }
 
+async function ensureCommerceConfig() {
+  const [row] = await db.select().from(commerceSettings).where(eq(commerceSettings.id, COMMERCE_SETTINGS_ROW_ID)).limit(1);
+  if (row) {
+    return mapDbConfig(row);
+  }
+
+  const seeded = sanitizeCommerceConfig(cloneCommerceConfig(defaultCommerceConfig));
+  await db.insert(commerceSettings).values({
+    id: COMMERCE_SETTINGS_ROW_ID,
+    currencyCode: seeded.currencyCode,
+    defaultCountryCode: seeded.defaultCountryCode,
+    defaultShippingMethodCode: seeded.defaultShippingMethodCode,
+    volumePricingRules: seeded.volumePricingRules,
+    shippingMethods: seeded.shippingMethods,
+    shippingCountryRates: seeded.shippingCountryRates,
+    updatedAt: new Date(),
+  });
+  return seeded;
+}
+
 export async function getCommerceConfig() {
-  if (!db) {
-    return cloneCommerceConfig(getMemoryCommerceConfigStore());
-  }
-
-  try {
-    const [row] = await db.select().from(commerceSettings).where(eq(commerceSettings.id, COMMERCE_SETTINGS_ROW_ID)).limit(1);
-    if (!row) {
-      return cloneCommerceConfig(getMemoryCommerceConfigStore());
-    }
-
-    const config = mapDbConfig(row);
-    setMemoryCommerceConfig(config);
-    return cloneCommerceConfig(config);
-  } catch {
-    return cloneCommerceConfig(getMemoryCommerceConfigStore());
-  }
+  const config = await ensureCommerceConfig();
+  return cloneCommerceConfig(config);
 }
 
 export async function updateCommerceConfig(input: CommerceConfig) {
   const normalized = sanitizeCommerceConfig(input);
-
-  if (!db) {
-    return cloneCommerceConfig(setMemoryCommerceConfig(normalized));
-  }
-
-  try {
-    const now = new Date();
-    const [row] = await db
-      .insert(commerceSettings)
-      .values({
-        id: COMMERCE_SETTINGS_ROW_ID,
+  const now = new Date();
+  const [row] = await db
+    .insert(commerceSettings)
+    .values({
+      id: COMMERCE_SETTINGS_ROW_ID,
+      currencyCode: normalized.currencyCode,
+      defaultCountryCode: normalized.defaultCountryCode,
+      defaultShippingMethodCode: normalized.defaultShippingMethodCode,
+      volumePricingRules: normalized.volumePricingRules,
+      shippingMethods: normalized.shippingMethods,
+      shippingCountryRates: normalized.shippingCountryRates,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: commerceSettings.id,
+      set: {
         currencyCode: normalized.currencyCode,
         defaultCountryCode: normalized.defaultCountryCode,
         defaultShippingMethodCode: normalized.defaultShippingMethodCode,
@@ -213,27 +207,12 @@ export async function updateCommerceConfig(input: CommerceConfig) {
         shippingMethods: normalized.shippingMethods,
         shippingCountryRates: normalized.shippingCountryRates,
         updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: commerceSettings.id,
-        set: {
-          currencyCode: normalized.currencyCode,
-          defaultCountryCode: normalized.defaultCountryCode,
-          defaultShippingMethodCode: normalized.defaultShippingMethodCode,
-          volumePricingRules: normalized.volumePricingRules,
-          shippingMethods: normalized.shippingMethods,
-          shippingCountryRates: normalized.shippingCountryRates,
-          updatedAt: now,
-        },
-      })
-      .returning();
+      },
+    })
+    .returning();
 
-    const saved = row ? mapDbConfig(row) : normalized;
-    setMemoryCommerceConfig(saved);
-    return cloneCommerceConfig(saved);
-  } catch {
-    return cloneCommerceConfig(setMemoryCommerceConfig(normalized));
-  }
+  const saved = row ? mapDbConfig(row) : normalized;
+  return cloneCommerceConfig(saved);
 }
 
 export async function getAdminCommerceConfig() {

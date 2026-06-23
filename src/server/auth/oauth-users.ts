@@ -30,10 +30,6 @@ export async function linkOAuthAccount(input: OAuthLinkInput): Promise<string | 
     return null;
   }
 
-  if (!db) {
-    return randomUUID();
-  }
-
   const [existingAccount] = await db
     .select({ userId: accounts.userId })
     .from(accounts)

@@ -17,8 +17,6 @@ import {
   type BlogProductTopic,
   filterByProductTopic,
 } from '@/lib/blog';
-import { buildBlogPostFromEntry } from '@/lib/editorial-content';
-import { getPublishedAdminEditorialBlogEntries } from '@/server/admin/editorial-content';
 
 export type BlogCatalog = {
   sourceMode: 'code-seeded' | 'admin-managed';
@@ -41,21 +39,14 @@ export type BlogFilters = {
 };
 
 export async function getBlogCatalog(locale = 'en-US'): Promise<BlogCatalog> {
-  const adminEntries = await getPublishedAdminEditorialBlogEntries(locale);
-  const mergedPosts = new Map(blogPosts.map((post) => [post.slug, post]));
-
-  for (const entry of adminEntries) {
-    mergedPosts.set(entry.slug, buildBlogPostFromEntry(entry));
-  }
-
   return {
-    sourceMode: adminEntries.length ? 'admin-managed' : 'code-seeded',
+    sourceMode: 'code-seeded',
     authors: [...blogAuthors],
     categories: [...blogCategories],
     categorySlugs: { ...blogCategorySlug },
     industries: [...blogIndustries],
     pageSize: blogPageSize,
-    posts: Array.from(mergedPosts.values()).sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt)),
+    posts: [...blogPosts].sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt)),
     productTopics: [...blogProductTopics],
     productTopicSlugs: Object.fromEntries(
       blogProductTopics.map((topic) => {

@@ -3,7 +3,7 @@ import '@/lib/env';
 import { count } from 'drizzle-orm';
 
 import { db } from '@/server/db';
-import { brands, categories, cmsPages, contentBlocks, editorialContentEntries, products } from '@/server/db/schema';
+import { brands, categories, cmsPages, contentBlocks, editorialContents, products } from '@/server/db/schema';
 
 async function main() {
   if (!db) {
@@ -14,7 +14,7 @@ async function main() {
   const [categoryCount] = await db.select({ value: count() }).from(categories);
   const [productCount] = await db.select({ value: count() }).from(products);
   const [cmsPageCount] = await db.select({ value: count() }).from(cmsPages);
-  const [editorialCount] = await db.select({ value: count() }).from(editorialContentEntries);
+  const [editorialCount] = await db.select({ value: count() }).from(editorialContents);
   const [contentBlockCount] = await db.select({ value: count() }).from(contentBlocks);
 
   console.log(

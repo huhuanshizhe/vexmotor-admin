@@ -87,7 +87,7 @@ export function AdminOverviewClient({ metrics, recentOrders, recentInquiries, lo
           <Card><Statistic title="询盘总数" value={metrics.totalInquiries} suffix={`跟进中 ${metrics.openInquiries}`} /></Card>
         </Col>
         <Col xs={24} sm={12} xl={6}>
-          <Card><Statistic title="内容区块" value={metrics.activeBlocks} suffix={`已发布页面 ${metrics.publishedPages}`} /></Card>
+          <Card><Statistic title="已发布页面" value={metrics.publishedPages} /></Card>
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <Card><Statistic title="已收款销售额" value={metrics.paidRevenue} precision={2} prefix="$" /></Card>

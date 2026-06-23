@@ -3,7 +3,7 @@ import '@/lib/env';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { eq, inArray, notInArray } from 'drizzle-orm';
+import { eq, inArray, notInArray, and } from 'drizzle-orm';
 
 import { db } from '@/server/db';
 import {
@@ -12,7 +12,8 @@ import {
   categories,
   cmsPages,
   contentBlocks,
-  editorialContentEntries,
+  editorialContentTranslations,
+  editorialContents,
   productCategories,
   productFeatures,
   productImages,
@@ -282,10 +283,6 @@ async function upsertCategory(entry: CategorySnapshot) {
 }
 
 async function main() {
-  if (!db) {
-    throw new Error('DATABASE_URL is required before running import script');
-  }
-
   const inputDir = path.resolve(process.cwd(), process.argv[2] || 'migration/vexmotor');
 
   const [productsSnapshot, categoriesSnapshot, pagesSnapshot, articlesSnapshot, footerSnapshot, bannerSnapshot] = await Promise.all([
@@ -563,74 +560,76 @@ async function main() {
     const slug = pageSlugFromPath(url.pathname);
     const title = (item.heading || item.title || toTitleCaseFromSlug(slug)).trim();
 
-    await db!
-      .insert(editorialContentEntries)
-      .values({
-        contentType: 'blog',
-        title,
-        slug,
-        summary: item.seoDescription || null,
-        locale: 'en-US',
-        status: 'published',
-        seoTitle: item.seoTitle || item.title || title,
-        seoDescription: item.seoDescription || null,
-        publishedAt: new Date(),
-        payload: {
-          lead: item.bodyTextExcerpt || item.seoDescription || '',
-          topic: 'Stepper',
-          industry: 'Factory Automation',
-          authorId: 'site-editorial-team',
-          readMinutes: 6,
-          viewCount: 0,
-          coverAlt: title,
-          relatedProductSlugs: [],
-          relatedPostSlugs: [],
-          sections: [
-            {
-              id: 'legacy-import',
-              title,
-              blocks: [
-                {
-                  type: 'paragraph',
-                  text: item.bodyTextExcerpt || item.seoDescription || '',
-                },
-              ],
-            },
-          ],
-        },
+    const [existingTranslation] = await db!
+      .select({
+        contentId: editorialContentTranslations.contentId,
+        translationId: editorialContentTranslations.id,
       })
-      .onConflictDoUpdate({
-        target: [editorialContentEntries.contentType, editorialContentEntries.slug, editorialContentEntries.locale],
-        set: {
+      .from(editorialContentTranslations)
+      .where(and(
+        eq(editorialContentTranslations.contentType, 'content'),
+        eq(editorialContentTranslations.slug, slug),
+        eq(editorialContentTranslations.locale, 'en-US'),
+      ))
+      .limit(1);
+
+    if (existingTranslation) {
+      await db!
+        .update(editorialContents)
+        .set({
+          status: 'published',
+          publishedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(editorialContents.id, existingTranslation.contentId));
+
+      await db!
+        .update(editorialContentTranslations)
+        .set({
           title,
           summary: item.seoDescription || null,
           seoTitle: item.seoTitle || item.title || title,
           seoDescription: item.seoDescription || null,
-          status: 'published',
           payload: {
-            lead: item.bodyTextExcerpt || item.seoDescription || '',
-            topic: 'Stepper',
-            industry: 'Factory Automation',
-            authorId: 'site-editorial-team',
-            readMinutes: 6,
-            viewCount: 0,
+            body: item.bodyTextExcerpt || item.seoDescription || '',
+            coverUrl: null,
             coverAlt: title,
+            tags: ['legacy-import'],
             relatedProductSlugs: [],
-            relatedPostSlugs: [],
-            sections: [
-              {
-                id: 'legacy-import',
-                title,
-                blocks: [
-                  {
-                    type: 'paragraph',
-                    text: item.bodyTextExcerpt || item.seoDescription || '',
-                  },
-                ],
-              },
-            ],
           },
           updatedAt: new Date(),
+        })
+        .where(eq(editorialContentTranslations.id, existingTranslation.translationId));
+      continue;
+    }
+
+    const [createdContent] = await db!
+      .insert(editorialContents)
+      .values({
+        contentType: 'content',
+        boardKey: 'content',
+        status: 'published',
+        publishedAt: new Date(),
+      })
+      .returning({ id: editorialContents.id });
+
+    await db!
+      .insert(editorialContentTranslations)
+      .values({
+        contentId: createdContent.id,
+        contentType: 'content',
+        title,
+        slug,
+        summary: item.seoDescription || null,
+        locale: 'en-US',
+        seoTitle: item.seoTitle || item.title || title,
+        seoDescription: item.seoDescription || null,
+        payload: {
+          body: item.bodyTextExcerpt || item.seoDescription || '',
+          coverUrl: null,
+          coverAlt: title,
+          tags: ['legacy-import'],
+          relatedProductSlugs: [],
         },
       });
   }

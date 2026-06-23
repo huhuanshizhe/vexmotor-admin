@@ -15,6 +15,13 @@
       "when": 1780712563183,
       "tag": "0001_wealthy_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780800000000,
+      "tag": "0002_editorial_content_split",
+      "breakpoints": true
     }
   ]
 }

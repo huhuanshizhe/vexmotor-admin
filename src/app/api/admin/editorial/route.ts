@@ -12,10 +12,18 @@ const workflowSettingsSchema = z.object({
   publishGuardrails: z.array(z.string().trim().min(1)).default([]),
 });
 
+const coverageBoardSchema = z.object({
+  key: z.string().trim().min(1),
+  title: z.string().trim().min(1),
+  contentType: z.literal('content').default('content'),
+  sourceMode: z.enum(['code-seeded', 'admin-managed']).default('admin-managed'),
+  note: z.string().trim().min(1),
+});
+
 const templateSchema = z.object({
   id: z.string().default(''),
   name: z.string().trim().min(1),
-  contentType: z.enum(['blog', 'press', 'faq', 'tech-faq', 'glossary', 'support']),
+  contentType: z.literal('content'),
   objective: z.string().trim().min(1),
   systemPrompt: z.string().trim().min(1),
   userPromptTemplate: z.string().trim().min(1),
@@ -29,9 +37,9 @@ const templateSchema = z.object({
 const ruleSchema = z.object({
   id: z.string().default(''),
   name: z.string().trim().min(1),
-  contentType: z.enum(['blog', 'press', 'faq', 'tech-faq', 'glossary', 'support']),
-  triggerType: z.enum(['schedule', 'product-update', 'faq-gap', 'seo-refresh', 'support-signal', 'manual']),
-  cadence: z.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'manual']),
+  contentType: z.literal('content'),
+  triggerType: z.literal('manual'),
+  cadence: z.literal('manual'),
   sourceSignal: z.string().trim().min(1),
   targetKeywordCluster: z.string().trim().min(1),
   autoCreateBrief: z.boolean().default(false),
@@ -44,7 +52,7 @@ const ruleSchema = z.object({
 const briefSchema = z.object({
   id: z.string().default(''),
   title: z.string().trim().min(1),
-  contentType: z.enum(['blog', 'press', 'faq', 'tech-faq', 'glossary', 'support']),
+  contentType: z.literal('content'),
   targetKeyword: z.string().trim().min(1),
   searchIntent: z.string().trim().min(1),
   audience: z.string().trim().min(1),
@@ -64,7 +72,7 @@ const briefSchema = z.object({
 const runSchema = z.object({
   id: z.string().default(''),
   briefId: z.string().trim().nullable().optional().transform((value) => value ?? null),
-  contentType: z.enum(['blog', 'press', 'faq', 'tech-faq', 'glossary', 'support']),
+  contentType: z.literal('content'),
   modelName: z.string().trim().min(1),
   status: z.enum(['queued', 'running', 'completed', 'failed', 'reviewed']),
   outputTitle: z.string().trim().min(1),
@@ -77,6 +85,7 @@ const runSchema = z.object({
 
 const editorialConfigSchema = z.object({
   workflowSettings: workflowSettingsSchema,
+  coverageBoards: z.array(coverageBoardSchema).default([]),
   templates: z.array(templateSchema).default([]),
   rules: z.array(ruleSchema).default([]),
   briefs: z.array(briefSchema).default([]),

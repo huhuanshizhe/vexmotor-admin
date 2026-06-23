@@ -8,6 +8,7 @@ import {
   GlobalOutlined,
   InboxOutlined,
   OrderedListOutlined,
+  SettingOutlined,
   ShoppingOutlined,
   TagsOutlined,
   TeamOutlined,
@@ -16,28 +17,76 @@ import {
 import { Avatar, Button, Layout, Menu, Space, Typography } from 'antd';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 const { Header, Sider, Content } = Layout;
 
 const items = [
   { key: '/admin', icon: <DashboardOutlined />, label: <Link href="/admin">仪表盘</Link> },
-  { key: '/admin/products', icon: <ShoppingOutlined />, label: <Link href="/admin/products">产品管理</Link> },
-  { key: '/admin/commerce', icon: <GlobalOutlined />, label: <Link href="/admin/commerce">定价与物流</Link> },
-  { key: '/admin/categories', icon: <AppstoreOutlined />, label: <Link href="/admin/categories">分类管理</Link> },
-  { key: '/admin/brands', icon: <TagsOutlined />, label: <Link href="/admin/brands">品牌管理</Link> },
-  { key: '/admin/orders', icon: <OrderedListOutlined />, label: <Link href="/admin/orders">订单管理</Link> },
-  { key: '/admin/inquiries', icon: <InboxOutlined />, label: <Link href="/admin/inquiries">询盘管理</Link> },
-  { key: '/admin/customers', icon: <TeamOutlined />, label: <Link href="/admin/customers">客户管理</Link> },
-  { key: '/admin/content', icon: <BarsOutlined />, label: <Link href="/admin/content">内容区块</Link> },
-  { key: '/admin/content/faq', icon: <FileTextOutlined />, label: <Link href="/admin/content/faq">FAQ管理</Link> },
-  { key: '/admin/editorial', icon: <FileTextOutlined />, label: <Link href="/admin/editorial">博客管理</Link> },
+  {
+    key: 'product-management',
+    icon: <ShoppingOutlined />,
+    label: '产品管理',
+    children: [
+      { key: '/admin/products', icon: <ShoppingOutlined />, label: <Link href="/admin/products">产品管理</Link> },
+      { key: '/admin/categories', icon: <AppstoreOutlined />, label: <Link href="/admin/categories">分类管理</Link> },
+      { key: '/admin/brands', icon: <TagsOutlined />, label: <Link href="/admin/brands">品牌管理</Link> },
+      { key: '/admin/commerce', icon: <GlobalOutlined />, label: <Link href="/admin/commerce">定价与物流</Link> },
+    ],
+  },
+  {
+    key: 'order-management',
+    icon: <OrderedListOutlined />,
+    label: '订单管理',
+    children: [
+      { key: '/admin/orders', icon: <OrderedListOutlined />, label: <Link href="/admin/orders">订单管理</Link> },
+      { key: '/admin/inquiries', icon: <InboxOutlined />, label: <Link href="/admin/inquiries">询盘管理</Link> },
+      { key: '/admin/customers', icon: <TeamOutlined />, label: <Link href="/admin/customers">客户管理</Link> },
+    ],
+  },
+  {
+    key: 'content-management',
+    icon: <BarsOutlined />,
+    label: '内容管理',
+    children: [
+      { key: '/admin/editorial/boards', icon: <AppstoreOutlined />, label: <Link href="/admin/editorial/boards">看板管理</Link> },
+      { key: '/admin/content/faq', icon: <FileTextOutlined />, label: <Link href="/admin/content/faq">FAQ管理</Link> },
+      { key: '/admin/editorial', icon: <FileTextOutlined />, label: <Link href="/admin/editorial">博客管理</Link> },
+    ],
+  },
+  {
+    key: 'site-management',
+    icon: <SettingOutlined />,
+    label: '站点管理',
+    children: [
+      { key: '/admin/languages', icon: <GlobalOutlined />, label: <Link href="/admin/languages">多语言</Link> },
+    ],
+  },
 ];
+
+type MenuItem = {
+  key: string;
+  icon?: ReactNode;
+  label: ReactNode;
+  children?: MenuItem[];
+};
+
+function flattenItems(menuItems: MenuItem[]): MenuItem[] {
+  return menuItems.flatMap((item) => [item, ...(item.children ? flattenItems(item.children) : [])]);
+}
+
+function getOpenKeys(pathname: string) {
+  return items
+    .filter((item) => item.children?.some((child) => pathname === child.key || pathname.startsWith(`${child.key}/`)))
+    .map((item) => item.key);
+}
 
 export function AdminShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
+  const flattenedItems = flattenItems(items);
   const selected =
-    [...items]
+    [...flattenedItems]
+      .filter((item) => !item.children)
       .sort((a, b) => b.key.length - a.key.length)
       .find((item) => pathname === item.key || pathname.startsWith(`${item.key}/`))?.key ?? '/admin';
 
@@ -52,7 +101,7 @@ export function AdminShell({ children }: PropsWithChildren) {
             工业运动控制电商运营中心
           </Typography.Paragraph>
         </div>
-        <Menu mode="inline" selectedKeys={[selected]} items={items} style={{ borderInlineEnd: 0 }} />
+        <Menu mode="inline" selectedKeys={[selected]} defaultOpenKeys={getOpenKeys(pathname)} items={items} style={{ borderInlineEnd: 0 }} />
       </Sider>
       <Layout>
         <Header

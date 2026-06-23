@@ -25,9 +25,6 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Authentication required' }, { status: 401 });
   }
-  if (!db) {
-    return NextResponse.json({ code: 'DB_UNAVAILABLE', message: 'Database is not configured' }, { status: 503 });
-  }
 
   const body = await request.json();
   const parsed = wishlistSchema.safeParse(body);
