@@ -17,6 +17,7 @@ export const adminNavItems: AdminNavItem[] = [
       { key: '/admin/products', title: '产品管理', href: '/admin/products' },
       { key: '/admin/categories', title: '分类管理', href: '/admin/categories' },
       { key: '/admin/brands', title: '品牌管理', href: '/admin/brands' },
+      { key: '/admin/product-features', title: '产品特性', href: '/admin/product-features' },
       { key: '/admin/commerce', title: '定价与物流', href: '/admin/commerce' },
     ],
   },

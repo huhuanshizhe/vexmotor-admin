@@ -5,6 +5,7 @@ import type { FormInstance } from 'antd';
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
+import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { buildCategoryParentTreeSelectData } from '@/lib/category-parent-tree-select';
 import {
@@ -155,12 +156,6 @@ function buildTranslationPayload(
       tags: splitMultiline(draft.tagsText),
     },
   };
-}
-
-function localeTabLabel(language: AdminSiteLanguageRow, draft?: LocaleDraft) {
-  const base = language.nativeName;
-  if (draft?.persisted) return `${base} ✓`;
-  return base;
 }
 
 export function CategoryEditorModal({
@@ -587,19 +582,15 @@ export function CategoryEditorModal({
 
             <div className="content-editor-layout">
               <div className="content-editor-locale-nav">
-                {activeLanguages.map((language) => {
-                  const isActive = language.code === activeLocale;
-                  return (
-                    <button
-                      key={language.code}
-                      type="button"
-                      className={`content-editor-locale-tab${isActive ? ' is-active' : ''}`}
-                      onClick={() => handleLocaleChange(language.code)}
-                    >
-                      {localeTabLabel(language, drafts[language.code])}
-                    </button>
-                  );
-                })}
+                {activeLanguages.map((language) => (
+                  <ContentEditorLocaleTab
+                    key={language.code}
+                    language={language}
+                    isActive={language.code === activeLocale}
+                    persisted={drafts[language.code]?.persisted}
+                    onClick={() => handleLocaleChange(language.code)}
+                  />
+                ))}
               </div>
               <div className="content-editor-main">
                 {editorPanel}

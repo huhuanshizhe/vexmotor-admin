@@ -239,6 +239,43 @@ export const brandTranslations = pgTable(
   }),
 );
 
+export const featureDefinitions = pgTable(
+  'feature_definitions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    specCategory: varchar('spec_category', { length: 50 }).notNull().default('general'),
+    valueType: varchar('value_type', { length: 20 }).notNull().default('text'),
+    selectOptions: jsonb('select_options').$type<string[]>().notNull().default([]),
+    status: brandStatusEnum('status').notNull().default('active'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index('feature_definitions_status_idx').on(table.status),
+  }),
+);
+
+export const featureDefinitionTranslations = pgTable(
+  'feature_definition_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    definitionId: uuid('definition_id').notNull().references(() => featureDefinitions.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    name: varchar('name', { length: 150 }).notNull(),
+    valueText: varchar('value_text', { length: 255 }),
+    valueMin: numeric('value_min', { precision: 12, scale: 4 }),
+    valueMax: numeric('value_max', { precision: 12, scale: 4 }),
+    unit: varchar('unit', { length: 50 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    definitionLocaleUnique: uniqueIndex('feature_definition_translations_definition_locale_unique').on(table.definitionId, table.locale),
+    definitionIdIdx: index('feature_definition_translations_definition_id_idx').on(table.definitionId),
+  }),
+);
+
 export const productLifecycleEnum = pgEnum('product_lifecycle', ['new', 'active', 'nfd', 'eol', 'last_time_buy']);
 
 export const products = pgTable(

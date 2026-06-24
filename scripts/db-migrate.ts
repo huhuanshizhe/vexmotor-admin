@@ -119,6 +119,26 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0007_feature_definitions') && await tableExists(sql, 'feature_definitions')) {
+    const [translationTable] = await sql<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'feature_definition_translations'
+      ) AS exists
+    `;
+    if (translationTable?.exists) {
+      baselineTags.push('0007_feature_definitions');
+    }
+  }
+
+  if (allTags.includes('0008_feature_definition_name_i18n') && await tableExists(sql, 'feature_definitions')) {
+    const definitionsStillHaveName = await columnExists(sql, 'feature_definitions', 'name');
+    const translationsHaveName = await columnExists(sql, 'feature_definition_translations', 'name');
+    if (!definitionsStillHaveName && translationsHaveName) {
+      baselineTags.push('0008_feature_definition_name_i18n');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);

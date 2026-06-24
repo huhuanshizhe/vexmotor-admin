@@ -8356,7 +8356,7 @@ main {
 
 .content-editor-layout {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 0;
   min-height: 480px;
   width: 100%;
@@ -8725,12 +8725,14 @@ main {
 }
 
 .content-editor-locale-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 4px;
+  row-gap: 4px;
+  align-self: flex-start;
+  align-content: start;
   flex: 0 0 auto;
   width: max-content;
-  min-width: 0;
   padding-right: 8px;
   border-right: 1px solid #f0f0f0;
 }
@@ -8742,12 +8744,39 @@ main {
   border-radius: 8px;
   color: rgba(0, 0, 0, 0.88);
   cursor: pointer;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  align-self: start;
+  height: auto;
   font-size: 14px;
   line-height: 1.4;
   padding: 8px 10px;
   text-align: left;
   white-space: nowrap;
   transition: background-color 0.2s, color 0.2s;
+}
+
+.content-editor-locale-tab__label {
+  justify-self: end;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.content-editor-locale-tab__mark {
+  justify-self: start;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1;
+  color: inherit;
+  visibility: hidden;
+  user-select: none;
+}
+
+.content-editor-locale-tab__mark.is-persisted {
+  visibility: visible;
 }
 
 .content-editor-locale-tab:hover {
