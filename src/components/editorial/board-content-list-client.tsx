@@ -9,6 +9,12 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useT
 import { AdminListPagination } from '@/components/admin/admin-list-pagination';
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
 import { AdminEditorialRowActions } from '@/components/admin/admin-row-actions';
+import {
+  ADMIN_TABLE_EDITORIAL_ACTIONS_WIDTH,
+  adminTableFixedActionsColumn,
+  adminTableNowrapHeader,
+  adminTableScroll,
+} from '@/components/admin/admin-table';
 import { formatAdminDate } from '@/lib/admin-display';
 import {
   type AdminListPageSize,
@@ -291,7 +297,7 @@ export function BoardContentListClient({
       dataIndex: 'title',
       width: 180,
       ellipsis: true,
-      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Typography.Text ellipsis title={value}>{value}</Typography.Text>
       ),
@@ -301,7 +307,7 @@ export function BoardContentListClient({
       dataIndex: 'slug',
       width: 160,
       ellipsis: true,
-      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Typography.Text ellipsis title={value}>{value}</Typography.Text>
       ),
@@ -310,14 +316,14 @@ export function BoardContentListClient({
       title: '状态',
       dataIndex: 'status',
       width: 72,
-      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: EditorialEntryStatus) => <Tag color={entryStatusColors[value]}>{entryStatusLabels[value]}</Tag>,
     },
     {
       title: '发布时间',
       dataIndex: 'publishedAt',
       width: 140,
-      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string | null) => (
         <Typography.Text style={{ whiteSpace: 'nowrap' }}>{formatAdminDate(value)}</Typography.Text>
       ),
@@ -326,16 +332,15 @@ export function BoardContentListClient({
       title: '最近更新',
       dataIndex: 'updatedAt',
       width: 140,
-      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Typography.Text style={{ whiteSpace: 'nowrap' }}>{formatAdminDate(value)}</Typography.Text>
       ),
     },
-    {
+    adminTableFixedActionsColumn({
       title: '操作',
       key: 'actions',
-      width: 140,
-      onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+      width: ADMIN_TABLE_EDITORIAL_ACTIONS_WIDTH,
       render: (_: unknown, row: AdminEditorialContentListItem) => (
         <AdminEditorialRowActions
           loading={isPending}
@@ -346,7 +351,7 @@ export function BoardContentListClient({
           onDelete={() => deleteContent(row)}
         />
       ),
-    },
+    }),
   ];
 
   function renderBoardPanel(boardKey: string, isUnassigned = false) {
@@ -369,6 +374,7 @@ export function BoardContentListClient({
           pagination={false}
           tableLayout="fixed"
           style={{ width: '100%' }}
+          scroll={adminTableScroll(showSlugColumn ? 980 : 820)}
           dataSource={listState.items}
           columns={isUnassigned ? [
             buildAdminListRowIndexColumn(listState.page, listState.pageSize),
@@ -377,13 +383,13 @@ export function BoardContentListClient({
               dataIndex: 'title',
               width: 160,
               ellipsis: true,
-              onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+              onHeaderCell: adminTableNowrapHeader,
             },
             {
               title: '原看板 Key',
               dataIndex: 'boardKey',
               width: 120,
-              onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' as const } }),
+              onHeaderCell: adminTableNowrapHeader,
               render: (value: string) => <Tag>{value}</Tag>,
             },
             ...contentColumns.slice(1),

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { COMMON_CURRENCY_CODES } from '@/lib/currencies';
 import { COMMON_LANGUAGE_CODES } from '@/lib/languages';
 import { addAdminSiteLanguage, getAdminSiteLanguages, getAvailableCommonLanguages } from '@/server/admin/languages';
 
 const createLanguageSchema = z.object({
   code: z.string().refine((value) => COMMON_LANGUAGE_CODES.includes(value), 'Unsupported language code'),
+  currencyCode: z.string().refine((value) => COMMON_CURRENCY_CODES.includes(value), 'Unsupported currency code'),
 });
 
 export async function GET(request: NextRequest) {
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
   const [items, availableLanguages] = await Promise.all([getAdminSiteLanguages(), getAvailableCommonLanguages()]);
   const filtered = search
     ? items.filter((item) =>
-        [item.code, item.name, item.nativeName, item.region, item.countryCodes.join(' ')].join(' ').toLowerCase().includes(search),
+        [item.code, item.name, item.nativeName, item.region, item.currencyCode, item.countryCodes.join(' ')].join(' ').toLowerCase().includes(search),
       )
     : items;
 
@@ -32,10 +34,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const created = await addAdminSiteLanguage(parsed.data.code);
+  const created = await addAdminSiteLanguage(parsed.data.code, parsed.data.currencyCode);
   if (!created) {
     return NextResponse.json({ code: 'CREATE_FAILED', message: 'Unable to add language' }, { status: 400 });
   }
 
   return NextResponse.json(created, { status: 201 });
 }
+

@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 
-import { COMMON_LANGUAGES, getCommonLanguage, type CommonLanguage } from '@/lib/languages';
+import { getDefaultCurrencyForLanguage, isCommonCurrencyCode } from '@/lib/currencies';
+import { COMMON_LANGUAGES, getCommonLanguage } from '@/lib/languages';
 import { db } from '@/server/db';
 import { siteLanguages } from '@/server/db/schema';
 
@@ -13,6 +14,7 @@ export type AdminSiteLanguageRow = {
   region: string;
   direction: 'ltr' | 'rtl';
   countryCodes: string[];
+  currencyCode: string;
   status: SiteLanguageStatus;
   isDefault: boolean;
   sortOrder: number;
@@ -24,29 +26,19 @@ export type UpdateSiteLanguageInput = {
   status?: SiteLanguageStatus;
   isDefault?: boolean;
   sortOrder?: number;
+  currencyCode?: string;
 };
 
 const initialLanguageCodes = ['en', 'de', 'es'];
 
+const initialLanguageCurrencies: Record<string, string> = {
+  en: 'USD',
+  de: 'EUR',
+  es: 'EUR',
+};
+
 function now() {
   return new Date();
-}
-
-function toRow(language: CommonLanguage, input?: Partial<AdminSiteLanguageRow>): AdminSiteLanguageRow {
-  const date = now();
-  return {
-    code: language.code,
-    name: language.name,
-    nativeName: language.nativeName,
-    region: language.region,
-    direction: language.direction,
-    countryCodes: language.countryCodes ?? [],
-    status: input?.status ?? 'active',
-    isDefault: input?.isDefault ?? language.code === 'en',
-    sortOrder: input?.sortOrder ?? initialLanguageCodes.indexOf(language.code),
-    createdAt: input?.createdAt ?? date,
-    updatedAt: input?.updatedAt ?? date,
-  };
 }
 
 async function seedDatabaseLanguages() {
@@ -66,6 +58,7 @@ async function seedDatabaseLanguages() {
         region: language.region,
         direction: language.direction,
         countryCodes: language.countryCodes ?? [],
+        currencyCode: initialLanguageCurrencies[code] ?? getDefaultCurrencyForLanguage(code),
         status: 'active' as SiteLanguageStatus,
         isDefault: code === 'en',
         sortOrder: index,
@@ -89,9 +82,9 @@ export async function getAvailableCommonLanguages() {
   return COMMON_LANGUAGES.filter((language) => !enabledCodes.has(language.code));
 }
 
-export async function addAdminSiteLanguage(code: string) {
+export async function addAdminSiteLanguage(code: string, currencyCode: string) {
   const language = getCommonLanguage(code);
-  if (!language) {
+  if (!language || !isCommonCurrencyCode(currencyCode)) {
     return null;
   }
 
@@ -112,6 +105,7 @@ export async function addAdminSiteLanguage(code: string) {
       region: language.region,
       direction: language.direction,
       countryCodes: language.countryCodes ?? [],
+      currencyCode,
       status: 'active',
       isDefault: shouldBeDefault,
       sortOrder: nextSortOrder,
@@ -129,6 +123,10 @@ export async function updateAdminSiteLanguage(code: string, input: UpdateSiteLan
     return null;
   }
 
+  if (input.currencyCode && !isCommonCurrencyCode(input.currencyCode)) {
+    return null;
+  }
+
   if (existing.isDefault && input.status === 'inactive') {
     return null;
   }
@@ -137,14 +135,32 @@ export async function updateAdminSiteLanguage(code: string, input: UpdateSiteLan
     await db.update(siteLanguages).set({ isDefault: false, updatedAt: now() });
   }
 
+  const patch: Partial<typeof siteLanguages.$inferInsert> = {
+    updatedAt: now(),
+  };
+
+  if (input.isDefault !== undefined) {
+    patch.isDefault = input.isDefault;
+    if (input.isDefault) {
+      patch.status = 'active';
+    }
+  }
+
+  if (input.status !== undefined && !input.isDefault) {
+    patch.status = input.status;
+  }
+
+  if (input.sortOrder !== undefined) {
+    patch.sortOrder = input.sortOrder;
+  }
+
+  if (input.currencyCode !== undefined) {
+    patch.currencyCode = input.currencyCode;
+  }
+
   const [updated] = await db
     .update(siteLanguages)
-    .set({
-      status: input.isDefault ? 'active' : input.status,
-      isDefault: input.isDefault,
-      sortOrder: input.sortOrder,
-      updatedAt: now(),
-    })
+    .set(patch)
     .where(eq(siteLanguages.code, code))
     .returning();
 

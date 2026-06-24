@@ -28,6 +28,8 @@ function ActionIconButton({ title, icon, danger, loading, onClick }: ActionIconB
   );
 }
 
+export { ActionIconButton as AdminActionIconButton };
+
 type ConfirmActionIconButtonProps = Omit<ActionIconButtonProps, 'onClick'> & {
   confirmTitle: string;
   confirmDescription?: string;

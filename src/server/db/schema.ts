@@ -121,6 +121,7 @@ export const siteLanguages = pgTable(
     region: varchar('region', { length: 80 }).notNull(),
     direction: textDirectionEnum('direction').notNull().default('ltr'),
     countryCodes: jsonb('country_codes').$type<string[]>().notNull().default([]),
+    currencyCode: varchar('currency_code', { length: 3 }).notNull().default('USD'),
     status: simpleStatusEnum('status').notNull().default('active'),
     isDefault: boolean('is_default').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),

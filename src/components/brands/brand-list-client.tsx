@@ -8,6 +8,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState, useTransition
 
 import { AdminListPagination } from '@/components/admin/admin-list-pagination';
 import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
+import { adminTableFixedActionsColumn, adminTableNowrapHeader, adminTableScroll } from '@/components/admin/admin-table';
 import { brandStatusColors, brandStatusLabels, formatAdminDate } from '@/lib/admin-display';
 import {
   type AdminListPageSize,
@@ -206,15 +207,13 @@ export function BrandListClient({
     });
   }
 
-  const nowrapHeader = () => ({ style: { whiteSpace: 'nowrap' as const } });
-
   const columns = [
     buildAdminListRowIndexColumn(listState.page, listState.pageSize),
     {
       title: 'Logo',
       dataIndex: 'logoUrl',
       width: 72,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string | null) => value ? (
         <Image
           src={value}
@@ -233,7 +232,7 @@ export function BrandListClient({
       dataIndex: 'name',
       width: 180,
       ellipsis: true,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Tooltip title={value}>
           <Typography.Text ellipsis>{value}</Typography.Text>
@@ -245,7 +244,7 @@ export function BrandListClient({
       dataIndex: 'slug',
       width: 160,
       ellipsis: true,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Tooltip title={value}>
           <Typography.Text ellipsis>{value}</Typography.Text>
@@ -257,13 +256,13 @@ export function BrandListClient({
       dataIndex: 'productCount',
       width: 64,
       align: 'center' as const,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
     },
     {
       title: '状态',
       dataIndex: 'status',
       width: 72,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: 'active' | 'inactive') => (
         <Tag color={brandStatusColors[value]}>{brandStatusLabels[value]}</Tag>
       ),
@@ -273,7 +272,7 @@ export function BrandListClient({
       dataIndex: 'websiteUrl',
       width: 120,
       ellipsis: true,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string | null) => value ? (
         <Tooltip title={value}>
           <Typography.Link href={value} target="_blank" rel="noreferrer" ellipsis>
@@ -286,16 +285,14 @@ export function BrandListClient({
       title: '最近更新',
       dataIndex: 'updatedAt',
       width: 148,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Typography.Text style={{ whiteSpace: 'nowrap' }}>{formatAdminDate(value)}</Typography.Text>
       ),
     },
-    {
+    adminTableFixedActionsColumn({
       title: '操作',
       key: 'actions',
-      width: 112,
-      onHeaderCell: nowrapHeader,
       render: (_: unknown, row: AdminBrandListItem) => (
         <AdminEntityRowActions
           loading={isPending}
@@ -306,7 +303,7 @@ export function BrandListClient({
           onDelete={() => deleteBrand(row)}
         />
       ),
-    },
+    }),
   ];
 
   return (
@@ -341,6 +338,7 @@ export function BrandListClient({
               pagination={false}
               tableLayout="fixed"
               style={{ width: '100%' }}
+              scroll={adminTableScroll(1020)}
               dataSource={listState.items}
               columns={columns}
               locale={{ emptyText: '暂无品牌' }}

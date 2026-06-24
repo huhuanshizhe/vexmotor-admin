@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminListPagination } from '@/components/admin/admin-list-pagination';
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
 import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
+import { adminTableFixedActionsColumn, adminTableNowrapHeader, adminTableScroll } from '@/components/admin/admin-table';
 import { CategoryEditorModal } from '@/components/categories/category-editor-modal';
 import { categoryStatusColors, categoryStatusLabels, formatAdminDate } from '@/lib/admin-display';
 import {
@@ -345,15 +346,13 @@ export function CategoriesClient({
     });
   }
 
-  const nowrapHeader = () => ({ style: { whiteSpace: 'nowrap' as const } });
-
   const columns = [
     buildAdminListRowIndexColumn(listState.page, listState.pageSize),
     {
       title: 'Logo',
       dataIndex: 'imageUrl',
       width: 72,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string | null) => value ? (
         <Image
           src={value}
@@ -372,7 +371,7 @@ export function CategoriesClient({
       dataIndex: 'name',
       width: 180,
       ellipsis: true,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Tooltip title={value}>
           <Typography.Text ellipsis>{value}</Typography.Text>
@@ -384,7 +383,7 @@ export function CategoriesClient({
       dataIndex: 'slug',
       width: 160,
       ellipsis: true,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Tooltip title={value}>
           <Typography.Text ellipsis>{value}</Typography.Text>
@@ -396,13 +395,13 @@ export function CategoriesClient({
       dataIndex: 'productCount',
       width: 72,
       align: 'center' as const,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
     },
     {
       title: '状态',
       dataIndex: 'status',
       width: 72,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: CategoryStatus) => (
         <Tag color={categoryStatusColors[value]}>{categoryStatusLabels[value]}</Tag>
       ),
@@ -411,16 +410,14 @@ export function CategoriesClient({
       title: '最近更新',
       dataIndex: 'updatedAt',
       width: 148,
-      onHeaderCell: nowrapHeader,
+      onHeaderCell: adminTableNowrapHeader,
       render: (value: string) => (
         <Typography.Text style={{ whiteSpace: 'nowrap' }}>{formatAdminDate(value)}</Typography.Text>
       ),
     },
-    {
+    adminTableFixedActionsColumn({
       title: '操作',
       key: 'actions',
-      width: 112,
-      onHeaderCell: nowrapHeader,
       render: (_: unknown, row: AdminCategoryListItem) => (
         <AdminEntityRowActions
           loading={isPending}
@@ -432,7 +429,7 @@ export function CategoriesClient({
           deleteMode="callback"
         />
       ),
-    },
+    }),
   ];
 
   return (
@@ -502,6 +499,7 @@ export function CategoriesClient({
               pagination={false}
               tableLayout="fixed"
               style={{ width: '100%' }}
+              scroll={adminTableScroll(980)}
               dataSource={listState.items}
               columns={columns}
               locale={{ emptyText: '该层级下暂无子分类' }}

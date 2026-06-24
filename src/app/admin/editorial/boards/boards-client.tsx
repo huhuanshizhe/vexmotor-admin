@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from 'react';
 
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
 import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
+import { adminTableFixedActionsColumn, adminTableNowrapHeader, adminTableScroll } from '@/components/admin/admin-table';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
 import type { AdminEditorialContentListItem } from '@/lib/editorial-content';
 import type {
@@ -149,8 +150,6 @@ export function AdminEditorialBoardsClient({
     });
   }
 
-  const nowrapHeader = () => ({ style: { whiteSpace: 'nowrap' as const } });
-
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {contextHolder}
@@ -165,20 +164,22 @@ export function AdminEditorialBoardsClient({
           pagination={false}
           tableLayout="fixed"
           style={{ width: '100%' }}
+          scroll={adminTableScroll(920)}
           dataSource={boards}
           columns={[
             buildAdminListRowIndexColumn(1, Math.max(boards.length, 1)),
             {
               title: '看板',
               dataIndex: 'title',
+              width: 180,
               ellipsis: true,
-              onHeaderCell: nowrapHeader,
+              onHeaderCell: adminTableNowrapHeader,
             },
             {
               title: 'Key',
               dataIndex: 'key',
               width: 140,
-              onHeaderCell: nowrapHeader,
+              onHeaderCell: adminTableNowrapHeader,
               render: (value: string) => <Tag>{value}</Tag>,
             },
             {
@@ -186,13 +187,13 @@ export function AdminEditorialBoardsClient({
               dataIndex: 'count',
               width: 88,
               align: 'center' as const,
-              onHeaderCell: nowrapHeader,
+              onHeaderCell: adminTableNowrapHeader,
             },
             {
               title: '状态',
               dataIndex: 'enabled',
               width: 72,
-              onHeaderCell: nowrapHeader,
+              onHeaderCell: adminTableNowrapHeader,
               render: (value: boolean) => (
                 <Tag color={value ? 'green' : 'default'}>{value ? '启用' : '停用'}</Tag>
               ),
@@ -200,14 +201,13 @@ export function AdminEditorialBoardsClient({
             {
               title: '说明',
               dataIndex: 'note',
+              width: 240,
               ellipsis: true,
-              onHeaderCell: nowrapHeader,
+              onHeaderCell: adminTableNowrapHeader,
             },
-            {
+            adminTableFixedActionsColumn({
               title: '操作',
               key: 'actions',
-              width: 112,
-              onHeaderCell: nowrapHeader,
               render: (_: unknown, row: EditorialCoverageMetric) => (
                 <AdminEntityRowActions
                   loading={isPending}
@@ -220,7 +220,7 @@ export function AdminEditorialBoardsClient({
                   toggleEnableDescription="启用后该看板将恢复在内容管理页展示。"
                 />
               ),
-            },
+            }),
           ]}
         />
       </Card>

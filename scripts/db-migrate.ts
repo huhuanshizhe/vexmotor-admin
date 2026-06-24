@@ -112,6 +112,13 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0006_site_language_currency') && await tableExists(sql, 'site_languages')) {
+    const hasCurrencyCode = await columnExists(sql, 'site_languages', 'currency_code');
+    if (hasCurrencyCode) {
+      baselineTags.push('0006_site_language_currency');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);
