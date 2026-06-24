@@ -20,7 +20,9 @@ import {
   productFeatures,
   productImages,
   products,
+  productTranslations,
 } from '@/server/db/schema';
+import { DEFAULT_PRODUCT_LOCALE } from '@/server/products/resolve-product-translation';
 
 type ProductSnapshot = {
   url: string;
@@ -219,7 +221,12 @@ async function resolveUniqueSku(baseSku: string, slug: string) {
   const safeBase = sanitizeSku(baseSku || slug || 'LEGACY-SKU');
   const fallbackSuffix = slug.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(-8) || 'LEGACY';
 
-  const [existingBySlug] = await db!.select({ sku: products.sku }).from(products).where(eq(products.slug, slug)).limit(1);
+  const [existingBySlug] = await db!
+    .select({ sku: products.sku })
+    .from(products)
+    .innerJoin(productTranslations, eq(productTranslations.productId, products.id))
+    .where(and(eq(productTranslations.slug, slug), eq(productTranslations.locale, DEFAULT_PRODUCT_LOCALE)))
+    .limit(1);
   if (existingBySlug?.sku) {
     return existingBySlug.sku;
   }
@@ -335,7 +342,8 @@ async function main() {
     const staleProducts = await db!
       .select({ id: products.id })
       .from(products)
-      .where(notInArray(products.slug, importedProductSlugs));
+      .innerJoin(productTranslations, eq(productTranslations.productId, products.id))
+      .where(and(eq(productTranslations.locale, DEFAULT_PRODUCT_LOCALE), notInArray(productTranslations.slug, importedProductSlugs)));
 
     const staleProductIds = staleProducts.map((item) => item.id);
     if (staleProductIds.length > 0) {
@@ -485,37 +493,17 @@ async function main() {
       .values({
         brandId: brand.id,
         defaultCategoryId: categoryId,
-        name,
-        slug,
         sku,
-        shortDescription: shortDescription || null,
-        description: description || null,
-        descriptionLong,
         purchaseMode: 'buy',
         status: 'active',
-        price: safePrice,
-        currencyCode: item.ldProduct.currency || 'USD',
-        stockQuantity: 100,
         featured: false,
-        seoTitle: item.seoTitle || item.title || name,
-        seoDescription: item.seoDescription || null,
-        publishedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: products.slug,
+        target: products.sku,
         set: {
           brandId: brand.id,
           defaultCategoryId: categoryId,
-          name,
-          sku,
-          shortDescription: shortDescription || null,
-          description: description || null,
-          descriptionLong,
           status: 'active',
-          price: safePrice,
-          currencyCode: item.ldProduct.currency || 'USD',
-          seoTitle: item.seoTitle || item.title || name,
-          seoDescription: item.seoDescription || null,
           updatedAt: new Date(),
         },
       });
@@ -523,11 +511,53 @@ async function main() {
     const [saved] = await db!
       .select({ id: products.id })
       .from(products)
-      .where(eq(products.slug, slug))
+      .where(eq(products.sku, sku))
       .limit(1);
     if (!saved) {
       continue;
     }
+
+    await db!
+      .insert(productTranslations)
+      .values({
+        productId: saved.id,
+        locale: DEFAULT_PRODUCT_LOCALE,
+        name,
+        slug,
+        shortDescription: shortDescription || null,
+        description: description || null,
+        descriptionLong,
+        price: safePrice,
+        currencyCode: item.ldProduct.currency || 'USD',
+        stockQuantity: 100,
+        seoTitle: item.seoTitle || item.title || name,
+        seoDescription: item.seoDescription || null,
+        lifecycleStatus: 'active',
+        payload: {
+          coverUrl: null,
+          coverAlt: null,
+          gallery: [],
+          tags: [],
+          attachments: [],
+          certifications: [],
+        },
+      })
+      .onConflictDoUpdate({
+        target: [productTranslations.productId, productTranslations.locale],
+        set: {
+          name,
+          slug,
+          shortDescription: shortDescription || null,
+          description: description || null,
+          descriptionLong,
+          price: safePrice,
+          currencyCode: item.ldProduct.currency || 'USD',
+          stockQuantity: 100,
+          seoTitle: item.seoTitle || item.title || name,
+          seoDescription: item.seoDescription || null,
+          updatedAt: new Date(),
+        },
+      });
 
     await db!.delete(productCategories).where(eq(productCategories.productId, saved.id));
 

@@ -25,6 +25,7 @@ import {
   users,
 } from '@/server/db/schema';
 import { categoryNameSql, categorySlugSql } from '@/server/categories/resolve-category-translation';
+import { productNameSql, productPriceSql, productSlugSql } from '@/server/products/resolve-product-translation';
 
 let passed = 0;
 let failed = 0;
@@ -188,10 +189,10 @@ async function testStorefrontQueries() {
   const featuredProducts = await db
     .select({
       id: products.id,
-      name: products.name,
-      slug: products.slug,
+      name: productNameSql(products.id),
+      slug: productSlugSql(products.id),
       sku: products.sku,
-      price: products.price,
+      price: productPriceSql(products.id),
     })
     .from(products)
     .where(eq(products.status, 'active'))

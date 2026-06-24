@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import {
-  adminFeatureDefinitionTranslationPatchSchema,
-  getAdminFeatureDefinitionTranslation,
-  updateAdminFeatureDefinitionTranslation,
-} from '@/server/admin/feature-definitions';
+  adminProductTranslationPatchSchema,
+  getAdminProductTranslation,
+  updateAdminProductTranslation,
+} from '@/server/admin/products';
 
-function mapFeatureDefinitionError(error: unknown) {
+function mapProductError(error: unknown) {
   if (!(error instanceof Error)) return null;
   switch (error.message) {
-    case 'DUPLICATE_NAME':
-      return { status: 409, code: 'DUPLICATE_NAME', message: '该分类与语言下特性名称已存在' };
-    case 'UNIT_REQUIRED':
-      return { status: 400, code: 'UNIT_REQUIRED', message: '数值类型必须填写值单位' };
+    case 'SLUG_CONFLICT':
+      return { status: 409, code: 'SLUG_CONFLICT', message: '该语言下 slug 已被占用' };
+    case 'DUPLICATE_SKU':
+      return { status: 409, code: 'DUPLICATE_SKU', message: 'SKU 已存在' };
     default:
       return null;
   }
@@ -20,7 +20,7 @@ function mapFeatureDefinitionError(error: unknown) {
 
 export async function GET(_: Request, { params }: { params: Promise<{ translationId: string }> }) {
   const { translationId } = await params;
-  const item = await getAdminFeatureDefinitionTranslation(translationId);
+  const item = await getAdminProductTranslation(translationId);
   if (!item) {
     return NextResponse.json({ code: 'NOT_FOUND', message: 'Translation not found' }, { status: 404 });
   }
@@ -29,20 +29,20 @@ export async function GET(_: Request, { params }: { params: Promise<{ translatio
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ translationId: string }> }) {
   const body = await request.json();
-  const parsed = adminFeatureDefinitionTranslationPatchSchema.safeParse(body);
+  const parsed = adminProductTranslationPatchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
 
   const { translationId } = await params;
   try {
-    const updated = await updateAdminFeatureDefinitionTranslation(translationId, parsed.data);
+    const updated = await updateAdminProductTranslation(translationId, parsed.data);
     if (!updated) {
       return NextResponse.json({ code: 'NOT_FOUND', message: 'Translation not found' }, { status: 404 });
     }
     return NextResponse.json(updated);
   } catch (error) {
-    const mapped = mapFeatureDefinitionError(error);
+    const mapped = mapProductError(error);
     if (mapped) {
       return NextResponse.json({ code: mapped.code, message: mapped.message }, { status: mapped.status });
     }

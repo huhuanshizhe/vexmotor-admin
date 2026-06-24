@@ -1,13 +1,13 @@
 'use client';
 
-import { Button, Col, Empty, Form, Input, Modal, Row, Select, Space, Switch, Tabs, message } from 'antd';
+import { Button, Col, Empty, Form, Input, Modal, Row, Select, Space, Switch, message } from 'antd';
 import type { FormInstance } from 'antd';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
+import { FeatureTextOptionsField } from '@/components/feature-definitions/feature-text-options-field';
 import { FeatureUnitCombobox } from '@/components/feature-definitions/feature-unit-combobox';
-import { FeatureValueFields } from '@/components/feature-definitions/feature-value-fields';
 import {
   type AdminFeatureDefinitionListItem,
   type AdminFeatureDefinitionTranslation,
@@ -19,16 +19,16 @@ import {
   featureValueTypes,
   featureValueTypeLabels,
   isUnitRequiredForValueType,
+  joinTextOptionsMultiline,
   resolveFeatureDefinitionId,
+  splitTextOptionsMultiline,
 } from '@/lib/feature-definition-content';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type LocaleFormValues = {
   name: string;
-  valueText: string;
-  valueMin: number | null;
-  valueMax: number | null;
   unit: string;
+  textOptionsText: string;
 };
 
 type LocaleDraft = LocaleFormValues & {
@@ -47,10 +47,8 @@ type FeatureDefinitionEditorModalProps = {
 function createEmptyDraft(): LocaleDraft {
   return {
     name: '',
-    valueText: '',
-    valueMin: null,
-    valueMax: null,
     unit: '',
+    textOptionsText: '',
     persisted: false,
   };
 }
@@ -59,16 +57,10 @@ function entryToDraft(entry: AdminFeatureDefinitionTranslation): LocaleDraft {
   return {
     entryId: entry.id,
     name: entry.name,
-    valueText: entry.valueText ?? (entry.valueType === 'boolean' ? 'false' : ''),
-    valueMin: entry.valueMin,
-    valueMax: entry.valueMax,
     unit: entry.unit ?? '',
+    textOptionsText: joinTextOptionsMultiline(entry.textOptions ?? []),
     persisted: true,
   };
-}
-
-function splitMultiline(value: string) {
-  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
 function mergeActiveFormIntoDrafts(
@@ -84,10 +76,8 @@ function mergeActiveFormIntoDrafts(
     [activeLocale]: {
       ...previous,
       name: values.name ?? '',
-      valueText: values.valueText ?? '',
-      valueMin: values.valueMin ?? null,
-      valueMax: values.valueMax ?? null,
       unit: values.unit ?? '',
+      textOptionsText: values.textOptionsText ?? '',
     },
   };
 }
@@ -95,10 +85,8 @@ function mergeActiveFormIntoDrafts(
 function shouldPersistDraft(draft: LocaleDraft, valueType: FeatureValueType) {
   if (draft.persisted) return true;
   if (draft.name.trim()) return true;
-  if (valueType === 'number') return draft.valueMin != null;
-  if (valueType === 'range') return draft.valueMin != null || draft.valueMax != null;
-  if (valueType === 'boolean') return draft.valueText === 'true' || draft.valueText === 'false';
-  return Boolean(draft.valueText.trim() || draft.unit.trim());
+  if (isUnitRequiredForValueType(valueType) && draft.unit.trim()) return true;
+  return Boolean(draft.textOptionsText.trim());
 }
 
 export function FeatureDefinitionEditorModal({
@@ -111,7 +99,6 @@ export function FeatureDefinitionEditorModal({
   const [definitionId, setDefinitionId] = useState<string | undefined>();
   const [specCategory, setSpecCategory] = useState<FeatureSpecCategory>('general');
   const [valueType, setValueType] = useState<FeatureValueType>('text');
-  const [selectOptionsText, setSelectOptionsText] = useState('');
   const [status, setStatus] = useState<FeatureDefinitionStatus>('active');
   const [activeLocale, setActiveLocale] = useState('');
   const [drafts, setDrafts] = useState<Record<string, LocaleDraft>>({});
@@ -122,7 +109,6 @@ export function FeatureDefinitionEditorModal({
 
   const hasLanguages = activeLanguages.length > 0;
   const isEditing = Boolean(editingEntry);
-  const selectOptions = splitMultiline(selectOptionsText);
 
   useEffect(() => {
     if (!open) return;
@@ -142,7 +128,6 @@ export function FeatureDefinitionEditorModal({
       setDefinitionId(undefined);
       setSpecCategory('general');
       setValueType('text');
-      setSelectOptionsText('');
       setStatus('active');
       const emptyDrafts = Object.fromEntries(activeLanguages.map((language) => [language.code, createEmptyDraft()]));
       setDrafts(emptyDrafts);
@@ -153,7 +138,6 @@ export function FeatureDefinitionEditorModal({
     setDefinitionId(editingEntry.id);
     setSpecCategory(editingEntry.specCategory);
     setValueType(editingEntry.valueType);
-    setSelectOptionsText((editingEntry.selectOptions ?? []).join('\n'));
     setStatus(editingEntry.status);
     setLoadingGroup(true);
 
@@ -173,8 +157,7 @@ export function FeatureDefinitionEditorModal({
           }),
         );
         setDrafts(nextDrafts);
-        const locale = defaultLocale;
-        form.setFieldsValue(nextDrafts[locale] ?? createEmptyDraft());
+        form.setFieldsValue(nextDrafts[defaultLocale] ?? createEmptyDraft());
       } catch {
         void messageApi.error('加载特性详情失败');
       } finally {
@@ -187,10 +170,8 @@ export function FeatureDefinitionEditorModal({
     const draft = source[locale] ?? createEmptyDraft();
     form.setFieldsValue({
       name: draft.name,
-      valueText: draft.valueText,
-      valueMin: draft.valueMin,
-      valueMax: draft.valueMax,
       unit: draft.unit,
+      textOptionsText: draft.textOptionsText,
     });
   }
 
@@ -205,24 +186,6 @@ export function FeatureDefinitionEditorModal({
     if (!draft.name.trim()) {
       return { ok: false as const, locale, message: '请填写特性名称' };
     }
-    if (valueType === 'select' && !selectOptions.length) {
-      return { ok: false as const, locale, message: '下拉类型必须配置选项列表' };
-    }
-    if (valueType === 'text' && !draft.valueText.trim()) {
-      return { ok: false as const, locale, message: '请填写特性值' };
-    }
-    if (valueType === 'select' && !draft.valueText.trim()) {
-      return { ok: false as const, locale, message: '请选择特性值' };
-    }
-    if (valueType === 'number' && draft.valueMin == null) {
-      return { ok: false as const, locale, message: '请填写数值' };
-    }
-    if (valueType === 'range' && (draft.valueMin == null || draft.valueMax == null)) {
-      return { ok: false as const, locale, message: '请填写完整范围' };
-    }
-    if (valueType === 'range' && draft.valueMin != null && draft.valueMax != null && draft.valueMin > draft.valueMax) {
-      return { ok: false as const, locale, message: '范围最小值不能大于最大值' };
-    }
     if (isUnitRequiredForValueType(valueType) && !draft.unit.trim()) {
       return { ok: false as const, locale, message: '请填写值单位' };
     }
@@ -236,16 +199,13 @@ export function FeatureDefinitionEditorModal({
       specCategory,
       name: draft.name.trim(),
       valueType,
-      selectOptions,
       status,
-      valueText: valueType === 'boolean' ? (draft.valueText === 'true' ? 'true' : 'false') : draft.valueText || null,
-      valueMin: draft.valueMin,
-      valueMax: draft.valueMax,
-      unit: draft.unit.trim() || null,
+      unit: isUnitRequiredForValueType(valueType) ? draft.unit.trim() || null : null,
+      textOptions: valueType === 'text' ? splitTextOptionsMultiline(draft.textOptionsText) : [],
     };
   }
 
-  function persistAllLocales(closeAfterSave = false) {
+  function persistAllLocales() {
     if (!hasLanguages) {
       void messageApi.warning('请先在「多语言管理」中添加并启用语言');
       return;
@@ -282,7 +242,6 @@ export function FeatureDefinitionEditorModal({
       const shared = {
         specCategory,
         valueType,
-        selectOptions,
         status,
       };
 
@@ -336,7 +295,6 @@ export function FeatureDefinitionEditorModal({
       loadDraft(activeLocale, nextDrafts);
       for (const saved of savedEntries) onSaved(saved);
       void messageApi.success(`已保存 ${savedEntries.length} 个语言版本`);
-      if (closeAfterSave) onClose();
     });
   }
 
@@ -368,7 +326,7 @@ export function FeatureDefinitionEditorModal({
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
-          <Form.Item label="启用状态" layout="vertical" style={{ marginBottom: 16 }}>
+          <Form.Item label="启用状态" layout="vertical" style={{ marginBottom: 0 }}>
             <Switch
               checked={status === 'active'}
               checkedChildren="启用"
@@ -377,20 +335,35 @@ export function FeatureDefinitionEditorModal({
             />
           </Form.Item>
         </Col>
-        {valueType === 'select' ? (
-          <Col span={24}>
-            <Form.Item label="下拉选项" layout="vertical" required extra="每行一个选项" style={{ marginBottom: 0 }}>
-              <Input.TextArea
-                rows={4}
-                value={selectOptionsText}
-                onChange={(event) => setSelectOptionsText(event.target.value)}
-                placeholder="选项 A&#10;选项 B"
-              />
-            </Form.Item>
-          </Col>
-        ) : null}
       </Row>
     </div>
+  );
+
+  const editorPanel = (
+    <Form<LocaleFormValues> form={form} layout="vertical" preserve>
+      <div className="feature-definition-editor-content">
+        <div className="feature-definition-editor-content__title">内容</div>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Form.Item
+            label="特性名称"
+            name="name"
+            rules={[{ required: true, message: '请填写特性名称' }]}
+          >
+            <Input placeholder="如 Torque / 扭矩" />
+          </Form.Item>
+          {valueType === 'number' ? (
+            <Form.Item
+              label="值单位"
+              name="unit"
+              rules={[{ required: true, message: '请填写值单位' }]}
+            >
+              <FeatureUnitCombobox locale={activeLocale} valueType={valueType} />
+            </Form.Item>
+          ) : null}
+          {valueType === 'text' ? <FeatureTextOptionsField form={form} /> : null}
+        </Space>
+      </div>
+    </Form>
   );
 
   return (
@@ -418,14 +391,9 @@ export function FeatureDefinitionEditorModal({
         ) : (
           <Space orientation="vertical" size="large" style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Space wrap>
-                <Button loading={isPending} onClick={() => persistAllLocales(false)}>
-                  {isEditing ? '保存' : '保存特性'}
-                </Button>
-                <Button type="primary" loading={isPending} onClick={() => persistAllLocales(true)}>
-                  保存并关闭
-                </Button>
-              </Space>
+              <Button type="primary" loading={isPending} onClick={() => persistAllLocales()}>
+                {isEditing ? '保存' : '保存特性'}
+              </Button>
             </div>
 
             {sharedFieldsPanel}
@@ -443,38 +411,7 @@ export function FeatureDefinitionEditorModal({
                 ))}
               </div>
               <div className="content-editor-main">
-                <Form<LocaleFormValues> form={form} layout="vertical" preserve>
-                  <Tabs
-                    items={[
-                      {
-                        key: 'content',
-                        label: '内容',
-                        children: (
-                          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                            <Form.Item
-                              label="特性名称"
-                              name="name"
-                              rules={[{ required: true, message: '请填写特性名称' }]}
-                            >
-                              <Input placeholder="如 Torque / 扭矩" />
-                            </Form.Item>
-                            <FeatureValueFields form={form} valueType={valueType} selectOptions={selectOptions} />
-                            <Form.Item
-                              label="值单位"
-                              name="unit"
-                              required={isUnitRequiredForValueType(valueType)}
-                            >
-                              <FeatureUnitCombobox
-                                locale={activeLocale}
-                                valueType={valueType}
-                              />
-                            </Form.Item>
-                          </Space>
-                        ),
-                      },
-                    ]}
-                  />
-                </Form>
+                {editorPanel}
               </div>
             </div>
           </Space>

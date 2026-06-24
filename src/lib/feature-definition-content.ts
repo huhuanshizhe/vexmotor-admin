@@ -1,7 +1,7 @@
 export const featureSpecCategories = ['general', 'electrical', 'mechanical', 'performance', 'environmental'] as const;
 export type FeatureSpecCategory = (typeof featureSpecCategories)[number];
 
-export const featureValueTypes = ['text', 'number', 'range', 'boolean', 'select'] as const;
+export const featureValueTypes = ['text', 'number', 'boolean'] as const;
 export type FeatureValueType = (typeof featureValueTypes)[number];
 
 export const featureDefinitionStatuses = ['active', 'inactive'] as const;
@@ -18,9 +18,7 @@ export const featureSpecCategoryLabels: Record<FeatureSpecCategory, string> = {
 export const featureValueTypeLabels: Record<FeatureValueType, string> = {
   text: '文本',
   number: '数值',
-  range: '范围',
-  boolean: '开关',
-  select: '下拉选项',
+  boolean: '是/否',
 };
 
 export type AdminFeatureDefinitionTranslation = {
@@ -28,13 +26,10 @@ export type AdminFeatureDefinitionTranslation = {
   definitionId: string;
   locale: string;
   name: string;
-  valueText: string | null;
-  valueMin: number | null;
-  valueMax: number | null;
-  unit: string | null;
+  textOptions: string[];
   specCategory: FeatureSpecCategory;
   valueType: FeatureValueType;
-  selectOptions: string[];
+  unit: string | null;
   status: FeatureDefinitionStatus;
   createdAt: string;
   updatedAt: string;
@@ -45,7 +40,6 @@ export type AdminFeatureDefinitionListItem = {
   name: string;
   specCategory: FeatureSpecCategory;
   valueType: FeatureValueType;
-  selectOptions: string[];
   status: FeatureDefinitionStatus;
   sortOrder: number;
   valueDisplay: string;
@@ -63,25 +57,26 @@ export function resolveFeatureDefinitionId(item: Pick<AdminFeatureDefinitionTran
 
 export function formatFeatureValueDisplay(
   valueType: FeatureValueType,
-  translation: Pick<AdminFeatureDefinitionTranslation, 'valueText' | 'valueMin' | 'valueMax'>,
+  translation: Pick<AdminFeatureDefinitionTranslation, 'textOptions'>,
 ): string {
-  switch (valueType) {
-    case 'boolean':
-      return translation.valueText === 'true' ? '是' : translation.valueText === 'false' ? '否' : '—';
-    case 'number':
-      return translation.valueMin != null ? String(translation.valueMin) : '—';
-    case 'range':
-      if (translation.valueMin != null && translation.valueMax != null) {
-        return `${translation.valueMin} ~ ${translation.valueMax}`;
-      }
-      return '—';
-    case 'text':
-    case 'select':
-    default:
-      return translation.valueText?.trim() || '—';
+  if (valueType === 'text') {
+    const items = translation.textOptions.filter((item) => item.trim());
+    return items.length ? items.join('、') : '—';
   }
+  return '—';
 }
 
 export function isUnitRequiredForValueType(valueType: FeatureValueType) {
-  return valueType === 'number' || valueType === 'range';
+  return valueType === 'number';
 }
+
+export function splitTextOptionsMultiline(value: string) {
+  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+}
+
+export function joinTextOptionsMultiline(options: string[]) {
+  return options.join('\n');
+}
+
+export const featureSpecCategoryOptions = Object.entries(featureSpecCategoryLabels).map(([value, label]) => ({ value, label }));
+export const featureValueTypeOptions = Object.entries(featureValueTypeLabels).map(([value, label]) => ({ value, label }));

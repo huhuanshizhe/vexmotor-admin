@@ -1,9 +1,10 @@
-import { count, desc, lte, sql } from 'drizzle-orm';
+import { and, count, desc, eq, lte, sql } from 'drizzle-orm';
 
 import { getAdminInquiries } from '@/server/admin/inquiries';
 import { getAdminOrders } from '@/server/admin/orders';
 import { db } from '@/server/db';
-import { brands, categories, cmsPages, contentBlocks, inquiries, orders, products, users } from '@/server/db/schema';
+import { brands, categories, cmsPages, contentBlocks, inquiries, orders, products, productTranslations, users } from '@/server/db/schema';
+import { DEFAULT_PRODUCT_LOCALE } from '@/server/products/resolve-product-translation';
 
 export async function getAdminOverview() {
   const [
@@ -32,14 +33,18 @@ export async function getAdminOverview() {
     db
       .select({
         id: products.id,
-        name: products.name,
+        name: productTranslations.name,
         sku: products.sku,
-        stockQuantity: products.stockQuantity,
+        stockQuantity: productTranslations.stockQuantity,
         status: products.status,
       })
       .from(products)
-      .where(lte(products.stockQuantity, 20))
-      .orderBy(products.stockQuantity, desc(products.updatedAt)),
+      .innerJoin(
+        productTranslations,
+        eq(productTranslations.productId, products.id),
+      )
+      .where(and(eq(productTranslations.locale, DEFAULT_PRODUCT_LOCALE), lte(productTranslations.stockQuantity, 20)))
+      .orderBy(productTranslations.stockQuantity, desc(products.updatedAt)),
   ]);
 
   return {
@@ -60,6 +65,12 @@ export async function getAdminOverview() {
     },
     recentOrders: recentOrders.slice(0, 5),
     recentInquiries: recentInquiries.slice(0, 5),
-    lowStockItems: lowStockItems.slice(0, 5),
+    lowStockItems: lowStockItems.slice(0, 5).map((item) => ({
+      id: item.id,
+      name: item.name,
+      sku: item.sku,
+      stockQuantity: item.stockQuantity,
+      status: (item.status === 'active' ? 'active' : 'inactive') as 'active' | 'inactive',
+    })),
   };
 }

@@ -139,6 +139,34 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0009_product_i18n_refactor') && await tableExists(sql, 'products')) {
+    const productsStillHaveName = await columnExists(sql, 'products', 'name');
+    const translationsHaveSlug = await columnExists(sql, 'product_translations', 'slug');
+    if (!productsStillHaveName && translationsHaveSlug) {
+      baselineTags.push('0009_product_i18n_refactor');
+    }
+  }
+
+  if (allTags.includes('0010_feature_definition_refactor') && await tableExists(sql, 'feature_definitions')) {
+    const hasDefinitionUnit = await columnExists(sql, 'feature_definitions', 'unit');
+    const hasTextOptions = await columnExists(sql, 'feature_definition_translations', 'text_options');
+    const stillHasSelectOptions = await columnExists(sql, 'feature_definitions', 'select_options');
+    if (hasDefinitionUnit && hasTextOptions && !stillHasSelectOptions) {
+      baselineTags.push('0010_feature_definition_refactor');
+    }
+  }
+
+  if (allTags.includes('0011_feature_definition_unit_per_locale') && await tableExists(sql, 'feature_definitions')) {
+    const [numberWithDefinitionUnit] = await sql`
+      SELECT id FROM feature_definitions
+      WHERE value_type = 'number' AND unit IS NOT NULL AND trim(unit) <> ''
+      LIMIT 1
+    `;
+    if (!numberWithDefinitionUnit) {
+      baselineTags.push('0011_feature_definition_unit_per_locale');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);

@@ -1,6 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 
 import { db } from '@/server/db';
+import { productNameSql, productSlugSql } from '@/server/products/resolve-product-translation';
 import { inquiries, products, users } from '@/server/db/schema';
 import type { InquiryStatus } from '@/server/storefront/inquiries';
 
@@ -15,8 +16,8 @@ export async function getAdminInquiries() {
       country: inquiries.country,
       createdAt: inquiries.createdAt,
       handledAt: inquiries.handledAt,
-      productName: products.name,
-      productSlug: products.slug,
+      productName: productNameSql(products.id),
+      productSlug: productSlugSql(products.id),
       productSku: products.sku,
     })
     .from(inquiries)
@@ -40,8 +41,8 @@ export async function getAdminInquiryDetail(id: string) {
       createdAt: inquiries.createdAt,
       handledAt: inquiries.handledAt,
       productId: products.id,
-      productName: products.name,
-      productSlug: products.slug,
+      productName: productNameSql(products.id),
+      productSlug: productSlugSql(products.id),
       productSku: products.sku,
       handledByEmail: users.email,
     })

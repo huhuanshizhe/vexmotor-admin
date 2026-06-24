@@ -124,7 +124,7 @@ export function formatFeatureUnitOption(unit: CommonFeatureUnit) {
 }
 
 export function isUnitRequiredForValueType(valueType: FeatureValueType) {
-  return valueType === 'number' || valueType === 'range';
+  return valueType === 'number';
 }
 
 export function buildFeatureUnitAutoCompleteOptions(units: CommonFeatureUnit[]) {

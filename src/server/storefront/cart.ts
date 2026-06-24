@@ -6,6 +6,7 @@ import { calculateOrderPricing } from '@/lib/commerce-config';
 import { getVolumePricingForQuantity } from '@/lib/volume-pricing';
 import { getCommerceConfig } from '@/server/commerce/config';
 import { db } from '@/server/db';
+import { productCompareAtPriceSql, productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
 import { addresses, cartItems, carts, orderItems, orders, productImages, products, verificationTokens } from '@/server/db/schema';
 
 function formatMoney(amount: string | number, currencyCode = 'USD') {
@@ -168,15 +169,15 @@ export async function getCartDetail(cartId: string) {
       quantity: cartItems.quantity,
       unitPrice: cartItems.unitPrice,
       subtotal: cartItems.subtotal,
-      productName: products.name,
-      slug: products.slug,
+      productName: productNameSql(products.id),
+      slug: productSlugSql(products.id),
       sku: products.sku,
-      shortDescription: products.shortDescription,
+      shortDescription: productShortDescriptionSql(products.id),
       purchaseMode: products.purchaseMode,
-      stockQuantity: products.stockQuantity,
-      currencyCode: products.currencyCode,
-      basePrice: products.price,
-      compareAtPrice: products.compareAtPrice,
+      stockQuantity: productStockQuantitySql(products.id),
+      currencyCode: productCurrencyCodeSql(products.id),
+      basePrice: productPriceSql(products.id),
+      compareAtPrice: productCompareAtPriceSql(products.id),
     })
     .from(cartItems)
     .innerJoin(products, eq(products.id, cartItems.productId))
@@ -294,7 +295,15 @@ export async function updateCartCoupon(cartId: string, couponCode?: string | nul
 
 export async function addCartItem(input: { cartId: string; productId: string; quantity: number }) {
   const commerceConfig = await getCommerceConfig();
-  const [product] = await db.select().from(products).where(eq(products.id, input.productId)).limit(1);
+  const [product] = await db
+    .select({
+      purchaseMode: products.purchaseMode,
+      price: productPriceSql(products.id),
+      currencyCode: productCurrencyCodeSql(products.id),
+    })
+    .from(products)
+    .where(eq(products.id, input.productId))
+    .limit(1);
   if (!product || product.purchaseMode !== 'buy') {
     return null;
   }
@@ -339,7 +348,14 @@ export async function updateCartItemQuantity(itemId: string, quantity: number) {
     return null;
   }
 
-  const [product] = await db.select().from(products).where(eq(products.id, existing.productId)).limit(1);
+  const [product] = await db
+    .select({
+      price: productPriceSql(products.id),
+      currencyCode: productCurrencyCodeSql(products.id),
+    })
+    .from(products)
+    .where(eq(products.id, existing.productId))
+    .limit(1);
   const unitPriceBase = product ? Number(product.price) : Number(existing.unitPrice);
   const unitPrice = resolveTierUnitPrice(unitPriceBase, product?.currencyCode ?? 'USD', quantity, commerceConfig.volumePricingRules);
 

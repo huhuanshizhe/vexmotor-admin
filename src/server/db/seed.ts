@@ -20,6 +20,7 @@ import {
   productFeatures,
   productImages,
   products,
+  productTranslations,
   users,
   wishlists,
 } from '@/server/db/schema';
@@ -152,60 +153,124 @@ async function main() {
     throw new Error('Seed prerequisites are missing');
   }
 
-  const insertedProducts = await db
-    .insert(products)
-    .values([
-      {
-        brandId: mainBrand.id,
-        defaultCategoryId: nema17.id,
-        name: '17 Single Shaft Bipolar Stepper Motor, 45N·cm Torque',
-        slug: '17-single-shaft-bipolar-stepper-motor-45ncm',
-        sku: 'VXM-17-45NCM',
-        shortDescription: '1.8° step angle, 1.5A current, 40mm body, 4-wire.',
-        description: 'A catalog-ready Nema 17 motor targeted at compact automation cells, 3D printing assemblies, and precision feeders.',
-        purchaseMode: 'buy',
-        status: 'active',
-        price: '23.90',
-        compareAtPrice: '27.50',
-        currencyCode: 'USD',
-        stockQuantity: 186,
-        featured: true,
-      },
-      {
-        brandId: mainBrand.id,
-        defaultCategoryId: nema23.id,
-        name: '23 Stepper Motor, 240N·cm Torque, 82mm Body',
-        slug: '23-stepper-motor-240ncm',
-        sku: 'VXM-23-240NCM',
-        shortDescription: '4A current, 82mm body, industrial torque profile for CNC and tooling.',
-        description: 'High-torque Nema 23 motor designed for larger industrial axes, tooling automation, and higher load applications.',
-        purchaseMode: 'buy',
-        status: 'active',
-        price: '68.50',
-        currencyCode: 'USD',
-        stockQuantity: 62,
-        featured: true,
-      },
-      {
-        brandId: mainBrand.id,
-        defaultCategoryId: drivers.id,
-        name: 'Integrated Motion Assembly for OEM Projects',
-        slug: 'integrated-motion-assembly-oem',
-        sku: 'VXM-OEM-ASM',
-        shortDescription: 'Custom-configured assembly with engineering review and OEM quotation workflow.',
-        description: 'A quotation-led configurable motion assembly sold through RFQ rather than instant checkout.',
-        purchaseMode: 'inquiry',
-        status: 'active',
-        price: '0.00',
-        currencyCode: 'USD',
-        stockQuantity: 0,
-        featured: true,
-      },
-    ])
-    .onConflictDoNothing({ target: products.slug })
-    .returning({ id: products.id, slug: products.slug });
+  const productSeedRows = [
+    {
+      brandId: mainBrand.id,
+      defaultCategoryId: nema17.id,
+      name: '17 Single Shaft Bipolar Stepper Motor, 45N·cm Torque',
+      slug: '17-single-shaft-bipolar-stepper-motor-45ncm',
+      sku: 'VXM-17-45NCM',
+      shortDescription: '1.8° step angle, 1.5A current, 40mm body, 4-wire.',
+      description: 'A catalog-ready Nema 17 motor targeted at compact automation cells, 3D printing assemblies, and precision feeders.',
+      purchaseMode: 'buy' as const,
+      status: 'active' as const,
+      price: '23.90',
+      compareAtPrice: '27.50',
+      currencyCode: 'USD',
+      stockQuantity: 186,
+      featured: true,
+    },
+    {
+      brandId: mainBrand.id,
+      defaultCategoryId: nema23.id,
+      name: '23 Stepper Motor, 240N·cm Torque, 82mm Body',
+      slug: '23-stepper-motor-240ncm',
+      sku: 'VXM-23-240NCM',
+      shortDescription: '4A current, 82mm body, industrial torque profile for CNC and tooling.',
+      description: 'High-torque Nema 23 motor designed for larger industrial axes, tooling automation, and higher load applications.',
+      purchaseMode: 'buy' as const,
+      status: 'active' as const,
+      price: '68.50',
+      currencyCode: 'USD',
+      stockQuantity: 62,
+      featured: true,
+    },
+    {
+      brandId: mainBrand.id,
+      defaultCategoryId: drivers.id,
+      name: 'Integrated Motion Assembly for OEM Projects',
+      slug: 'integrated-motion-assembly-oem',
+      sku: 'VXM-OEM-ASM',
+      shortDescription: 'Custom-configured assembly with engineering review and OEM quotation workflow.',
+      description: 'A quotation-led configurable motion assembly sold through RFQ rather than instant checkout.',
+      purchaseMode: 'inquiry' as const,
+      status: 'active' as const,
+      price: '0.00',
+      currencyCode: 'USD',
+      stockQuantity: 0,
+      featured: true,
+    },
+  ];
 
-  const allProducts = insertedProducts.length ? insertedProducts : await db.select({ id: products.id, slug: products.slug }).from(products);
+  const seededProducts: Array<{ id: string; slug: string }> = [];
+  for (const row of productSeedRows) {
+    const [inserted] = await db
+      .insert(products)
+      .values({
+        brandId: row.brandId,
+        defaultCategoryId: row.defaultCategoryId,
+        sku: row.sku,
+        purchaseMode: row.purchaseMode,
+        status: row.status,
+        featured: row.featured,
+      })
+      .onConflictDoNothing({ target: products.sku })
+      .returning({ id: products.id });
+
+    const productId = inserted?.id
+      ?? (await db.select({ id: products.id }).from(products).where(eq(products.sku, row.sku)).limit(1))[0]?.id;
+
+    if (!productId) {
+      continue;
+    }
+
+    await db
+      .insert(productTranslations)
+      .values({
+        productId,
+        locale: 'en',
+        name: row.name,
+        slug: row.slug,
+        shortDescription: row.shortDescription,
+        description: row.description,
+        price: row.price,
+        compareAtPrice: row.compareAtPrice ?? null,
+        currencyCode: row.currencyCode,
+        stockQuantity: row.stockQuantity,
+        payload: {
+          coverUrl: null,
+          coverAlt: null,
+          gallery: [],
+          tags: [],
+          attachments: [],
+          certifications: [],
+        },
+      })
+      .onConflictDoUpdate({
+        target: [productTranslations.productId, productTranslations.locale],
+        set: {
+          name: row.name,
+          slug: row.slug,
+          shortDescription: row.shortDescription,
+          description: row.description,
+          price: row.price,
+          compareAtPrice: row.compareAtPrice ?? null,
+          currencyCode: row.currencyCode,
+          stockQuantity: row.stockQuantity,
+          updatedAt: new Date(),
+        },
+      });
+
+    seededProducts.push({ id: productId, slug: row.slug });
+  }
+
+  const allProducts = seededProducts.length
+    ? seededProducts
+    : await db
+      .select({ id: products.id, slug: productTranslations.slug })
+      .from(products)
+      .innerJoin(productTranslations, eq(productTranslations.productId, products.id))
+      .where(eq(productTranslations.locale, 'en'));
 
   const productBySlug = (slug: string) => {
     const value = allProducts.find((item) => item.slug === slug);

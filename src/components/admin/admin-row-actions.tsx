@@ -9,6 +9,7 @@ import {
   StopOutlined,
 } from '@ant-design/icons';
 import { Button, Popconfirm, Space, Tooltip } from 'antd';
+import type { ButtonProps } from 'antd';
 import type { MenuProps } from 'antd';
 import type { ReactNode } from 'react';
 
@@ -22,9 +23,11 @@ type ActionIconButtonProps = {
 
 function ActionIconButton({ title, icon, danger, loading, onClick }: ActionIconButtonProps) {
   return (
-    <Tooltip title={title}>
-      <Button type="text" size="small" danger={danger} icon={icon} loading={loading} onClick={onClick} />
-    </Tooltip>
+    <span className="admin-row-action-trigger" onClick={onClick ? (event) => event.stopPropagation() : undefined}>
+      <Tooltip title={title} destroyTooltipOnHide>
+        <Button type="text" size="small" danger={danger} icon={icon} loading={loading} onClick={onClick} />
+      </Tooltip>
+    </span>
   );
 }
 
@@ -33,6 +36,9 @@ export { ActionIconButton as AdminActionIconButton };
 type ConfirmActionIconButtonProps = Omit<ActionIconButtonProps, 'onClick'> & {
   confirmTitle: string;
   confirmDescription?: string;
+  okText?: string;
+  cancelText?: string;
+  okButtonProps?: ButtonProps;
   onConfirm: () => void;
 };
 
@@ -43,11 +49,27 @@ function ConfirmActionIconButton({
   loading,
   confirmTitle,
   confirmDescription,
+  okText = '确定',
+  cancelText = '取消',
+  okButtonProps,
   onConfirm,
 }: ConfirmActionIconButtonProps) {
   return (
-    <Popconfirm title={confirmTitle} description={confirmDescription} onConfirm={onConfirm}>
-      <ActionIconButton title={title} icon={icon} danger={danger} loading={loading} />
+    <Popconfirm
+      title={confirmTitle}
+      description={confirmDescription}
+      okText={okText}
+      cancelText={cancelText}
+      okButtonProps={okButtonProps}
+      getPopupContainer={() => document.body}
+      placement="topRight"
+      onConfirm={onConfirm}
+    >
+      <span className="admin-row-action-trigger" onClick={(event) => event.stopPropagation()}>
+        <Tooltip title={title} destroyTooltipOnHide>
+          <Button type="text" size="small" danger={danger} icon={icon} loading={loading} />
+        </Tooltip>
+      </span>
     </Popconfirm>
   );
 }
@@ -63,6 +85,16 @@ export type AdminEntityRowActionsProps = {
   deleteMode?: 'popconfirm' | 'callback';
   toggleDisableDescription?: string;
   toggleEnableDescription?: string;
+  toggleActiveActionTitle?: string;
+  toggleInactiveActionTitle?: string;
+  toggleActiveActionIcon?: ReactNode;
+  toggleInactiveActionIcon?: ReactNode;
+  toggleDisableConfirmTitle?: string;
+  toggleEnableConfirmTitle?: string;
+  toggleDisableOkText?: string;
+  toggleEnableOkText?: string;
+  /** 为 false 时切换按钮直接触发 onToggleActive（由调用方自行弹确认框） */
+  toggleUsePopconfirm?: boolean;
 };
 
 export function AdminEntityRowActions({
@@ -75,9 +107,24 @@ export function AdminEntityRowActions({
   deleteMode = 'popconfirm',
   toggleDisableDescription,
   toggleEnableDescription,
+  toggleActiveActionTitle,
+  toggleInactiveActionTitle,
+  toggleActiveActionIcon,
+  toggleInactiveActionIcon,
+  toggleDisableConfirmTitle,
+  toggleEnableConfirmTitle,
+  toggleDisableOkText,
+  toggleEnableOkText,
+  toggleUsePopconfirm = true,
 }: AdminEntityRowActionsProps) {
   const disableDescription = toggleDisableDescription ?? `停用后前台将不再展示该${entityName}。`;
   const enableDescription = toggleEnableDescription ?? `启用后${entityName}将恢复展示。`;
+  const activeActionTitle = toggleActiveActionTitle ?? '停用';
+  const inactiveActionTitle = toggleInactiveActionTitle ?? '启用';
+  const activeActionIcon = toggleActiveActionIcon ?? <StopOutlined />;
+  const inactiveActionIcon = toggleInactiveActionIcon ?? <CheckOutlined />;
+  const disableConfirmTitle = toggleDisableConfirmTitle ?? `确定停用该${entityName}吗？`;
+  const enableConfirmTitle = toggleEnableConfirmTitle ?? `确定启用该${entityName}吗？`;
 
   const deleteButton = deleteMode === 'callback' ? (
     <ActionIconButton
@@ -101,23 +148,44 @@ export function AdminEntityRowActions({
   return (
     <Space size={0} className="admin-row-actions">
       <ActionIconButton title="编辑" icon={<EditOutlined />} onClick={onEdit} />
-      {isActive ? (
-        <ConfirmActionIconButton
-          title="停用"
-          icon={<StopOutlined />}
+      {toggleUsePopconfirm ? (
+        isActive ? (
+          <ConfirmActionIconButton
+            title={activeActionTitle}
+            icon={activeActionIcon}
+            loading={loading}
+            confirmTitle={disableConfirmTitle}
+            confirmDescription={disableDescription}
+            okText={toggleDisableOkText ?? '确定'}
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+            onConfirm={onToggleActive}
+          />
+        ) : (
+          <ConfirmActionIconButton
+            title={inactiveActionTitle}
+            icon={inactiveActionIcon}
+            loading={loading}
+            confirmTitle={enableConfirmTitle}
+            confirmDescription={enableDescription}
+            okText={toggleEnableOkText ?? '确定'}
+            cancelText="取消"
+            onConfirm={onToggleActive}
+          />
+        )
+      ) : isActive ? (
+        <ActionIconButton
+          title={activeActionTitle}
+          icon={activeActionIcon}
           loading={loading}
-          confirmTitle={`确定停用该${entityName}吗？`}
-          confirmDescription={disableDescription}
-          onConfirm={onToggleActive}
+          onClick={onToggleActive}
         />
       ) : (
-        <ConfirmActionIconButton
-          title="启用"
-          icon={<CheckOutlined />}
+        <ActionIconButton
+          title={inactiveActionTitle}
+          icon={inactiveActionIcon}
           loading={loading}
-          confirmTitle={`确定启用该${entityName}吗？`}
-          confirmDescription={enableDescription}
-          onConfirm={onToggleActive}
+          onClick={onToggleActive}
         />
       )}
       {deleteButton}

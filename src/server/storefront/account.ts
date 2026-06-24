@@ -1,6 +1,7 @@
 import { count, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/server/db';
+import { productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
 import { addresses, inquiries, orderItems, orders, products, users, wishlists } from '@/server/db/schema';
 
 import { getStorefrontInquiriesByUser } from './inquiries';
@@ -162,14 +163,14 @@ export async function getWishlistByUser(userId: string) {
       id: wishlists.id,
       createdAt: wishlists.createdAt,
       productId: products.id,
-      name: products.name,
-      slug: products.slug,
+      name: productNameSql(products.id),
+      slug: productSlugSql(products.id),
       sku: products.sku,
-      shortDescription: products.shortDescription,
+      shortDescription: productShortDescriptionSql(products.id),
       purchaseMode: products.purchaseMode,
-      price: products.price,
-      currencyCode: products.currencyCode,
-      stockQuantity: products.stockQuantity,
+      price: productPriceSql(products.id),
+      currencyCode: productCurrencyCodeSql(products.id),
+      stockQuantity: productStockQuantitySql(products.id),
     })
     .from(wishlists)
     .innerJoin(products, eq(products.id, wishlists.productId))

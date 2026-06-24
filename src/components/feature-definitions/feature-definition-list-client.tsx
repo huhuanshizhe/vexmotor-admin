@@ -263,7 +263,11 @@ export function FeatureDefinitionListClient({
       dataIndex: 'unit',
       width: 100,
       onHeaderCell: adminTableNowrapHeader,
-      render: (value: string | null) => value ? <Tag color="green">{value}</Tag> : <Typography.Text type="secondary">—</Typography.Text>,
+      render: (value: string | null, row: AdminFeatureDefinitionListItem) => (
+        row.valueType === 'number' && value
+          ? <Tag color="green">{value}</Tag>
+          : <Typography.Text type="secondary">—</Typography.Text>
+      ),
     },
     {
       title: '状态',

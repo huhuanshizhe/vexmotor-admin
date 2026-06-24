@@ -12,12 +12,32 @@ import {
   productImages,
   productRelations,
   products,
+  productTranslations,
   productVariants,
 } from '@/server/db/schema';
 
 import { storefrontNavigationBase, footerContactBlocks, footerPaymentMethods, footerCopyright } from './site-shell';
 import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
 import { brandNameSql, brandSlugSql } from '@/server/brands/resolve-brand-translation';
+import {
+  DEFAULT_PRODUCT_LOCALE,
+  productCompareAtPriceSql,
+  productCurrencyCodeSql,
+  productDescriptionLongSql,
+  productDescriptionSql,
+  productLeadTimeMaxSql,
+  productLeadTimeMinSql,
+  productLeadTimeUnitSql,
+  productLifecycleStatusSql,
+  productMoqSql,
+  productNameSql,
+  productPriceSql,
+  productSeoDescriptionSql,
+  productSeoTitleSql,
+  productShortDescriptionSql,
+  productSlugSql,
+  productStockQuantitySql,
+} from '@/server/products/resolve-product-translation';
 import {
   categoryDescriptionSql,
   categoryNameSql,
@@ -81,16 +101,16 @@ function emptyProductListResult(page: number, pageSize: number): ProductListResu
 function getProductOrderBy(sort: ProductListSort) {
   switch (sort) {
     case 'name-asc':
-      return [asc(products.name)];
+      return [asc(productNameSql(products.id))];
     case 'price-asc':
-      return [asc(products.price), asc(products.name)];
+      return [asc(productPriceSql(products.id)), asc(productNameSql(products.id))];
     case 'price-desc':
-      return [desc(products.price), asc(products.name)];
+      return [desc(productPriceSql(products.id)), asc(productNameSql(products.id))];
     case 'newest':
-      return [desc(products.publishedAt), desc(products.createdAt), asc(products.name)];
+      return [desc(products.updatedAt), desc(products.createdAt), asc(productNameSql(products.id))];
     case 'featured':
     default:
-      return [desc(products.featured), desc(products.publishedAt), asc(products.name)];
+      return [desc(products.featured), desc(products.updatedAt), asc(productNameSql(products.id))];
   }
 }
 
@@ -131,15 +151,15 @@ export async function getHomeData(): Promise<HomeData> {
     const [featuredProducts, categoryRows] = await Promise.all([
       db.select({
         id: products.id,
-        name: products.name,
-        slug: products.slug,
+        name: productNameSql(products.id),
+        slug: productSlugSql(products.id),
         sku: products.sku,
-        shortDescription: products.shortDescription,
+        shortDescription: productShortDescriptionSql(products.id),
         purchaseMode: products.purchaseMode,
-        stockQuantity: products.stockQuantity,
-        price: products.price,
-        compareAtPrice: products.compareAtPrice,
-        currencyCode: products.currencyCode,
+        stockQuantity: productStockQuantitySql(products.id),
+        price: productPriceSql(products.id),
+        compareAtPrice: productCompareAtPriceSql(products.id),
+        currencyCode: productCurrencyCodeSql(products.id),
         brandId: products.brandId,
         brandName: brandNameSql(brands.id),
         brandSlug: brandSlugSql(brands.id),
@@ -147,7 +167,7 @@ export async function getHomeData(): Promise<HomeData> {
         .from(products)
         .leftJoin(brands, eq(products.brandId, brands.id))
         .where(and(eq(products.status, 'active'), eq(products.featured, true)))
-        .orderBy(desc(products.publishedAt), desc(products.createdAt))
+        .orderBy(desc(products.updatedAt), desc(products.createdAt))
         .limit(6),
       getCategories(),
     ]);
@@ -158,15 +178,15 @@ export async function getHomeData(): Promise<HomeData> {
         : await db
             .select({
               id: products.id,
-              name: products.name,
-              slug: products.slug,
+              name: productNameSql(products.id),
+              slug: productSlugSql(products.id),
               sku: products.sku,
-              shortDescription: products.shortDescription,
+              shortDescription: productShortDescriptionSql(products.id),
               purchaseMode: products.purchaseMode,
-              stockQuantity: products.stockQuantity,
-              price: products.price,
-              compareAtPrice: products.compareAtPrice,
-              currencyCode: products.currencyCode,
+              stockQuantity: productStockQuantitySql(products.id),
+              price: productPriceSql(products.id),
+              compareAtPrice: productCompareAtPriceSql(products.id),
+              currencyCode: productCurrencyCodeSql(products.id),
               brandId: products.brandId,
               brandName: brandNameSql(brands.id),
               brandSlug: brandSlugSql(brands.id),
@@ -174,7 +194,7 @@ export async function getHomeData(): Promise<HomeData> {
             .from(products)
             .leftJoin(brands, eq(products.brandId, brands.id))
             .where(eq(products.status, 'active'))
-            .orderBy(desc(products.publishedAt), desc(products.createdAt))
+            .orderBy(desc(products.updatedAt), desc(products.createdAt))
             .limit(6);
 
     const imageRows = dbProducts.length
@@ -376,9 +396,9 @@ export async function getProductList(input: {
     const facetFilters = [eq(products.status, 'active')];
     if (input.keyword) {
       const keywordFilter = or(
-        ilike(products.name, `%${input.keyword}%`),
+        ilike(productNameSql(products.id), `%${input.keyword}%`),
         ilike(products.sku, `%${input.keyword}%`),
-        ilike(products.shortDescription, `%${input.keyword}%`),
+        ilike(productShortDescriptionSql(products.id), `%${input.keyword}%`),
       );
 
       if (keywordFilter) {
@@ -392,8 +412,8 @@ export async function getProductList(input: {
     }
 
     if (input.inStockOnly) {
-      filters.push(drizzleSql`${products.stockQuantity} > 0`);
-      facetFilters.push(drizzleSql`${products.stockQuantity} > 0`);
+      filters.push(drizzleSql`${productStockQuantitySql(products.id)} > 0`);
+      facetFilters.push(drizzleSql`${productStockQuantitySql(products.id)} > 0`);
     }
 
     const baseWhere = and(...filters);
@@ -403,15 +423,15 @@ export async function getProductList(input: {
       ? await db
           .select({
             id: products.id,
-            name: products.name,
-            slug: products.slug,
+            name: productNameSql(products.id),
+            slug: productSlugSql(products.id),
             sku: products.sku,
-            shortDescription: products.shortDescription,
+            shortDescription: productShortDescriptionSql(products.id),
             purchaseMode: products.purchaseMode,
-            stockQuantity: products.stockQuantity,
-            price: products.price,
-            compareAtPrice: products.compareAtPrice,
-            currencyCode: products.currencyCode,
+            stockQuantity: productStockQuantitySql(products.id),
+            price: productPriceSql(products.id),
+            compareAtPrice: productCompareAtPriceSql(products.id),
+            currencyCode: productCurrencyCodeSql(products.id),
             brandId: brands.id,
             brandName: brandNameSql(brands.id),
             brandSlug: brandSlugSql(brands.id),
@@ -426,15 +446,15 @@ export async function getProductList(input: {
       : await db
           .select({
             id: products.id,
-            name: products.name,
-            slug: products.slug,
+            name: productNameSql(products.id),
+            slug: productSlugSql(products.id),
             sku: products.sku,
-            shortDescription: products.shortDescription,
+            shortDescription: productShortDescriptionSql(products.id),
             purchaseMode: products.purchaseMode,
-            stockQuantity: products.stockQuantity,
-            price: products.price,
-            compareAtPrice: products.compareAtPrice,
-            currencyCode: products.currencyCode,
+            stockQuantity: productStockQuantitySql(products.id),
+            price: productPriceSql(products.id),
+            compareAtPrice: productCompareAtPriceSql(products.id),
+            currencyCode: productCurrencyCodeSql(products.id),
             brandId: brands.id,
             brandName: brandNameSql(brands.id),
             brandSlug: brandSlugSql(brands.id),
@@ -532,28 +552,39 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
     const [product] = await db
       .select({
         id: products.id,
-        name: products.name,
-        slug: products.slug,
+        name: productTranslations.name,
+        slug: productTranslations.slug,
         sku: products.sku,
-        shortDescription: products.shortDescription,
-        description: products.description,
-        descriptionLong: products.descriptionLong,
+        shortDescription: productTranslations.shortDescription,
+        description: productTranslations.description,
+        descriptionLong: productTranslations.descriptionLong,
         purchaseMode: products.purchaseMode,
-        stockQuantity: products.stockQuantity,
-        price: products.price,
-        compareAtPrice: products.compareAtPrice,
-        currencyCode: products.currencyCode,
-        seoTitle: products.seoTitle,
-        seoDescription: products.seoDescription,
+        stockQuantity: productTranslations.stockQuantity,
+        price: productTranslations.price,
+        compareAtPrice: productTranslations.compareAtPrice,
+        currencyCode: productTranslations.currencyCode,
+        seoTitle: productTranslations.seoTitle,
+        seoDescription: productTranslations.seoDescription,
+        moq: productTranslations.moq,
+        leadTimeMin: productTranslations.leadTimeMin,
+        leadTimeMax: productTranslations.leadTimeMax,
+        leadTimeUnit: productTranslations.leadTimeUnit,
+        lifecycleStatus: productTranslations.lifecycleStatus,
         featured: products.featured,
         allowBackorder: products.allowBackorder,
         brandId: brands.id,
         brandName: brandNameSql(brands.id),
         brandSlug: brandSlugSql(brands.id),
+        payload: productTranslations.payload,
       })
-      .from(products)
+      .from(productTranslations)
+      .innerJoin(products, eq(products.id, productTranslations.productId))
       .leftJoin(brands, eq(products.brandId, brands.id))
-      .where(and(eq(products.slug, slug), eq(products.status, 'active')))
+      .where(and(
+        eq(productTranslations.slug, slug),
+        eq(productTranslations.locale, DEFAULT_PRODUCT_LOCALE),
+        eq(products.status, 'active'),
+      ))
       .limit(1);
 
     if (!product) {
@@ -596,11 +627,11 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       purchaseMode: product.purchaseMode,
       inStock: product.stockQuantity > 0,
       stockQuantity: product.stockQuantity,
-      moq: 1,
-      leadTimeMin: 3,
-      leadTimeMax: 15,
-      leadTimeUnit: 'business_days',
-      lifecycleStatus: 'active',
+      moq: product.moq,
+      leadTimeMin: product.leadTimeMin,
+      leadTimeMax: product.leadTimeMax,
+      leadTimeUnit: product.leadTimeUnit,
+      lifecycleStatus: product.lifecycleStatus,
       eolDate: null,
       lastTimeBuyDate: null,
       efficiencyClass: null,
@@ -663,15 +694,15 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
 
     const cardSelect = {
       id: products.id,
-      name: products.name,
-      slug: products.slug,
+      name: productNameSql(products.id),
+      slug: productSlugSql(products.id),
       sku: products.sku,
-      shortDescription: products.shortDescription,
+      shortDescription: productShortDescriptionSql(products.id),
       purchaseMode: products.purchaseMode,
-      stockQuantity: products.stockQuantity,
-      price: products.price,
-      compareAtPrice: products.compareAtPrice,
-      currencyCode: products.currencyCode,
+      stockQuantity: productStockQuantitySql(products.id),
+      price: productPriceSql(products.id),
+      compareAtPrice: productCompareAtPriceSql(products.id),
+      currencyCode: productCurrencyCodeSql(products.id),
       coverUrl: productImages.url,
       coverAlt: productImages.alt,
       coverWidth: productImages.width,
@@ -689,7 +720,7 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
           .leftJoin(brands, eq(products.brandId, brands.id))
           .leftJoin(productImages, and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true)))
           .where(and(eq(products.status, 'active'), eq(productCategories.categoryId, categoryId), excludeId ? drizzleSql`${products.id} <> ${excludeId}` : undefined))
-          .orderBy(desc(products.featured), desc(products.publishedAt))
+          .orderBy(desc(products.featured), desc(products.updatedAt))
           .limit(4)
       : await db
           .select(cardSelect)
@@ -697,7 +728,7 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
           .leftJoin(brands, eq(products.brandId, brands.id))
           .leftJoin(productImages, and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true)))
           .where(and(eq(products.status, 'active'), excludeId ? drizzleSql`${products.id} <> ${excludeId}` : undefined))
-          .orderBy(desc(products.featured), desc(products.publishedAt))
+          .orderBy(desc(products.featured), desc(products.updatedAt))
           .limit(4);
 
     return rows.map((item) => ({
@@ -733,15 +764,15 @@ export async function getCompatibleGroups(productId: string): Promise<Storefront
         relationLabel: productRelations.relationLabel,
         sortOrder: productRelations.sortOrder,
         id: products.id,
-        name: products.name,
-        slug: products.slug,
+        name: productNameSql(products.id),
+        slug: productSlugSql(products.id),
         sku: products.sku,
-        shortDescription: products.shortDescription,
+        shortDescription: productShortDescriptionSql(products.id),
         purchaseMode: products.purchaseMode,
-        stockQuantity: products.stockQuantity,
-        price: products.price,
-        compareAtPrice: products.compareAtPrice,
-        currencyCode: products.currencyCode,
+        stockQuantity: productStockQuantitySql(products.id),
+        price: productPriceSql(products.id),
+        compareAtPrice: productCompareAtPriceSql(products.id),
+        currencyCode: productCurrencyCodeSql(products.id),
         coverUrl: productImages.url,
         coverAlt: productImages.alt,
         coverWidth: productImages.width,

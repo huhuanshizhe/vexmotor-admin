@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { and, asc, count, desc, eq, ilike, inArray, ne, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { type AdminListPageSize, normalizePageSize } from '@/lib/admin-list-query';
@@ -21,7 +21,7 @@ import { featureDefinitionTranslations, featureDefinitions } from '@/server/db/s
 
 export const DEFAULT_FEATURE_DEFINITION_LOCALE = 'en';
 
-const selectOptionsSchema = z.array(z.string().trim().min(1)).default([]);
+const textOptionsSchema = z.array(z.string().trim().min(1)).default([]);
 
 export const adminFeatureDefinitionTranslationSchema = z.object({
   definitionId: z.string().uuid().optional(),
@@ -29,12 +29,9 @@ export const adminFeatureDefinitionTranslationSchema = z.object({
   specCategory: z.enum(featureSpecCategories),
   name: z.string().trim().min(1),
   valueType: z.enum(featureValueTypes),
-  selectOptions: selectOptionsSchema.optional(),
   status: z.enum(featureDefinitionStatuses).optional(),
-  valueText: z.string().trim().nullable().optional(),
-  valueMin: z.coerce.number().finite().nullable().optional(),
-  valueMax: z.coerce.number().finite().nullable().optional(),
   unit: z.string().trim().nullable().optional(),
+  textOptions: textOptionsSchema.optional(),
 });
 
 export const adminFeatureDefinitionTranslationPatchSchema = adminFeatureDefinitionTranslationSchema.partial();
@@ -42,9 +39,9 @@ export const adminFeatureDefinitionTranslationPatchSchema = adminFeatureDefiniti
 export const adminFeatureDefinitionPatchSchema = z.object({
   specCategory: z.enum(featureSpecCategories).optional(),
   valueType: z.enum(featureValueTypes).optional(),
-  selectOptions: selectOptionsSchema.optional(),
   status: z.enum(featureDefinitionStatuses).optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
+  unit: z.string().trim().nullable().optional(),
 });
 
 type TranslationCreateInput = z.infer<typeof adminFeatureDefinitionTranslationSchema>;
@@ -63,91 +60,71 @@ function normalizeText(value: string | null | undefined) {
   return normalized ? normalized : null;
 }
 
-function normalizeSelectOptions(options: string[] | undefined) {
-  return (options ?? []).map((item) => item.trim()).filter(Boolean);
-}
-
-function parseNumeric(value: string | null | undefined) {
-  if (value == null || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function serializeNumeric(value: number | null | undefined) {
-  if (value == null) return null;
-  return String(value);
-}
-
-function sanitizeValueFields(
-  valueType: FeatureValueType,
-  selectOptions: string[],
-  input: {
-    valueText?: string | null;
-    valueMin?: number | null;
-    valueMax?: number | null;
-    unit?: string | null;
-  },
-) {
-  const unit = normalizeText(input.unit);
-
-  switch (valueType) {
-    case 'text': {
-      const valueText = normalizeText(input.valueText);
-      if (!valueText) throw new Error('VALUE_REQUIRED');
-      return { valueText, valueMin: null, valueMax: null, unit };
-    }
-    case 'number': {
-      const valueMin = input.valueMin ?? null;
-      if (valueMin == null) throw new Error('VALUE_REQUIRED');
-      if (!unit) throw new Error('UNIT_REQUIRED');
-      return { valueText: String(valueMin), valueMin, valueMax: null, unit };
-    }
-    case 'range': {
-      const valueMin = input.valueMin ?? null;
-      const valueMax = input.valueMax ?? null;
-      if (valueMin == null || valueMax == null) throw new Error('VALUE_REQUIRED');
-      if (valueMin > valueMax) throw new Error('RANGE_INVALID');
-      if (!unit) throw new Error('UNIT_REQUIRED');
-      return {
-        valueText: `${valueMin}~${valueMax}`,
-        valueMin,
-        valueMax,
-        unit,
-      };
-    }
-    case 'boolean': {
-      const raw = input.valueText ?? 'false';
-      const valueText = raw === 'true' ? 'true' : 'false';
-      return { valueText, valueMin: null, valueMax: null, unit: null };
-    }
-    case 'select': {
-      const valueText = normalizeText(input.valueText);
-      if (!valueText) throw new Error('VALUE_REQUIRED');
-      if (selectOptions.length && !selectOptions.includes(valueText)) throw new Error('SELECT_INVALID');
-      return { valueText, valueMin: null, valueMax: null, unit };
-    }
-    default:
-      throw new Error('VALUE_TYPE_INVALID');
+function normalizeTextOptions(options: string[] | undefined) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of options ?? []) {
+    const trimmed = item.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
   }
+  return result;
+}
+
+function sanitizeDefinitionFields() {
+  return { unit: null as string | null };
+}
+
+function sanitizeTranslationFields(
+  valueType: FeatureValueType,
+  input: { textOptions?: string[]; unit?: string | null },
+) {
+  if (valueType === 'text') {
+    return {
+      textOptions: normalizeTextOptions(input.textOptions),
+      valueText: null,
+      valueMin: null,
+      valueMax: null,
+      unit: null,
+    };
+  }
+  if (valueType === 'number') {
+    const unit = normalizeText(input.unit);
+    if (!unit) throw new Error('UNIT_REQUIRED');
+    return {
+      textOptions: [] as string[],
+      valueText: null,
+      valueMin: null,
+      valueMax: null,
+      unit,
+    };
+  }
+  return {
+    textOptions: [] as string[],
+    valueText: null,
+    valueMin: null,
+    valueMax: null,
+    unit: null,
+  };
 }
 
 function sanitizeTranslationInput(input: TranslationCreateInput) {
   const valueType = input.valueType;
-  const selectOptions = normalizeSelectOptions(input.selectOptions);
-  if (valueType === 'select' && !selectOptions.length) {
-    throw new Error('SELECT_OPTIONS_REQUIRED');
-  }
-
-  const values = sanitizeValueFields(valueType, selectOptions, input);
+  const definitionFields = sanitizeDefinitionFields();
+  const translationFields = sanitizeTranslationFields(valueType, {
+    textOptions: input.textOptions,
+    unit: input.unit,
+  });
 
   return {
     specCategory: input.specCategory,
     name: input.name.trim(),
     valueType,
-    selectOptions,
     status: (input.status ?? 'active') as FeatureDefinitionStatus,
     locale: normalizeLocale(input.locale),
-    ...values,
+    ...definitionFields,
+    ...translationFields,
   };
 }
 
@@ -171,13 +148,10 @@ function normalizeTranslationRow(
     definitionId: definition.id,
     locale: translation.locale,
     name: translation.name,
-    valueText: translation.valueText,
-    valueMin: parseNumeric(translation.valueMin),
-    valueMax: parseNumeric(translation.valueMax),
-    unit: translation.unit,
+    textOptions: translation.textOptions ?? [],
     specCategory: definition.specCategory as FeatureSpecCategory,
     valueType: definition.valueType as FeatureValueType,
-    selectOptions: definition.selectOptions ?? [],
+    unit: translation.unit ?? definition.unit,
     status: definition.status as FeatureDefinitionStatus,
     createdAt: translation.createdAt.toISOString(),
     updatedAt: Math.max(definition.updatedAt.getTime(), translation.updatedAt.getTime()) === translation.updatedAt.getTime()
@@ -196,11 +170,10 @@ function toListItem(definition: DefinitionRow, translations: TranslationRow[]): 
     name: primary.name,
     specCategory: definition.specCategory as FeatureSpecCategory,
     valueType: definition.valueType as FeatureValueType,
-    selectOptions: definition.selectOptions ?? [],
     status: definition.status as FeatureDefinitionStatus,
     sortOrder: definition.sortOrder,
     valueDisplay: formatFeatureValueDisplay(normalized.valueType, normalized),
-    unit: normalized.unit,
+    unit: primary.unit ?? definition.unit,
     primaryLocale: primary.locale,
     localeCount: translations.length,
     locales: translations.map((item) => item.locale).sort(),
@@ -234,8 +207,12 @@ async function findDefinitionIdsBySearch(search: string) {
     .from(featureDefinitionTranslations)
     .where(or(
       ilike(featureDefinitionTranslations.name, pattern),
-      ilike(featureDefinitionTranslations.valueText, pattern),
       ilike(featureDefinitionTranslations.unit, pattern),
+      sql`exists (
+        select 1
+        from jsonb_array_elements_text(${featureDefinitionTranslations.textOptions}) as opt(value)
+        where opt.value ilike ${pattern}
+      )`,
     ));
 
   const definitionMatches = await db
@@ -447,7 +424,7 @@ export async function createAdminFeatureDefinitionTranslation(input: Translation
       .values({
         specCategory: next.specCategory,
         valueType: next.valueType,
-        selectOptions: next.selectOptions,
+        unit: null,
         status: next.status,
       })
       .returning({ id: featureDefinitions.id }))[0]?.id;
@@ -460,7 +437,7 @@ export async function createAdminFeatureDefinitionTranslation(input: Translation
       .set({
         specCategory: next.specCategory,
         valueType: next.valueType,
-        selectOptions: next.selectOptions,
+        unit: null,
         status: next.status,
         updatedAt: new Date(),
       })
@@ -473,9 +450,10 @@ export async function createAdminFeatureDefinitionTranslation(input: Translation
       definitionId,
       locale: next.locale,
       name: next.name,
+      textOptions: next.textOptions,
       valueText: next.valueText,
-      valueMin: serializeNumeric(next.valueMin),
-      valueMax: serializeNumeric(next.valueMax),
+      valueMin: next.valueMin,
+      valueMax: next.valueMax,
       unit: next.unit,
     })
     .returning();
@@ -496,12 +474,9 @@ export async function updateAdminFeatureDefinitionTranslation(translationId: str
     specCategory: input.specCategory ?? current.specCategory,
     name: input.name ?? current.name,
     valueType: input.valueType ?? current.valueType,
-    selectOptions: input.selectOptions ?? current.selectOptions,
     status: input.status ?? current.status,
-    valueText: input.valueText === undefined ? current.valueText : input.valueText,
-    valueMin: input.valueMin === undefined ? current.valueMin : input.valueMin,
-    valueMax: input.valueMax === undefined ? current.valueMax : input.valueMax,
     unit: input.unit === undefined ? current.unit : input.unit,
+    textOptions: input.textOptions === undefined ? current.textOptions : input.textOptions,
   };
 
   let next: ReturnType<typeof sanitizeTranslationInput>;
@@ -528,7 +503,7 @@ export async function updateAdminFeatureDefinitionTranslation(translationId: str
     .set({
       specCategory: next.specCategory,
       valueType: next.valueType,
-      selectOptions: next.selectOptions,
+      unit: null,
       status: next.status,
       updatedAt: new Date(),
     })
@@ -539,9 +514,10 @@ export async function updateAdminFeatureDefinitionTranslation(translationId: str
     .set({
       locale: next.locale,
       name: next.name,
+      textOptions: next.textOptions,
       valueText: next.valueText,
-      valueMin: serializeNumeric(next.valueMin),
-      valueMax: serializeNumeric(next.valueMax),
+      valueMin: next.valueMin,
+      valueMax: next.valueMax,
       unit: next.unit,
       updatedAt: new Date(),
     })
@@ -563,7 +539,7 @@ export async function updateAdminFeatureDefinition(definitionId: string, input: 
     .set({
       specCategory: input.specCategory ?? current.specCategory,
       valueType: input.valueType ?? current.valueType,
-      selectOptions: input.selectOptions ?? current.selectOptions,
+      unit: null,
       status: input.status ?? current.status,
       sortOrder: input.sortOrder ?? current.sortOrder,
       updatedAt: new Date(),

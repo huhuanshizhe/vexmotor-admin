@@ -1,60 +1,23 @@
-import { eq, and } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 
-import { db } from '@/server/db';
-import { productTranslations } from '@/server/db/schema';
-
-const translationSchema = z.object({
-  locale: z.enum(['en', 'de', 'fr', 'es']),
-  name: z.string().optional().nullable(),
-  shortDescription: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  seoTitle: z.string().optional().nullable(),
-  seoDescription: z.string().optional().nullable(),
-});
+import { getAdminProductTranslations, updateAdminProductTranslation } from '@/server/admin/products';
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  const rows = await db
-    .select()
-    .from(productTranslations)
-    .where(eq(productTranslations.productId, id));
-
+  const rows = await getAdminProductTranslations(id);
   return NextResponse.json(rows);
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await request.json();
-  const parsed = translationSchema.safeParse(body);
+  const body = await request.json() as { locale?: string };
+  const translations = await getAdminProductTranslations(id);
+  const existing = translations.find((item) => item.locale === body.locale);
 
-  if (!parsed.success) {
-    return NextResponse.json({ code: 'VALIDATION_ERROR', details: parsed.error.flatten() }, { status: 400 });
+  if (!existing) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Translation not found' }, { status: 404 });
   }
 
-  const { locale, ...fields } = parsed.data;
-
-  const existing = await db
-    .select({ id: productTranslations.id })
-    .from(productTranslations)
-    .where(and(eq(productTranslations.productId, id), eq(productTranslations.locale, locale)))
-    .limit(1);
-
-  if (existing.length) {
-    const [updated] = await db
-      .update(productTranslations)
-      .set({ ...fields, updatedAt: new Date() })
-      .where(eq(productTranslations.id, existing[0].id))
-      .returning();
-    return NextResponse.json(updated);
-  }
-
-  const [created] = await db
-    .insert(productTranslations)
-    .values({ productId: id, locale, ...fields })
-    .returning();
-
-  return NextResponse.json(created, { status: 201 });
+  const updated = await updateAdminProductTranslation(existing.id, body);
+  return NextResponse.json(updated);
 }

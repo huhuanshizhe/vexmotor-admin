@@ -4,10 +4,25 @@ export const purchaseModeLabels = {
 } as const;
 
 export const productStatusLabels = {
-  draft: '草稿',
   active: '上架',
-  inactive: '停用',
-  archived: '归档',
+  inactive: '下架',
+} as const;
+
+export const productLifecycleLabels = {
+  new: '新品 (New)',
+  active: '在售 (Active)',
+  nfd: '停售通知 (NFD)',
+  eol: '停产 (EOL)',
+  last_time_buy: '最后采购 (Last Time Buy)',
+} as const;
+
+/** 列表页展示：纯中文，无括号英文 */
+export const productLifecycleListLabels = {
+  new: '新品',
+  active: '在售',
+  nfd: '停售通知',
+  eol: '停产',
+  last_time_buy: '最后采购',
 } as const;
 
 export const categoryStatusLabels = {
@@ -62,6 +77,8 @@ export const cmsStatusLabels = {
 
 export const purchaseModeOptions = Object.entries(purchaseModeLabels).map(([value, label]) => ({ value, label }));
 export const productStatusOptions = Object.entries(productStatusLabels).map(([value, label]) => ({ value, label }));
+export const productLifecycleOptions = Object.entries(productLifecycleLabels).map(([value, label]) => ({ value, label }));
+export const productLifecycleListOptions = Object.entries(productLifecycleListLabels).map(([value, label]) => ({ value, label }));
 export const categoryStatusOptions = Object.entries(categoryStatusLabels).map(([value, label]) => ({ value, label }));
 export const brandStatusOptions = Object.entries(brandStatusLabels).map(([value, label]) => ({ value, label }));
 export const orderStatusOptions = Object.entries(orderStatusLabels).map(([value, label]) => ({ value, label }));
@@ -77,10 +94,16 @@ export const purchaseModeColors = {
 } as const;
 
 export const productStatusColors = {
-  draft: 'default',
   active: 'green',
-  inactive: 'orange',
-  archived: 'red',
+  inactive: 'default',
+} as const;
+
+export const productLifecycleColors = {
+  new: 'blue',
+  active: 'green',
+  nfd: 'orange',
+  eol: 'red',
+  last_time_buy: 'purple',
 } as const;
 
 export const categoryStatusColors = {

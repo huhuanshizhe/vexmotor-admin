@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { and, desc, eq, gt } from 'drizzle-orm';
 
+import { productNameSql, productSlugSql } from '@/server/products/resolve-product-translation';
 import { db } from '@/server/db';
 import { inquiries, products, verificationTokens } from '@/server/db/schema';
 
@@ -102,8 +103,8 @@ export async function getStorefrontInquiryDetail(input: { inquiryId: string; use
       sourcePageUrl: inquiries.sourcePageUrl,
       createdAt: inquiries.createdAt,
       updatedAt: inquiries.updatedAt,
-      productName: products.name,
-      productSlug: products.slug,
+      productName: productNameSql(products.id),
+      productSlug: productSlugSql(products.id),
       productSku: products.sku,
     })
     .from(inquiries)
@@ -149,8 +150,8 @@ export async function getStorefrontInquiriesByUser(userId: string) {
       country: inquiries.country,
       message: inquiries.message,
       createdAt: inquiries.createdAt,
-      productName: products.name,
-      productSlug: products.slug,
+      productName: productNameSql(products.id),
+      productSlug: productSlugSql(products.id),
       productSku: products.sku,
     })
     .from(inquiries)
