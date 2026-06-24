@@ -20,6 +20,8 @@ import {
   featureValueTypeLabels,
   isUnitRequiredForValueType,
   joinTextOptionsMultiline,
+  normalizeFeatureKeyForSave,
+  normalizeFeatureKeyInput,
   resolveFeatureDefinitionId,
   splitTextOptionsMultiline,
 } from '@/lib/feature-definition-content';
@@ -97,6 +99,7 @@ export function FeatureDefinitionEditorModal({
   onSaved,
 }: FeatureDefinitionEditorModalProps) {
   const [definitionId, setDefinitionId] = useState<string | undefined>();
+  const [featureKey, setFeatureKey] = useState('');
   const [specCategory, setSpecCategory] = useState<FeatureSpecCategory>('general');
   const [valueType, setValueType] = useState<FeatureValueType>('text');
   const [status, setStatus] = useState<FeatureDefinitionStatus>('active');
@@ -126,6 +129,7 @@ export function FeatureDefinitionEditorModal({
 
     if (!editingEntry) {
       setDefinitionId(undefined);
+      setFeatureKey('');
       setSpecCategory('general');
       setValueType('text');
       setStatus('active');
@@ -136,6 +140,7 @@ export function FeatureDefinitionEditorModal({
     }
 
     setDefinitionId(editingEntry.id);
+    setFeatureKey(editingEntry.key);
     setSpecCategory(editingEntry.specCategory);
     setValueType(editingEntry.valueType);
     setStatus(editingEntry.status);
@@ -150,6 +155,7 @@ export function FeatureDefinitionEditorModal({
           translations: AdminFeatureDefinitionTranslation[];
         };
 
+        setFeatureKey(payload.item.key);
         const nextDrafts = Object.fromEntries(
           activeLanguages.map((language) => {
             const translation = payload.translations.find((item) => item.locale === language.code);
@@ -192,9 +198,18 @@ export function FeatureDefinitionEditorModal({
     return { ok: true as const };
   }
 
-  function buildTranslationPayload(draft: LocaleDraft, locale: string) {
+  function validateSharedFields() {
+    const normalizedKey = normalizeFeatureKeyForSave(featureKey);
+    if (!normalizedKey) {
+      return { ok: false as const, message: '请填写 Key（仅限小写英文字母和连字符）' };
+    }
+    return { ok: true as const, key: normalizedKey };
+  }
+
+  function buildTranslationPayload(draft: LocaleDraft, locale: string, key?: string) {
     return {
       definitionId,
+      key,
       locale,
       specCategory,
       name: draft.name.trim(),
@@ -208,6 +223,12 @@ export function FeatureDefinitionEditorModal({
   function persistAllLocales() {
     if (!hasLanguages) {
       void messageApi.warning('请先在「多语言管理」中添加并启用语言');
+      return;
+    }
+
+    const sharedValidation = validateSharedFields();
+    if (!sharedValidation.ok) {
+      void messageApi.error(sharedValidation.message);
       return;
     }
 
@@ -240,6 +261,7 @@ export function FeatureDefinitionEditorModal({
       const nextDrafts = { ...mergedDrafts };
       const savedEntries: AdminFeatureDefinitionTranslation[] = [];
       const shared = {
+        key: sharedValidation.key,
         specCategory,
         valueType,
         status,
@@ -258,7 +280,7 @@ export function FeatureDefinitionEditorModal({
         }
       }
 
-      for (const { locale, draft } of targets) {
+      for (const [index, { locale, draft }] of targets.entries()) {
         const response = await fetch(
           draft.entryId
             ? `/api/admin/feature-definitions/translations/${draft.entryId}`
@@ -266,7 +288,11 @@ export function FeatureDefinitionEditorModal({
           {
             method: draft.entryId ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildTranslationPayload(draft, locale)),
+            body: JSON.stringify(buildTranslationPayload(
+              draft,
+              locale,
+              !nextDefinitionId && index === 0 ? sharedValidation.key : undefined,
+            )),
           },
         );
 
@@ -292,6 +318,7 @@ export function FeatureDefinitionEditorModal({
 
       setDrafts(nextDrafts);
       setDefinitionId(nextDefinitionId);
+      setFeatureKey(sharedValidation.key);
       loadDraft(activeLocale, nextDrafts);
       for (const saved of savedEntries) onSaved(saved);
       void messageApi.success(`已保存 ${savedEntries.length} 个语言版本`);
@@ -301,6 +328,15 @@ export function FeatureDefinitionEditorModal({
   const sharedFieldsPanel = (
     <div className="content-editor-shared-section">
       <Row gutter={[16, 0]}>
+        <Col xs={24} md={8}>
+          <Form.Item label="Key" layout="vertical" required style={{ marginBottom: 16 }}>
+            <Input
+              value={featureKey}
+              placeholder="如 weight、max-torque"
+              onChange={(event) => setFeatureKey(normalizeFeatureKeyInput(event.target.value))}
+            />
+          </Form.Item>
+        </Col>
         <Col xs={24} md={8}>
           <Form.Item label="特性分类" layout="vertical" required style={{ marginBottom: 16 }}>
             <Select

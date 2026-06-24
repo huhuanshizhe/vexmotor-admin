@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { eq } from 'drizzle-orm';
 
+import { normalizeEntityKeyForSave } from '@/lib/admin-entity-key';
 import {
   type AdminEditorialDashboard,
   cloneEditorialAutomationConfig,
@@ -38,7 +39,7 @@ function sanitizeStringArray(values: string[] | null | undefined) {
 }
 
 function sanitizeCoverageBoard(board: EditorialCoverageBoard, index: number): EditorialCoverageBoard {
-  const key = sanitizeText(board.key)?.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || `board-${index + 1}`;
+  const key = normalizeEntityKeyForSave(board.key) ?? `board-${String.fromCharCode(97 + (index % 26))}`;
   return {
     key,
     title: sanitizeText(board.title) ?? `内容看板 ${index + 1}`,

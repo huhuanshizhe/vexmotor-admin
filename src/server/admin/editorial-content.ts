@@ -85,13 +85,14 @@ function normalizeSeoText(value: string | null | undefined, maxLength: number) {
 }
 
 import { generateSlugFromText, normalizeSlug, resolveSlugForSave } from '@/lib/slug';
+import { normalizeEntityKeyForSave } from '@/lib/admin-entity-key';
 
 function normalizeLocale(value: string | null | undefined) {
   return value?.trim() || 'en';
 }
 
 function normalizeBoardKey(value: string | null | undefined) {
-  return normalizeSlug(value || 'content') || 'content';
+  return normalizeEntityKeyForSave(value ?? '') ?? 'content';
 }
 
 function normalizeDateValue(value: Date | string | null | undefined) {

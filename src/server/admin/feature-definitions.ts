@@ -15,6 +15,7 @@ import {
   featureValueTypes,
   formatFeatureValueDisplay,
   isUnitRequiredForValueType,
+  normalizeFeatureKeyForSave,
 } from '@/lib/feature-definition-content';
 import { db } from '@/server/db';
 import { featureDefinitionTranslations, featureDefinitions } from '@/server/db/schema';
@@ -25,6 +26,7 @@ const textOptionsSchema = z.array(z.string().trim().min(1)).default([]);
 
 export const adminFeatureDefinitionTranslationSchema = z.object({
   definitionId: z.string().uuid().optional(),
+  key: z.string().trim().min(1).optional(),
   locale: z.string().trim().min(2).default(DEFAULT_FEATURE_DEFINITION_LOCALE),
   specCategory: z.enum(featureSpecCategories),
   name: z.string().trim().min(1),
@@ -37,6 +39,7 @@ export const adminFeatureDefinitionTranslationSchema = z.object({
 export const adminFeatureDefinitionTranslationPatchSchema = adminFeatureDefinitionTranslationSchema.partial();
 
 export const adminFeatureDefinitionPatchSchema = z.object({
+  key: z.string().trim().min(1).optional(),
   specCategory: z.enum(featureSpecCategories).optional(),
   valueType: z.enum(featureValueTypes).optional(),
   status: z.enum(featureDefinitionStatuses).optional(),
@@ -70,6 +73,12 @@ function normalizeTextOptions(options: string[] | undefined) {
     result.push(trimmed);
   }
   return result;
+}
+
+function sanitizeDefinitionKey(value: string | null | undefined) {
+  const normalized = normalizeFeatureKeyForSave(value ?? '');
+  if (!normalized) throw new Error('INVALID_KEY');
+  return normalized;
 }
 
 function sanitizeDefinitionFields() {
@@ -147,6 +156,7 @@ function normalizeTranslationRow(
     id: translation.id,
     definitionId: definition.id,
     locale: translation.locale,
+    key: definition.key,
     name: translation.name,
     textOptions: translation.textOptions ?? [],
     specCategory: definition.specCategory as FeatureSpecCategory,
@@ -167,6 +177,7 @@ function toListItem(definition: DefinitionRow, translations: TranslationRow[]): 
   const normalized = normalizeTranslationRow(definition, primary);
   return {
     id: definition.id,
+    key: definition.key,
     name: primary.name,
     specCategory: definition.specCategory as FeatureSpecCategory,
     valueType: definition.valueType as FeatureValueType,
@@ -219,6 +230,7 @@ async function findDefinitionIdsBySearch(search: string) {
     .selectDistinct({ id: featureDefinitions.id })
     .from(featureDefinitions)
     .where(or(
+      ilike(featureDefinitions.key, pattern),
       ilike(featureDefinitions.specCategory, pattern),
       ilike(featureDefinitions.valueType, pattern),
     ));
@@ -252,6 +264,24 @@ export async function findAdminFeatureDefinitionByCategoryNameAndLocale(
     .select({ definition: featureDefinitions, translation: featureDefinitionTranslations })
     .from(featureDefinitionTranslations)
     .innerJoin(featureDefinitions, eq(featureDefinitions.id, featureDefinitionTranslations.definitionId))
+    .where(and(...conditions))
+    .limit(1);
+
+  return row ?? null;
+}
+
+export async function findAdminFeatureDefinitionByKey(key: string, excludeDefinitionId?: string) {
+  const normalizedKey = normalizeFeatureKeyForSave(key);
+  if (!normalizedKey) return null;
+
+  const conditions = [eq(featureDefinitions.key, normalizedKey)];
+  if (excludeDefinitionId) {
+    conditions.push(ne(featureDefinitions.id, excludeDefinitionId));
+  }
+
+  const [row] = await db
+    .select()
+    .from(featureDefinitions)
     .where(and(...conditions))
     .limit(1);
 
@@ -393,11 +423,26 @@ export async function findAdminFeatureDefinitionTranslationByDefinitionAndLocale
 
 export async function createAdminFeatureDefinitionTranslation(input: TranslationCreateInput) {
   let next: ReturnType<typeof sanitizeTranslationInput>;
+  let definitionKey: string | undefined;
   try {
     next = sanitizeTranslationInput(input);
+    if (!input.definitionId) {
+      definitionKey = sanitizeDefinitionKey(input.key);
+    }
   } catch (error) {
     if (error instanceof Error) throw error;
     return null;
+  }
+
+  if (!input.definitionId && !definitionKey) {
+    throw new Error('KEY_REQUIRED');
+  }
+
+  if (definitionKey) {
+    const duplicateKey = await findAdminFeatureDefinitionByKey(definitionKey);
+    if (duplicateKey) {
+      throw new Error('DUPLICATE_KEY');
+    }
   }
 
   if (input.definitionId) {
@@ -422,6 +467,7 @@ export async function createAdminFeatureDefinitionTranslation(input: Translation
     : (await db
       .insert(featureDefinitions)
       .values({
+        key: definitionKey!,
         specCategory: next.specCategory,
         valueType: next.valueType,
         unit: null,
@@ -534,9 +580,25 @@ export async function updateAdminFeatureDefinition(definitionId: string, input: 
   const current = await getAdminFeatureDefinitionListItem(definitionId);
   if (!current) return null;
 
+  let nextKey = current.key;
+  if (input.key !== undefined) {
+    try {
+      nextKey = sanitizeDefinitionKey(input.key);
+    } catch (error) {
+      if (error instanceof Error) throw error;
+      return null;
+    }
+
+    const duplicateKey = await findAdminFeatureDefinitionByKey(nextKey, definitionId);
+    if (duplicateKey) {
+      throw new Error('DUPLICATE_KEY');
+    }
+  }
+
   const [updated] = await db
     .update(featureDefinitions)
     .set({
+      key: nextKey,
       specCategory: input.specCategory ?? current.specCategory,
       valueType: input.valueType ?? current.valueType,
       unit: null,

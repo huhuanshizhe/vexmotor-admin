@@ -8,6 +8,7 @@ import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats
 import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { adminTableFixedActionsColumn, adminTableNowrapHeader, adminTableScroll } from '@/components/admin/admin-table';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
+import { normalizeEntityKeyForSave, normalizeEntityKeyInput } from '@/lib/admin-entity-key';
 import type { AdminEditorialContentListItem } from '@/lib/editorial-content';
 import type {
   AdminEditorialDashboard,
@@ -84,10 +85,20 @@ export function AdminEditorialBoardsClient({
     void boardForm.validateFields().then((values) => {
       startTransition(async () => {
         try {
-          const slug = (editingBoardKey ?? values.key).trim();
-          const existing = dashboard.config.coverageBoards.find((item) => item.key === slug);
+          const boardKey = editingBoardKey ?? normalizeEntityKeyForSave(values.key);
+          if (!boardKey) {
+            void messageApi.error('Key 只能包含小写英文字母和连字符');
+            return;
+          }
+
+          if (!editingBoardKey && dashboard.config.coverageBoards.some((item) => item.key === boardKey)) {
+            void messageApi.error('Key 已被占用');
+            return;
+          }
+
+          const existing = dashboard.config.coverageBoards.find((item) => item.key === boardKey);
           const nextBoard: EditorialCoverageBoard = {
-            key: slug,
+            key: boardKey,
             title: values.title.trim(),
             contentType: 'content',
             note: values.note.trim(),
@@ -98,7 +109,7 @@ export function AdminEditorialBoardsClient({
           await saveEditorialConfig({
             ...dashboard.config,
             coverageBoards: [
-              ...dashboard.config.coverageBoards.filter((item) => item.key !== slug),
+              ...dashboard.config.coverageBoards.filter((item) => item.key !== boardKey),
               nextBoard,
             ],
           });
@@ -234,7 +245,12 @@ export function AdminEditorialBoardsClient({
         okText="保存"
       >
         <Form<BoardFormValues> form={boardForm} layout="vertical">
-          <Form.Item label="Key" name="key" rules={[{ required: true, message: '请输入看板 Key' }]}>
+          <Form.Item
+            label="Key"
+            name="key"
+            rules={[{ required: true, message: '请输入看板 Key' }]}
+            getValueFromEvent={(event) => normalizeEntityKeyInput(event.target.value)}
+          >
             <Input placeholder="例如 engineering-guides" disabled={Boolean(editingBoardKey)} />
           </Form.Item>
           <Form.Item label="看板名称" name="title" rules={[{ required: true, message: '请输入看板名称' }]}>

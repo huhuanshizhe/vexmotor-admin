@@ -25,6 +25,7 @@ export type AdminFeatureDefinitionTranslation = {
   id: string;
   definitionId: string;
   locale: string;
+  key: string;
   name: string;
   textOptions: string[];
   specCategory: FeatureSpecCategory;
@@ -37,6 +38,7 @@ export type AdminFeatureDefinitionTranslation = {
 
 export type AdminFeatureDefinitionListItem = {
   id: string;
+  key: string;
   name: string;
   specCategory: FeatureSpecCategory;
   valueType: FeatureValueType;
@@ -69,6 +71,11 @@ export function formatFeatureValueDisplay(
 export function isUnitRequiredForValueType(valueType: FeatureValueType) {
   return valueType === 'number';
 }
+
+export {
+  normalizeEntityKeyInput as normalizeFeatureKeyInput,
+  normalizeEntityKeyForSave as normalizeFeatureKeyForSave,
+} from '@/lib/admin-entity-key';
 
 export function splitTextOptionsMultiline(value: string) {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);

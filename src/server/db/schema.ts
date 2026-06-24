@@ -244,6 +244,7 @@ export const featureDefinitions = pgTable(
   'feature_definitions',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    key: varchar('key', { length: 120 }).notNull(),
     specCategory: varchar('spec_category', { length: 50 }).notNull().default('general'),
     valueType: varchar('value_type', { length: 20 }).notNull().default('text'),
     unit: varchar('unit', { length: 50 }),
@@ -253,6 +254,7 @@ export const featureDefinitions = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
+    keyUnique: uniqueIndex('feature_definitions_key_unique').on(table.key),
     statusIdx: index('feature_definitions_status_idx').on(table.status),
   }),
 );

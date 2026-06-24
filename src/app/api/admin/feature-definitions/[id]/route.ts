@@ -10,10 +10,16 @@ import {
 
 function mapFeatureDefinitionError(error: unknown) {
   if (!(error instanceof Error)) return null;
-  if (error.message === 'DUPLICATE_NAME') {
-    return { status: 409, code: 'DUPLICATE_NAME', message: '该分类与语言下特性名称已存在' };
+  switch (error.message) {
+    case 'DUPLICATE_NAME':
+      return { status: 409, code: 'DUPLICATE_NAME', message: '该分类与语言下特性名称已存在' };
+    case 'INVALID_KEY':
+      return { status: 400, code: 'INVALID_KEY', message: 'Key 只能包含小写英文字母和连字符' };
+    case 'DUPLICATE_KEY':
+      return { status: 409, code: 'DUPLICATE_KEY', message: 'Key 已被占用' };
+    default:
+      return null;
   }
-  return null;
 }
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {

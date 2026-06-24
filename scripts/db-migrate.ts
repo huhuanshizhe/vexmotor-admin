@@ -167,6 +167,13 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0012_feature_definition_key') && await tableExists(sql, 'feature_definitions')) {
+    const hasKey = await columnExists(sql, 'feature_definitions', 'key');
+    if (hasKey) {
+      baselineTags.push('0012_feature_definition_key');
+    }
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);

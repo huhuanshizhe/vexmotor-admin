@@ -233,6 +233,14 @@ export function FeatureDefinitionListClient({
       render: (value: string) => <Typography.Text ellipsis title={value}>{value}</Typography.Text>,
     },
     {
+      title: 'Key',
+      dataIndex: 'key',
+      width: 140,
+      ellipsis: true,
+      onHeaderCell: adminTableNowrapHeader,
+      render: (value: string) => <Tag>{value}</Tag>,
+    },
+    {
       title: '分类',
       dataIndex: 'specCategory',
       width: 96,

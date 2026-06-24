@@ -17,6 +17,12 @@ function mapFeatureDefinitionError(error: unknown) {
       return { status: 409, code: 'DUPLICATE_NAME', message: '该分类与语言下特性名称已存在' };
     case 'UNIT_REQUIRED':
       return { status: 400, code: 'UNIT_REQUIRED', message: '数值类型必须填写值单位' };
+    case 'KEY_REQUIRED':
+      return { status: 400, code: 'KEY_REQUIRED', message: '请填写 Key' };
+    case 'INVALID_KEY':
+      return { status: 400, code: 'INVALID_KEY', message: 'Key 只能包含小写英文字母和连字符' };
+    case 'DUPLICATE_KEY':
+      return { status: 409, code: 'DUPLICATE_KEY', message: 'Key 已被占用' };
     default:
       return null;
   }

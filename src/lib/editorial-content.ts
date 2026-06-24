@@ -5,10 +5,12 @@ export type EditorialEntryStatus = (typeof editorialEntryStatuses)[number];
 export const editorialContentModules = ['editorial', 'faq'] as const;
 export type EditorialContentModule = (typeof editorialContentModules)[number];
 
+import { normalizeEntityKeyForSave } from '@/lib/admin-entity-key';
+
 export const FAQ_BOARD_KEYS = ['faq', 'tech-faq'] as const;
 
 export function normalizeBoardKeyForModule(value: string | null | undefined) {
-  return value?.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || 'content';
+  return normalizeEntityKeyForSave(value ?? '') ?? 'content';
 }
 
 export function resolveContentModuleByBoard(boardKey: string): EditorialContentModule {
