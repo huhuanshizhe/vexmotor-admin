@@ -16,6 +16,7 @@ import {
   type EditorialEntryStatus,
   resolveContentId,
 } from '@/lib/editorial-content';
+import { validateSourceThenAutoSlug } from '@/lib/slug';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type SectionTabKey = 'content' | 'seo';
@@ -141,10 +142,13 @@ function validateDraft(locale: string, draft: LocaleDraft) {
   if (!hasMeaningfulHtmlBody(draft.body)) {
     return { ok: false as const, locale, message: '请输入正文', section: 'content' as const };
   }
-  if (!draft.slug.trim()) {
-    return { ok: false as const, locale, message: '请输入 slug', section: 'seo' as const };
-  }
-  return { ok: true as const };
+  return validateSourceThenAutoSlug({
+    locale,
+    sourceText: draft.title,
+    slug: draft.slug,
+    emptySourceMessage: '请输入标题',
+    section: 'content',
+  });
 }
 
 function buildEntryPayload(draft: LocaleDraft, locale: string, status: EditorialEntryStatus, options: {
@@ -415,6 +419,15 @@ export function ContentEditorModal({
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
+      if (validation.autoSlug) {
+        target.draft.slug = validation.autoSlug;
+        mergedDrafts[target.locale] = { ...mergedDrafts[target.locale], slug: validation.autoSlug };
+      }
+    }
+
+    setDrafts(mergedDrafts);
+    if (mergedDrafts[activeLocale]?.slug) {
+      form.setFieldValue('slug', mergedDrafts[activeLocale].slug);
     }
 
     startTransition(async () => {
@@ -584,8 +597,7 @@ export function ContentEditorModal({
               <Form.Item
                 label="Slug"
                 name="slug"
-                extra="同一语言下的内容 slug 不可重复（与商品等业务线互不影响）"
-                rules={[{ required: true, message: '请输入 slug' }]}
+                extra="留空将根据标题自动生成；同一语言下的内容 slug 不可重复（与商品等业务线互不影响）"
               >
                 <Input />
               </Form.Item>

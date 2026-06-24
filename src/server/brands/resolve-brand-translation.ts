@@ -1,18 +1,9 @@
 import { sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 
+import { normalizeSlug as normalizeBrandSlug } from '@/lib/slug';
+
+export { normalizeBrandSlug };
 export const DEFAULT_BRAND_LOCALE = 'en';
-
-export function normalizeBrandSlug(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
-}
-
-export function pickPrimaryBrandLocale(locales: string[], preferredLocales: string[] = [DEFAULT_BRAND_LOCALE]) {
-  for (const preferred of preferredLocales) {
-    const match = locales.find((locale) => locale.toLowerCase() === preferred.toLowerCase());
-    if (match) return match;
-  }
-  return [...locales].sort()[0] ?? DEFAULT_BRAND_LOCALE;
-}
 
 function brandFieldSql(brandIdColumn: SQLWrapper, field: 'name' | 'slug'): SQL<string> {
   return sql<string>`COALESCE(
@@ -29,4 +20,12 @@ export function brandNameSql(brandIdColumn: SQLWrapper) {
 
 export function brandSlugSql(brandIdColumn: SQLWrapper) {
   return brandFieldSql(brandIdColumn, 'slug');
+}
+
+export function pickPrimaryBrandLocale(locales: string[], preferredLocales: string[] = [DEFAULT_BRAND_LOCALE]) {
+  for (const preferred of preferredLocales) {
+    const match = locales.find((locale) => locale.toLowerCase() === preferred.toLowerCase());
+    if (match) return match;
+  }
+  return [...locales].sort()[0] ?? DEFAULT_BRAND_LOCALE;
 }

@@ -84,9 +84,7 @@ function normalizeSeoText(value: string | null | undefined, maxLength: number) {
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-function normalizeSlug(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
-}
+import { generateSlugFromText, normalizeSlug, resolveSlugForSave } from '@/lib/slug';
 
 function normalizeLocale(value: string | null | undefined) {
   return value?.trim() || 'en';
@@ -116,9 +114,10 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedTitle = input.title.trim();
   const normalizedSummary = normalizeText(input.summary);
   const normalizedPayload = normalizePayload(input.payload);
-  const normalizedSlug = input.slug?.trim()
-    ? normalizeSlug(input.slug)
-    : normalizeSlug(normalizedTitle);
+  const normalizedSlug = resolveSlugForSave({
+    sourceText: normalizedTitle,
+    slug: input.slug,
+  });
   const boardKey = normalizeBoardKey(input.boardKey);
   const contentModule = input.contentModule ?? resolveContentModuleByBoard(boardKey);
 

@@ -1,10 +1,9 @@
 import { sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 
-export const DEFAULT_CATEGORY_LOCALE = 'en';
+import { normalizeSlug as normalizeCategorySlug } from '@/lib/slug';
 
-export function normalizeCategorySlug(value: string) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
-}
+export { normalizeCategorySlug };
+export const DEFAULT_CATEGORY_LOCALE = 'en';
 
 function categoryFieldSql(categoryIdColumn: SQLWrapper, field: 'name' | 'slug' | 'description'): SQL<string | null> {
   return sql<string | null>`COALESCE(

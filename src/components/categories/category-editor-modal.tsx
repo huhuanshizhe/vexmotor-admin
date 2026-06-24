@@ -14,6 +14,7 @@ import {
   type CategoryStatus,
   resolveCategoryId,
 } from '@/lib/category-content';
+import { validateSourceThenAutoSlug } from '@/lib/slug';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type SectionTabKey = 'content' | 'seo';
@@ -95,13 +96,12 @@ function shouldPersistDraft(draft: LocaleDraft) {
 }
 
 function validateDraft(locale: string, draft: LocaleDraft) {
-  if (!draft.name.trim()) {
-    return { ok: false as const, locale, section: 'content' as const, message: '请输入分类名称' };
-  }
-  if (!draft.slug.trim()) {
-    return { ok: false as const, locale, section: 'seo' as const, message: '请输入 Slug' };
-  }
-  return { ok: true as const };
+  return validateSourceThenAutoSlug({
+    locale,
+    sourceText: draft.name,
+    slug: draft.slug,
+    emptySourceMessage: '请输入分类名称',
+  });
 }
 
 function collectDescendantIds(nodeId: string, tree: AdminCategoryTreeNode[]): Set<string> {
@@ -331,6 +331,15 @@ export function CategoryEditorModal({
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
+      if (validation.autoSlug) {
+        target.draft.slug = validation.autoSlug;
+        mergedDrafts[target.locale] = { ...mergedDrafts[target.locale], slug: validation.autoSlug };
+      }
+    }
+
+    setDrafts(mergedDrafts);
+    if (mergedDrafts[activeLocale]?.slug) {
+      form.setFieldValue('slug', mergedDrafts[activeLocale].slug);
     }
 
     startTransition(async () => {
@@ -449,8 +458,7 @@ export function CategoryEditorModal({
                     <Form.Item
                       label="Slug"
                       name="slug"
-                      extra="同一语言下的分类 slug 不可重复"
-                      rules={[{ required: true, message: '请输入 slug' }]}
+                      extra="留空将根据分类名称自动生成；同一语言下的分类 slug 不可重复"
                     >
                       <Input placeholder="category-slug" />
                     </Form.Item>

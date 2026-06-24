@@ -16,6 +16,7 @@ import {
 } from '@/lib/brand-content';
 import { db } from '@/server/db';
 import { brandTranslations, brands, products } from '@/server/db/schema';
+import { resolveSlugForSave } from '@/lib/slug';
 import { DEFAULT_BRAND_LOCALE, normalizeBrandSlug } from '@/server/brands/resolve-brand-translation';
 
 const payloadSchema = z.object({
@@ -76,9 +77,10 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedName = input.name.trim();
   const normalizedDescription = normalizeText(input.description);
   const normalizedPayload = normalizePayload(input.payload ?? { tags: [] });
-  const normalizedSlug = input.slug?.trim()
-    ? normalizeBrandSlug(input.slug)
-    : normalizeBrandSlug(normalizedName);
+  const normalizedSlug = resolveSlugForSave({
+    sourceText: normalizedName,
+    slug: input.slug,
+  });
 
   return {
     name: normalizedName,

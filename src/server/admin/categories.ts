@@ -19,6 +19,7 @@ import {
 } from '@/lib/category-content';
 import { db } from '@/server/db';
 import { categories, categoryTranslations, productCategories, products } from '@/server/db/schema';
+import { resolveSlugForSave } from '@/lib/slug';
 import { DEFAULT_CATEGORY_LOCALE, categoryNameSql, normalizeCategorySlug } from '@/server/categories/resolve-category-translation';
 
 const payloadSchema = z.object({
@@ -93,9 +94,10 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedName = input.name.trim();
   const normalizedDescription = normalizeText(input.description);
   const normalizedPayload = normalizePayload(input.payload ?? { tags: [] });
-  const normalizedSlug = input.slug?.trim()
-    ? normalizeCategorySlug(input.slug)
-    : normalizeCategorySlug(normalizedName);
+  const normalizedSlug = resolveSlugForSave({
+    sourceText: normalizedName,
+    slug: input.slug,
+  });
 
   return {
     name: normalizedName,
