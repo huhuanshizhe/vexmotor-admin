@@ -1,7 +1,7 @@
 'use client';
 
-import { EyeInvisibleOutlined, PlusOutlined, ShoppingOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Image, Input, InputNumber, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { EyeInvisibleOutlined, PlusOutlined, ShoppingOutlined, TagsOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Image, Input, InputNumber, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,7 +9,8 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useT
 
 import { AdminListPagination } from '@/components/admin/admin-list-pagination';
 import { AdminPageHeaderStats } from '@/components/admin/admin-page-header-stats';
-import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
+import { ADMIN_ACTION_TOOLTIP_PROPS, AdminEntityRowActions } from '@/components/admin/admin-row-actions';
+import { ProductFeatureAssignmentModal } from '@/components/products/product-feature-assignment-modal';
 import {
   adminTableFixedActionsColumn,
   adminTableNowrapHeader,
@@ -110,6 +111,8 @@ export function ProductListClient({
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<AdminProductListItem | null>(null);
+  const [featureModalOpen, setFeatureModalOpen] = useState(false);
+  const [featureProduct, setFeatureProduct] = useState<AdminProductListItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -240,10 +243,34 @@ export function ProductListClient({
     {
       title: '产品名称',
       dataIndex: 'name',
+      width: 260,
       ellipsis: true,
       ...adminTableNowrapHeader(),
     },
-    { title: 'SKU', dataIndex: 'sku', width: 140, ...adminTableNowrapHeader() },
+    { title: 'SPU', dataIndex: 'spu', width: 140, ...adminTableNowrapHeader() },
+    {
+      title: '产品特性',
+      key: 'features',
+      width: 96,
+      align: 'center' as const,
+      ...adminTableNowrapHeader(),
+      render: (_: unknown, row: AdminProductListItem) => (
+        <Tooltip title="编辑特性" {...ADMIN_ACTION_TOOLTIP_PROPS}>
+          <button
+            type="button"
+            className="admin-count-hotzone"
+            aria-label="编辑特性"
+            onClick={() => {
+              setFeatureProduct(row);
+              setFeatureModalOpen(true);
+            }}
+          >
+            <span className="admin-count-hotzone__icon"><TagsOutlined /></span>
+            <span className="admin-count-hotzone__count">({row.featureCount})</span>
+          </button>
+        </Tooltip>
+      ),
+    },
     {
       title: '购买模式',
       dataIndex: 'purchaseMode',
@@ -300,26 +327,26 @@ export function ProductListClient({
   ];
 
   return (
-    <>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {contextHolder}
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-          <AdminPageHeaderStats
-            items={[
-              { label: '产品总量', value: listState.total },
-              { label: '已上架', value: listState.activeCount },
-              { label: '当前页', value: listState.items.length },
-            ]}
-          />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>
-            新建产品
-          </Button>
-        </div>
+      <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap align="center">
+        <AdminPageHeaderStats
+          items={[
+            { label: '产品总量', value: listState.total },
+            { label: '已上架', value: listState.activeCount },
+            { label: '当前页', value: listState.items.length },
+          ]}
+        />
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>
+          新建产品
+        </Button>
+      </Space>
 
+      <Card>
         <Space wrap style={{ marginBottom: 16, width: '100%' }}>
           <Input.Search
             allowClear
-            placeholder="搜索名称 / SKU / Slug"
+            placeholder="搜索名称 / SPU / Slug"
             style={{ width: 240 }}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -434,6 +461,17 @@ export function ProductListClient({
         onClose: closeEditor,
         onSaved: handleSaved,
       })}
-    </>
+
+      <ProductFeatureAssignmentModal
+        open={featureModalOpen}
+        product={featureProduct}
+        activeLanguages={activeLanguages}
+        onClose={() => {
+          setFeatureModalOpen(false);
+          setFeatureProduct(null);
+        }}
+        onChanged={() => reloadList(query)}
+      />
+    </Space>
   );
 }

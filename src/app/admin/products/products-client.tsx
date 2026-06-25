@@ -4,7 +4,7 @@ import { ProductEditorModal } from '@/components/products/product-editor-modal';
 import { ProductListClient } from '@/components/products/product-list-client';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
 import type { ProductListQuery } from '@/lib/product-list-query';
-import type { AdminProductListItem, AdminProductTranslation } from '@/lib/product-content';
+import type { AdminProductTranslation } from '@/lib/product-content';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 import type { ProductListState } from '@/components/products/product-list-client';

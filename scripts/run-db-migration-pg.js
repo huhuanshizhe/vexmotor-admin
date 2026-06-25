@@ -65,7 +65,6 @@ async function migrate() {
     console.log(`   Total attachments: ${attachmentCount.rows[0].count}`);
 
     console.log('\n✅ Database migration completed successfully!');
-    console.log('\n💡 Next step: Run data import with: node scripts/import-vexmotor-data.js');
   } catch (err) {
     console.error('❌ Migration failed:', err.message);
     process.exit(1);

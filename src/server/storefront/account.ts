@@ -165,7 +165,7 @@ export async function getWishlistByUser(userId: string) {
       productId: products.id,
       name: productNameSql(products.id),
       slug: productSlugSql(products.id),
-      sku: products.sku,
+      spu: products.spu,
       shortDescription: productShortDescriptionSql(products.id),
       purchaseMode: products.purchaseMode,
       price: productPriceSql(products.id),

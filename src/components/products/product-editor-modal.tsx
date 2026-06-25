@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Col, DatePicker, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, Tooltip, TreeSelect, message } from 'antd';
+import { Button, Col, DatePicker, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, TreeSelect, message } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
@@ -203,7 +203,7 @@ export function ProductEditorModal({
   onSaved,
 }: ProductEditorModalProps) {
   const [productId, setProductId] = useState<string | undefined>();
-  const [sku, setSku] = useState('');
+  const [spu, setSpu] = useState('');
   const [brandId, setBrandId] = useState<string | null>(null);
   const [defaultCategoryId, setDefaultCategoryId] = useState<string | null>(null);
   const [featured, setFeatured] = useState(false);
@@ -211,7 +211,6 @@ export function ProductEditorModal({
   const [purchaseMode, setPurchaseMode] = useState<ProductPurchaseMode>('buy');
   const [paidSampleEnabled, setPaidSampleEnabled] = useState(false);
   const [status, setStatus] = useState<ProductStatus>('inactive');
-  const [hasMultipleSpecs, setHasMultipleSpecs] = useState(false);
   const [activeLocale, setActiveLocale] = useState('');
   const [sectionTab, setSectionTab] = useState<SectionTabKey>('content');
   const [drafts, setDrafts] = useState<Record<string, LocaleDraft>>({});
@@ -246,7 +245,7 @@ export function ProductEditorModal({
 
     if (!editingEntry) {
       setProductId(undefined);
-      setSku('');
+      setSpu('');
       setBrandId(null);
       setDefaultCategoryId(null);
       setFeatured(false);
@@ -254,7 +253,6 @@ export function ProductEditorModal({
       setPurchaseMode('buy');
       setPaidSampleEnabled(false);
       setStatus('inactive');
-      setHasMultipleSpecs(false);
       const emptyDrafts = Object.fromEntries(activeLanguages.map((language) => [language.code, createEmptyDraft()]));
       setDrafts(emptyDrafts);
       form.setFieldsValue(createEmptyDraft());
@@ -263,12 +261,11 @@ export function ProductEditorModal({
     }
 
     setProductId(editingEntry.id);
-    setSku(editingEntry.sku);
+    setSpu(editingEntry.spu);
     setBrandId(editingEntry.brandId);
     setDefaultCategoryId(editingEntry.defaultCategoryId);
     setFeatured(editingEntry.featured);
     setPaidSampleEnabled(editingEntry.paidSampleEnabled);
-    setHasMultipleSpecs(editingEntry.hasMultipleSpecs);
     setPurchaseMode(editingEntry.purchaseMode);
     setStatus(editingEntry.status);
     setLoadingGroup(true);
@@ -318,7 +315,7 @@ export function ProductEditorModal({
   }
 
   function validateDraft(locale: string, draft: LocaleDraft) {
-    if (!sku.trim()) return { ok: false as const, locale, message: '请填写 SKU' };
+    if (!spu.trim()) return { ok: false as const, locale, message: '请填写 SPU' };
     if (!draft.name.trim()) return { ok: false as const, locale, message: '请填写产品名称' };
     if (!draft.slug.trim()) return { ok: false as const, locale, message: '请填写 Slug' };
     if (draft.leadTimeMin > draft.leadTimeMax) {
@@ -331,7 +328,7 @@ export function ProductEditorModal({
     return {
       productId,
       locale,
-      sku: sku.trim(),
+      spu: spu.trim(),
       brandId,
       defaultCategoryId,
       purchaseMode,
@@ -397,7 +394,7 @@ export function ProductEditorModal({
       const nextDrafts = { ...mergedDrafts };
       const savedEntries: AdminProductTranslation[] = [];
       const shared = {
-        sku: sku.trim(),
+        spu: spu.trim(),
         brandId,
         defaultCategoryId,
         featured,
@@ -460,8 +457,8 @@ export function ProductEditorModal({
     <div className="content-editor-shared-section">
       <Row gutter={[16, 0]}>
         <Col xs={24} md={8}>
-          <Form.Item label="SKU" layout="vertical" required style={{ marginBottom: 16 }}>
-            <Input value={sku} onChange={(event) => setSku(event.target.value)} placeholder="全局唯一 SKU" />
+          <Form.Item label="SPU" layout="vertical" required style={{ marginBottom: 16 }}>
+            <Input value={spu} onChange={(event) => setSpu(event.target.value)} placeholder="全局唯一 SPU" />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -525,13 +522,6 @@ export function ProductEditorModal({
                 confirmProductListingChange(nextStatus, () => setStatus(nextStatus));
               }}
             />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item label="多规格产品" layout="vertical" style={{ marginBottom: 0 }}>
-            <Tooltip title="请在规格管理中配置，保存后自动更新">
-              <Switch checked={hasMultipleSpecs} disabled />
-            </Tooltip>
           </Form.Item>
         </Col>
       </Row>

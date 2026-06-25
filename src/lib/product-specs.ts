@@ -51,7 +51,7 @@ export function buildSpecGroups(product: StorefrontProductDetail): DetailSpecGro
   }));
 
   const commercialRows = [
-    { label: 'SKU', value: product.sku },
+    { label: 'SPU', value: product.spu },
     { label: 'Purchase mode', value: product.purchaseMode === 'buy' ? 'Direct buy' : 'Engineering RFQ' },
     {
       label: 'Stock status',

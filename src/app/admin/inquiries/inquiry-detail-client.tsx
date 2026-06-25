@@ -20,7 +20,7 @@ type InquiryDetail = {
   handledAt: string | null;
   productName: string;
   productSlug: string;
-  productSku: string;
+  productSpu: string;
   handledByEmail: string | null;
 };
 
@@ -92,7 +92,7 @@ export function InquiryDetailClient({ initialInquiry }: { initialInquiry: Inquir
         <article className="info-card">
           <h2 style={{ marginTop: 0 }}>产品信息</h2>
           <p>{inquiry.productName}</p>
-          <p>{inquiry.productSku}</p>
+          <p>{inquiry.productSpu}</p>
           <Link href={`/products/${inquiry.productSlug}`} className="nav-link">查看前台产品页</Link>
           {inquiry.sourcePageUrl ? <p style={{ wordBreak: 'break-all' }}>来源页面：{inquiry.sourcePageUrl}</p> : null}
         </article>

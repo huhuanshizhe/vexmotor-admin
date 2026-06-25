@@ -8,7 +8,6 @@ import {
   categoryTranslations,
   contentBlocks,
   productCategories,
-  productFeatures,
   productImages,
   productRelations,
   products,
@@ -16,7 +15,13 @@ import {
   productVariants,
 } from '@/server/db/schema';
 
-import { storefrontNavigationBase, footerContactBlocks, footerPaymentMethods, footerCopyright } from './site-shell';
+import { getStorefrontProductFeatures } from '@/server/admin/product-features';
+import {
+  footerContactBlocks,
+  footerCopyright,
+  footerPaymentMethods,
+  storefrontNavigationBase,
+} from '@/server/storefront/site-shell';
 import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
 import { brandNameSql, brandSlugSql } from '@/server/brands/resolve-brand-translation';
 import {
@@ -153,7 +158,7 @@ export async function getHomeData(): Promise<HomeData> {
         id: products.id,
         name: productNameSql(products.id),
         slug: productSlugSql(products.id),
-        sku: products.sku,
+        spu: products.spu,
         shortDescription: productShortDescriptionSql(products.id),
         purchaseMode: products.purchaseMode,
         stockQuantity: productStockQuantitySql(products.id),
@@ -180,7 +185,7 @@ export async function getHomeData(): Promise<HomeData> {
               id: products.id,
               name: productNameSql(products.id),
               slug: productSlugSql(products.id),
-              sku: products.sku,
+              spu: products.spu,
               shortDescription: productShortDescriptionSql(products.id),
               purchaseMode: products.purchaseMode,
               stockQuantity: productStockQuantitySql(products.id),
@@ -227,7 +232,7 @@ export async function getHomeData(): Promise<HomeData> {
       id: item.id,
       name: item.name,
       slug: item.slug,
-      sku: item.sku,
+      spu: item.spu,
       shortDescription: item.shortDescription,
       coverImage: firstImageByProductId.get(item.id) ?? null,
       price: asMoney(item.price, item.currencyCode),
@@ -397,7 +402,7 @@ export async function getProductList(input: {
     if (input.keyword) {
       const keywordFilter = or(
         ilike(productNameSql(products.id), `%${input.keyword}%`),
-        ilike(products.sku, `%${input.keyword}%`),
+        ilike(products.spu, `%${input.keyword}%`),
         ilike(productShortDescriptionSql(products.id), `%${input.keyword}%`),
       );
 
@@ -425,7 +430,7 @@ export async function getProductList(input: {
             id: products.id,
             name: productNameSql(products.id),
             slug: productSlugSql(products.id),
-            sku: products.sku,
+            spu: products.spu,
             shortDescription: productShortDescriptionSql(products.id),
             purchaseMode: products.purchaseMode,
             stockQuantity: productStockQuantitySql(products.id),
@@ -448,7 +453,7 @@ export async function getProductList(input: {
             id: products.id,
             name: productNameSql(products.id),
             slug: productSlugSql(products.id),
-            sku: products.sku,
+            spu: products.spu,
             shortDescription: productShortDescriptionSql(products.id),
             purchaseMode: products.purchaseMode,
             stockQuantity: productStockQuantitySql(products.id),
@@ -516,7 +521,7 @@ export async function getProductList(input: {
         id: item.id,
         name: item.name,
         slug: item.slug,
-        sku: item.sku,
+        spu: item.spu,
         shortDescription: item.shortDescription,
         coverImage: listImageByProductId.get(item.id) ?? null,
         price: asMoney(item.price, item.currencyCode),
@@ -554,7 +559,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
         id: products.id,
         name: productTranslations.name,
         slug: productTranslations.slug,
-        sku: products.sku,
+        spu: products.spu,
         shortDescription: productTranslations.shortDescription,
         description: productTranslations.description,
         descriptionLong: productTranslations.descriptionLong,
@@ -606,7 +611,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
         .innerJoin(categories, eq(categories.id, productCategories.categoryId))
         .where(eq(productCategories.productId, product.id)),
       db.select().from(attachments).where(eq(attachments.productId, product.id)).orderBy(asc(attachments.sortOrder)),
-      db.select().from(productFeatures).where(eq(productFeatures.productId, product.id)).orderBy(asc(productFeatures.sortOrder)),
+      getStorefrontProductFeatures(product.id, DEFAULT_PRODUCT_LOCALE),
       db.select().from(productVariants).where(eq(productVariants.productId, product.id)).orderBy(asc(productVariants.createdAt)),
     ]);
 
@@ -617,7 +622,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       id: product.id,
       name: product.name,
       slug: product.slug,
-      sku: product.sku,
+      spu: product.spu,
       shortDescription: product.shortDescription,
       description: product.description ?? '',
       coverImage: images[0] ? toImage(images[0]) : null,
@@ -658,16 +663,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       compatibleGroups,
       seoTitle: product.seoTitle,
       seoDescription: product.seoDescription,
-      features: featureRows.map((item) => ({
-        key: item.featureKey,
-        value: item.featureValue,
-        unit: item.unit,
-        category: item.specCategory || 'general',
-        valueMin: item.featureValueMin ? Number(item.featureValueMin) : null,
-        valueMax: item.featureValueMax ? Number(item.featureValueMax) : null,
-        valueType: item.valueType || 'text',
-        conditionalValue: item.conditionalValue as Record<string, unknown> | null,
-      })),
+      features: featureRows,
       descriptionLong: product.descriptionLong || null,
     };
   } catch (error) {
@@ -696,7 +692,7 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
       id: products.id,
       name: productNameSql(products.id),
       slug: productSlugSql(products.id),
-      sku: products.sku,
+      spu: products.spu,
       shortDescription: productShortDescriptionSql(products.id),
       purchaseMode: products.purchaseMode,
       stockQuantity: productStockQuantitySql(products.id),
@@ -735,7 +731,7 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
       id: item.id,
       name: item.name,
       slug: item.slug,
-      sku: item.sku,
+      spu: item.spu,
       shortDescription: item.shortDescription,
       coverImage: item.coverUrl ? { id: `${item.id}-cover`, url: item.coverUrl, alt: item.coverAlt || item.name, width: item.coverWidth, height: item.coverHeight } : null,
       price: asMoney(item.price, item.currencyCode),
@@ -766,7 +762,7 @@ export async function getCompatibleGroups(productId: string): Promise<Storefront
         id: products.id,
         name: productNameSql(products.id),
         slug: productSlugSql(products.id),
-        sku: products.sku,
+        spu: products.spu,
         shortDescription: productShortDescriptionSql(products.id),
         purchaseMode: products.purchaseMode,
         stockQuantity: productStockQuantitySql(products.id),
@@ -802,7 +798,7 @@ export async function getCompatibleGroups(productId: string): Promise<Storefront
         id: row.id,
         name: row.name,
         slug: row.slug,
-        sku: row.sku,
+        spu: row.spu,
         shortDescription: row.shortDescription,
         coverImage: row.coverUrl ? { id: `${row.id}-cover`, url: row.coverUrl, alt: row.coverAlt || row.name, width: row.coverWidth, height: row.coverHeight } : null,
         price: asMoney(row.price, row.currencyCode),

@@ -9,7 +9,7 @@ import { parseOrderNote } from '@/lib/order-note';
 type OrderItem = {
   id: string;
   productName: string;
-  sku: string;
+  spu: string;
   quantity: number;
   subtotal: string;
 };
@@ -118,7 +118,7 @@ export function OrderDetailClient({ initialOrder }: { initialOrder: OrderDetail 
             <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, paddingBottom: 12, borderBottom: '1px solid var(--color-border)' }}>
               <div>
                 <strong>{item.productName}</strong>
-                <div style={{ color: '#677489' }}>{item.sku} · 数量 {item.quantity}</div>
+                <div style={{ color: '#677489' }}>{item.spu} · 数量 {item.quantity}</div>
               </div>
               <strong>{formatAdminMoney(item.subtotal)}</strong>
             </div>

@@ -34,7 +34,7 @@ export async function getAdminOverview() {
       .select({
         id: products.id,
         name: productTranslations.name,
-        sku: products.sku,
+        spu: products.spu,
         stockQuantity: productTranslations.stockQuantity,
         status: products.status,
       })
@@ -68,7 +68,7 @@ export async function getAdminOverview() {
     lowStockItems: lowStockItems.slice(0, 5).map((item) => ({
       id: item.id,
       name: item.name,
-      sku: item.sku,
+      spu: item.spu,
       stockQuantity: item.stockQuantity,
       status: (item.status === 'active' ? 'active' : 'inactive') as 'active' | 'inactive',
     })),

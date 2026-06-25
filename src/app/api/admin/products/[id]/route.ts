@@ -11,8 +11,8 @@ import {
 function mapProductError(error: unknown) {
   if (!(error instanceof Error)) return null;
   switch (error.message) {
-    case 'DUPLICATE_SKU':
-      return { status: 409, code: 'DUPLICATE_SKU', message: 'SKU 已存在' };
+    case 'DUPLICATE_SPU':
+      return { status: 409, code: 'DUPLICATE_SPU', message: 'SPU 已存在' };
     default:
       return null;
   }

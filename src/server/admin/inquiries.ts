@@ -18,7 +18,7 @@ export async function getAdminInquiries() {
       handledAt: inquiries.handledAt,
       productName: productNameSql(products.id),
       productSlug: productSlugSql(products.id),
-      productSku: products.sku,
+      productSpu: products.spu,
     })
     .from(inquiries)
     .innerJoin(products, eq(products.id, inquiries.productId))
@@ -43,7 +43,7 @@ export async function getAdminInquiryDetail(id: string) {
       productId: products.id,
       productName: productNameSql(products.id),
       productSlug: productSlugSql(products.id),
-      productSku: products.sku,
+      productSpu: products.spu,
       handledByEmail: users.email,
     })
     .from(inquiries)

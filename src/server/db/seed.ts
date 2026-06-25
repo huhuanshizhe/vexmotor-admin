@@ -17,7 +17,6 @@ import {
   orderItems,
   orders,
   productCategories,
-  productFeatures,
   productImages,
   products,
   productTranslations,
@@ -159,7 +158,7 @@ async function main() {
       defaultCategoryId: nema17.id,
       name: '17 Single Shaft Bipolar Stepper Motor, 45N·cm Torque',
       slug: '17-single-shaft-bipolar-stepper-motor-45ncm',
-      sku: 'VXM-17-45NCM',
+      spu: 'VXM-17-45NCM',
       shortDescription: '1.8° step angle, 1.5A current, 40mm body, 4-wire.',
       description: 'A catalog-ready Nema 17 motor targeted at compact automation cells, 3D printing assemblies, and precision feeders.',
       purchaseMode: 'buy' as const,
@@ -175,7 +174,7 @@ async function main() {
       defaultCategoryId: nema23.id,
       name: '23 Stepper Motor, 240N·cm Torque, 82mm Body',
       slug: '23-stepper-motor-240ncm',
-      sku: 'VXM-23-240NCM',
+      spu: 'VXM-23-240NCM',
       shortDescription: '4A current, 82mm body, industrial torque profile for CNC and tooling.',
       description: 'High-torque Nema 23 motor designed for larger industrial axes, tooling automation, and higher load applications.',
       purchaseMode: 'buy' as const,
@@ -190,7 +189,7 @@ async function main() {
       defaultCategoryId: drivers.id,
       name: 'Integrated Motion Assembly for OEM Projects',
       slug: 'integrated-motion-assembly-oem',
-      sku: 'VXM-OEM-ASM',
+      spu: 'VXM-OEM-ASM',
       shortDescription: 'Custom-configured assembly with engineering review and OEM quotation workflow.',
       description: 'A quotation-led configurable motion assembly sold through RFQ rather than instant checkout.',
       purchaseMode: 'inquiry' as const,
@@ -209,16 +208,16 @@ async function main() {
       .values({
         brandId: row.brandId,
         defaultCategoryId: row.defaultCategoryId,
-        sku: row.sku,
+        spu: row.spu,
         purchaseMode: row.purchaseMode,
         status: row.status,
         featured: row.featured,
       })
-      .onConflictDoNothing({ target: products.sku })
+      .onConflictDoNothing({ target: products.spu })
       .returning({ id: products.id });
 
     const productId = inserted?.id
-      ?? (await db.select({ id: products.id }).from(products).where(eq(products.sku, row.sku)).limit(1))[0]?.id;
+      ?? (await db.select({ id: products.id }).from(products).where(eq(products.spu, row.spu)).limit(1))[0]?.id;
 
     if (!productId) {
       continue;
@@ -323,17 +322,6 @@ async function main() {
         sortOrder: 1,
         isPrimary: true,
       },
-    ])
-    .onConflictDoNothing();
-
-  await db
-    .insert(productFeatures)
-    .values([
-      { productId: p1.id, featureKey: 'Torque', featureValue: '45', unit: 'N·cm', sortOrder: 1 },
-      { productId: p1.id, featureKey: 'Current', featureValue: '1.5', unit: 'A', sortOrder: 2 },
-      { productId: p2.id, featureKey: 'Torque', featureValue: '240', unit: 'N·cm', sortOrder: 1 },
-      { productId: p2.id, featureKey: 'Current', featureValue: '4', unit: 'A', sortOrder: 2 },
-      { productId: p3.id, featureKey: 'Workflow', featureValue: 'Inquiry-first', sortOrder: 1 },
     ])
     .onConflictDoNothing();
 
@@ -455,7 +443,7 @@ async function main() {
       orderId: demoOrder.id,
       productId: p1.id,
       productName: '17 Single Shaft Bipolar Stepper Motor, 45N·cm Torque',
-      sku: 'VXM-17-45NCM',
+      spu: 'VXM-17-45NCM',
       quantity: 2,
       unitPrice: '23.90',
       subtotal: '47.80',

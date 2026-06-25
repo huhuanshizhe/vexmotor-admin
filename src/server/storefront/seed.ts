@@ -171,7 +171,7 @@ const _rawProducts = [
     id: 'prod-1',
     name: '17 Single Shaft Bipolar Stepper Motor, 45N·cm Torque',
     slug: '17-single-shaft-bipolar-stepper-motor-45ncm',
-    sku: 'VXM-17-45NCM',
+    spu: 'VXM-17-45NCM',
     shortDescription: '1.8° step angle, 1.5A current, 40mm body, 4-wire.',
     description:
       'A catalog-ready Nema 17 motor targeted at compact automation cells, 3D printing assemblies, and precision feeders that need stable torque with repeatable performance.',
@@ -236,7 +236,7 @@ const _rawProducts = [
     id: 'prod-2',
     name: '23 Stepper Motor, 240N·cm Torque, 82mm Body',
     slug: '23-stepper-motor-240ncm',
-    sku: 'VXM-23-240NCM',
+    spu: 'VXM-23-240NCM',
     shortDescription: '4A current, 82mm body, industrial torque profile for CNC and tooling.',
     description:
       'High-torque Nema 23 motor designed for larger industrial axes, tooling automation, and higher load applications.',
@@ -286,7 +286,7 @@ const _rawProducts = [
     id: 'prod-3',
     name: 'Integrated Motion Assembly for OEM Projects',
     slug: 'integrated-motion-assembly-oem',
-    sku: 'VXM-OEM-ASM',
+    spu: 'VXM-OEM-ASM',
     shortDescription: 'Custom-configured assembly with engineering review and OEM quotation workflow.',
     description:
       'A quotation-led configurable motion assembly sold through RFQ rather than instant checkout, suitable for custom industrial projects.',
@@ -329,7 +329,7 @@ const _rawProducts = [
     id: 'prod-4',
     name: 'Closed Loop Stepper Motor Kit, 2.0N·m with Driver and Encoder',
     slug: 'closed-loop-stepper-motor-kit-2nm',
-    sku: 'VXM-CL57-2NM-KIT',
+    spu: 'VXM-CL57-2NM-KIT',
     shortDescription: '57mm closed loop kit with matched driver, feedback encoder, and quick commissioning profile.',
     description:
       'A standard closed loop kit for higher reliability motion builds where missed-step protection, stable torque, and ready-to-wire packaging matter.',
@@ -379,7 +379,7 @@ const _rawProducts = [
     id: 'prod-5',
     name: 'Digital Stepper Driver, 18-50VDC, 1.0-4.5A',
     slug: 'digital-stepper-driver-18-50vdc',
-    sku: 'VXM-DM542D',
+    spu: 'VXM-DM542D',
     shortDescription: 'Matched digital driver for NEMA 17/23/24 stepper motors with smooth microstepping control.',
     description:
       'A daily-use digital stepper driver for standard motors, balancing compact packaging, stable current control, and straightforward parameter setup.',
@@ -429,7 +429,7 @@ const _rawProducts = [
     id: 'prod-6',
     name: 'Switching Power Supply, 48V 10A, 480W',
     slug: 'switching-power-supply-48v-10a',
-    sku: 'VXM-PS-480-48',
+    spu: 'VXM-PS-480-48',
     shortDescription: 'Industrial switching power supply sized for stepper and driver combinations in compact control cabinets.',
     description:
       'A cabinet-ready power supply used with standard motion systems where stable output and straightforward wiring are more important than unnecessary complexity.',
@@ -479,7 +479,7 @@ const _rawProducts = [
     id: 'prod-7',
     name: 'Planetary Gearbox, 10:1 Ratio for 57mm Motor Frame',
     slug: 'planetary-gearbox-10-1-57mm',
-    sku: 'VXM-PG57-10',
+    spu: 'VXM-PG57-10',
     shortDescription: 'Compact gearbox for stepper and servo assemblies requiring torque multiplication and controlled backlash.',
     description:
       'A matched planetary gearbox used in packaging, indexing, and automated fixtures that need a higher torque output from compact motor frames.',
@@ -529,7 +529,7 @@ const _rawProducts = [
     id: 'prod-8',
     name: 'Electric Linear Actuator, 100mm Stroke, 24VDC',
     slug: 'electric-linear-actuator-100mm-stroke',
-    sku: 'VXM-LA-100-24',
+    spu: 'VXM-LA-100-24',
     shortDescription: 'Compact linear actuator for fixture positioning, gates, and light-duty motion modules.',
     description:
       'A compact electric linear actuator for guided positioning tasks where a clean integrated structure is preferred over separate motor and screw assembly.',
@@ -759,7 +759,7 @@ for (const product of products) {
     id: item.id,
     name: item.name,
     slug: item.slug,
-    sku: item.sku,
+    spu: item.spu,
     shortDescription: item.shortDescription,
     coverImage: item.coverImage,
     price: item.price,
@@ -845,7 +845,7 @@ export function getSeedProductsResult(input?: {
   if (input?.keyword) {
     const keyword = input.keyword.toLowerCase();
     baseFiltered = baseFiltered.filter((item) =>
-      [item.name, item.sku, item.shortDescription, item.description].filter(Boolean).join(' ').toLowerCase().includes(keyword),
+      [item.name, item.spu, item.shortDescription, item.description].filter(Boolean).join(' ').toLowerCase().includes(keyword),
     );
   }
 
@@ -914,7 +914,7 @@ function toCard(item: StorefrontProductDetail) {
     id: item.id,
     name: item.name,
     slug: item.slug,
-    sku: item.sku,
+    spu: item.spu,
     shortDescription: item.shortDescription,
     coverImage: item.coverImage,
     price: item.price,

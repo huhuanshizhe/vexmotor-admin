@@ -11,7 +11,16 @@ import {
 import { Button, Popconfirm, Space, Tooltip } from 'antd';
 import type { ButtonProps } from 'antd';
 import type { MenuProps } from 'antd';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
+
+export const ADMIN_ACTION_TOOLTIP_DELAY_SEC = 1.5;
+
+const ADMIN_ACTION_TOOLTIP_PROPS = {
+  destroyTooltipOnHide: true,
+  mouseEnterDelay: ADMIN_ACTION_TOOLTIP_DELAY_SEC,
+} as const;
+
+export { ADMIN_ACTION_TOOLTIP_PROPS };
 
 type ActionIconButtonProps = {
   title: string;
@@ -24,7 +33,7 @@ type ActionIconButtonProps = {
 function ActionIconButton({ title, icon, danger, loading, onClick }: ActionIconButtonProps) {
   return (
     <span className="admin-row-action-trigger" onClick={onClick ? (event) => event.stopPropagation() : undefined}>
-      <Tooltip title={title} destroyTooltipOnHide>
+      <Tooltip title={title} {...ADMIN_ACTION_TOOLTIP_PROPS}>
         <Button type="text" size="small" danger={danger} icon={icon} loading={loading} onClick={onClick} />
       </Tooltip>
     </span>
@@ -54,6 +63,9 @@ function ConfirmActionIconButton({
   okButtonProps,
   onConfirm,
 }: ConfirmActionIconButtonProps) {
+  const [popconfirmOpen, setPopconfirmOpen] = useState(false);
+  const [suppressTooltip, setSuppressTooltip] = useState(false);
+
   return (
     <Popconfirm
       title={confirmTitle}
@@ -63,10 +75,23 @@ function ConfirmActionIconButton({
       okButtonProps={okButtonProps}
       getPopupContainer={() => document.body}
       placement="topRight"
+      open={popconfirmOpen}
+      onOpenChange={(open) => {
+        setPopconfirmOpen(open);
+        if (open) setSuppressTooltip(true);
+      }}
       onConfirm={onConfirm}
     >
-      <span className="admin-row-action-trigger" onClick={(event) => event.stopPropagation()}>
-        <Tooltip title={title} destroyTooltipOnHide>
+      <span
+        className="admin-row-action-trigger"
+        onClick={(event) => event.stopPropagation()}
+        onMouseLeave={() => setSuppressTooltip(false)}
+      >
+        <Tooltip
+          title={title}
+          {...ADMIN_ACTION_TOOLTIP_PROPS}
+          open={(suppressTooltip || popconfirmOpen) ? false : undefined}
+        >
           <Button type="text" size="small" danger={danger} icon={icon} loading={loading} />
         </Tooltip>
       </span>
@@ -81,6 +106,8 @@ export type AdminEntityRowActionsProps = {
   onEdit: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
+  /** 为 false 时不显示编辑按钮 */
+  showEdit?: boolean;
   /** 使用自定义删除流程（如 Modal.confirm、删除前校验）时设为 callback */
   deleteMode?: 'popconfirm' | 'callback';
   toggleDisableDescription?: string;
@@ -116,6 +143,7 @@ export function AdminEntityRowActions({
   toggleDisableOkText,
   toggleEnableOkText,
   toggleUsePopconfirm = true,
+  showEdit = true,
 }: AdminEntityRowActionsProps) {
   const disableDescription = toggleDisableDescription ?? `停用后前台将不再展示该${entityName}。`;
   const enableDescription = toggleEnableDescription ?? `启用后${entityName}将恢复展示。`;
@@ -147,7 +175,9 @@ export function AdminEntityRowActions({
 
   return (
     <Space size={0} className="admin-row-actions">
-      <ActionIconButton title="编辑" icon={<EditOutlined />} onClick={onEdit} />
+      {showEdit ? (
+        <ActionIconButton title="编辑" icon={<EditOutlined />} onClick={onEdit} />
+      ) : null}
       {toggleUsePopconfirm ? (
         isActive ? (
           <ConfirmActionIconButton

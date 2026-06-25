@@ -41,7 +41,7 @@ export type AdminProductListItem = {
   id: string;
   name: string;
   slug: string;
-  sku: string;
+  spu: string;
   coverUrl: string | null;
   purchaseMode: ProductPurchaseMode;
   stockQuantity: number;
@@ -56,6 +56,7 @@ export type AdminProductListItem = {
   featured: boolean;
   paidSampleEnabled: boolean;
   hasMultipleSpecs: boolean;
+  featureCount: number;
   primaryLocale: string;
   localeCount: number;
   locales: string[];
@@ -87,7 +88,7 @@ export type AdminProductTranslation = {
   lastTimeBuyDate: string | null;
   efficiencyClass: string | null;
   payload: AdminProductPayload;
-  sku: string;
+  spu: string;
   brandId: string | null;
   defaultCategoryId: string | null;
   purchaseMode: ProductPurchaseMode;

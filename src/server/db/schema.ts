@@ -288,7 +288,7 @@ export const products = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     brandId: uuid('brand_id').references(() => brands.id, { onDelete: 'set null' }),
     defaultCategoryId: uuid('default_category_id').references(() => categories.id, { onDelete: 'set null' }),
-    sku: varchar('sku', { length: 100 }).notNull(),
+    spu: varchar('spu', { length: 100 }).notNull(),
     purchaseMode: purchaseModeEnum('purchase_mode').notNull().default('buy'),
     status: productStatusEnum('status').notNull().default('inactive'),
     allowBackorder: boolean('allow_backorder').notNull().default(false),
@@ -302,7 +302,7 @@ export const products = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    skuUnique: uniqueIndex('products_sku_unique').on(table.sku),
+    spuUnique: uniqueIndex('products_spu_unique').on(table.spu),
     featuredIdx: index('products_featured_idx').on(table.featured, table.status),
   }),
 );
@@ -394,21 +394,54 @@ export const attachments = pgTable('attachments', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const productFeatures = pgTable('product_features', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
-  featureKey: varchar('feature_key', { length: 100 }).notNull(),
-  featureValue: varchar('feature_value', { length: 255 }).notNull(),
-  featureValueMin: numeric('feature_value_min', { precision: 12, scale: 4 }),
-  featureValueMax: numeric('feature_value_max', { precision: 12, scale: 4 }),
-  valueType: varchar('value_type', { length: 20 }).notNull().default('text'), // text | number | range | boolean | select
-  conditionalValue: jsonb('conditional_value'), // { dependsOn: string, condition: string, values: Record<string, string> }
-  unit: varchar('unit', { length: 50 }),
-  specCategory: varchar('spec_category', { length: 50 }).notNull().default('general'), // electrical, mechanical, performance, environmental, general
-  sortOrder: integer('sort_order').notNull().default(0),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const productFeatureAssignments = pgTable(
+  'product_feature_assignments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    definitionId: uuid('definition_id').notNull().references(() => featureDefinitions.id, { onDelete: 'restrict' }),
+    status: brandStatusEnum('status').notNull().default('active'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    productDefinitionUnique: uniqueIndex('product_feature_assignments_product_definition_unique').on(table.productId, table.definitionId),
+    productIdIdx: index('product_feature_assignments_product_id_idx').on(table.productId),
+  }),
+);
+
+export const productFeatureValues = pgTable(
+  'product_feature_values',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    assignmentId: uuid('assignment_id').notNull().references(() => productFeatureAssignments.id, { onDelete: 'cascade' }),
+    status: brandStatusEnum('status').notNull().default('active'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    assignmentIdIdx: index('product_feature_values_assignment_id_idx').on(table.assignmentId),
+  }),
+);
+
+export const productFeatureValueTranslations = pgTable(
+  'product_feature_value_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    valueId: uuid('value_id').notNull().references(() => productFeatureValues.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    valueText: text('value_text'),
+    valueNumber: numeric('value_number', { precision: 12, scale: 4 }),
+    valueBoolean: boolean('value_boolean'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    valueLocaleUnique: uniqueIndex('product_feature_value_translations_value_locale_unique').on(table.valueId, table.locale),
+  }),
+);
 
 export const carts = pgTable('carts', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -491,7 +524,7 @@ export const orderItems = pgTable('order_items', {
   productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
   variantId: uuid('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
   productName: varchar('product_name', { length: 255 }).notNull(),
-  sku: varchar('sku', { length: 100 }).notNull(),
+  spu: varchar('spu', { length: 100 }).notNull(),
   variantLabel: varchar('variant_label', { length: 255 }),
   quantity: integer('quantity').notNull().default(1),
   unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),

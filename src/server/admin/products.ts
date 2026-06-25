@@ -33,6 +33,7 @@ import type { ProductListQuery } from '@/lib/product-list-query';
 import { resolveSlugForSave } from '@/lib/slug';
 import { getAdminBrandOptions } from '@/server/admin/brands';
 import { getAdminCategoryOptions } from '@/server/admin/categories';
+import { countProductFeatureAssignmentsByProductIds } from '@/server/admin/product-features';
 import { db } from '@/server/db';
 import { brands, categories, productTranslations, products } from '@/server/db/schema';
 import { brandNameSql } from '@/server/brands/resolve-brand-translation';
@@ -64,7 +65,7 @@ const payloadSchema = z.object({
 export const adminProductTranslationSchema = z.object({
   productId: z.string().uuid().optional(),
   locale: z.string().trim().min(2).default(DEFAULT_PRODUCT_LOCALE),
-  sku: z.string().trim().min(1),
+  spu: z.string().trim().min(1),
   brandId: z.string().uuid().nullable().optional(),
   defaultCategoryId: z.string().uuid().nullable().optional(),
   purchaseMode: z.enum(productPurchaseModes).optional(),
@@ -96,7 +97,7 @@ export const adminProductTranslationSchema = z.object({
 
 export const adminProductTranslationPatchSchema = adminProductTranslationSchema.partial();
 export const adminProductPatchSchema = z.object({
-  sku: z.string().trim().min(1).optional(),
+  spu: z.string().trim().min(1).optional(),
   brandId: z.string().uuid().nullable().optional(),
   defaultCategoryId: z.string().uuid().nullable().optional(),
   purchaseMode: z.enum(productPurchaseModes).optional(),
@@ -165,7 +166,7 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
 
   return {
     locale: normalizeLocale(input.locale),
-    sku: input.sku.trim(),
+    spu: input.spu.trim(),
     brandId: input.brandId ?? null,
     defaultCategoryId: input.defaultCategoryId ?? null,
     purchaseMode: (input.purchaseMode ?? 'buy') as ProductPurchaseMode,
@@ -239,7 +240,7 @@ function normalizeTranslationRow(product: ProductRow, translation: TranslationRo
     lastTimeBuyDate: translation.lastTimeBuyDate ? translation.lastTimeBuyDate.toISOString() : null,
     efficiencyClass: translation.efficiencyClass,
     payload: normalizePayload(payload.data as AdminProductPayload),
-    sku: product.sku,
+    spu: product.spu,
     brandId: product.brandId,
     defaultCategoryId: product.defaultCategoryId,
     purchaseMode: product.purchaseMode as ProductPurchaseMode,
@@ -261,6 +262,7 @@ function toListItem(
   brandName: string | null,
   categoryName: string | null,
   preferredLocale?: string,
+  featureCount = 0,
 ): AdminProductListItem | null {
   const primary = pickPrimaryTranslation(translations, preferredLocale);
   if (!primary) return null;
@@ -270,7 +272,7 @@ function toListItem(
     id: product.id,
     name: primary.name,
     slug: primary.slug,
-    sku: product.sku,
+    spu: product.spu,
     coverUrl: payload.coverUrl,
     purchaseMode: product.purchaseMode as ProductPurchaseMode,
     stockQuantity: primary.stockQuantity,
@@ -285,6 +287,7 @@ function toListItem(
     featured: product.featured,
     paidSampleEnabled: product.paidSampleEnabled,
     hasMultipleSpecs: product.hasMultipleSpecs,
+    featureCount,
     primaryLocale: primary.locale,
     localeCount: translations.length,
     locales: translations.map((item) => item.locale).sort(),
@@ -325,14 +328,14 @@ async function findProductIdsBySearch(keyword: string) {
       sql`${productTranslations.payload} ->> 'tags' ILIKE ${pattern}`,
     ));
 
-  const skuMatches = await db
+  const spuMatches = await db
     .selectDistinct({ id: products.id })
     .from(products)
-    .where(ilike(products.sku, pattern));
+    .where(ilike(products.spu, pattern));
 
   const ids = new Set<string>();
   for (const row of translationMatches) ids.add(row.productId);
-  for (const row of skuMatches) ids.add(row.id);
+  for (const row of spuMatches) ids.add(row.id);
   return Array.from(ids);
 }
 
@@ -443,6 +446,7 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
     .offset(offset);
 
   const translationMap = await loadTranslationsByProductIds(productRows.map((row) => row.product.id));
+  const featureCountMap = await countProductFeatureAssignmentsByProductIds(productRows.map((row) => row.product.id));
   const stats = await getAdminProductStats();
 
   const items = productRows
@@ -452,6 +456,7 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
       brandName,
       categoryName,
       query.locale || undefined,
+      featureCountMap.get(product.id) ?? 0,
     ))
     .filter((item): item is AdminProductListItem => Boolean(item));
 
@@ -479,7 +484,15 @@ export async function getAdminProductListItem(productId: string, preferredLocale
     .where(eq(productTranslations.productId, productId))
     .orderBy(asc(productTranslations.locale));
 
-  return toListItem(row.product, translations, row.brandName, row.categoryName, preferredLocale);
+  const featureCountMap = await countProductFeatureAssignmentsByProductIds([productId]);
+  return toListItem(
+    row.product,
+    translations,
+    row.brandName,
+    row.categoryName,
+    preferredLocale,
+    featureCountMap.get(productId) ?? 0,
+  );
 }
 
 export async function getAdminProductTranslations(productId: string) {
@@ -557,8 +570,8 @@ export async function findAdminProductTranslationByProductAndLocale(
   return row ? normalizeTranslationRow(row.product, row.translation) : null;
 }
 
-export async function findAdminProductBySku(sku: string, excludeProductId?: string) {
-  const conditions = [eq(products.sku, sku.trim())];
+export async function findAdminProductBySpu(spu: string, excludeProductId?: string) {
+  const conditions = [eq(products.spu, spu.trim())];
   if (excludeProductId) conditions.push(ne(products.id, excludeProductId));
 
   const [row] = await db.select().from(products).where(and(...conditions)).limit(1);
@@ -575,8 +588,8 @@ export async function createAdminProductTranslation(input: TranslationCreateInpu
     }
   }
 
-  const duplicateSku = await findAdminProductBySku(next.sku, input.productId);
-  if (duplicateSku) throw new Error('DUPLICATE_SKU');
+  const duplicateSpu = await findAdminProductBySpu(next.spu, input.productId);
+  if (duplicateSpu) throw new Error('DUPLICATE_SPU');
 
   const duplicateSlug = await findAdminProductTranslationBySlug(next.slug, next.locale);
   if (duplicateSlug) throw new Error('SLUG_CONFLICT');
@@ -586,7 +599,7 @@ export async function createAdminProductTranslation(input: TranslationCreateInpu
     : (await db
       .insert(products)
       .values({
-        sku: next.sku,
+        spu: next.spu,
         brandId: next.brandId,
         defaultCategoryId: next.defaultCategoryId,
         purchaseMode: next.purchaseMode,
@@ -603,7 +616,7 @@ export async function createAdminProductTranslation(input: TranslationCreateInpu
     await db
       .update(products)
       .set({
-        sku: next.sku,
+        spu: next.spu,
         brandId: next.brandId,
         defaultCategoryId: next.defaultCategoryId,
         purchaseMode: next.purchaseMode,
@@ -659,7 +672,7 @@ export async function updateAdminProductTranslation(translationId: string, input
   const merged = adminProductTranslationSchema.parse({
     productId: existing.productId,
     locale: existing.locale,
-    sku: existing.sku,
+    spu: existing.spu,
     brandId: existing.brandId,
     defaultCategoryId: existing.defaultCategoryId,
     purchaseMode: existing.purchaseMode,
@@ -692,8 +705,8 @@ export async function updateAdminProductTranslation(translationId: string, input
 
   const next = sanitizeTranslationInput(merged);
 
-  const duplicateSku = await findAdminProductBySku(next.sku, existing.productId);
-  if (duplicateSku) throw new Error('DUPLICATE_SKU');
+  const duplicateSpu = await findAdminProductBySpu(next.spu, existing.productId);
+  if (duplicateSpu) throw new Error('DUPLICATE_SPU');
 
   const duplicateSlug = await findAdminProductTranslationBySlug(next.slug, next.locale, translationId);
   if (duplicateSlug) throw new Error('SLUG_CONFLICT');
@@ -701,7 +714,7 @@ export async function updateAdminProductTranslation(translationId: string, input
   await db
     .update(products)
     .set({
-      sku: next.sku,
+      spu: next.spu,
       brandId: next.brandId,
       defaultCategoryId: next.defaultCategoryId,
       purchaseMode: next.purchaseMode,
@@ -752,9 +765,9 @@ export async function updateAdminProductTranslation(translationId: string, input
 export async function updateAdminProductShared(productId: string, input: ProductPatchInput) {
   const parsed = adminProductPatchSchema.parse(input);
 
-  if (parsed.sku) {
-    const duplicateSku = await findAdminProductBySku(parsed.sku, productId);
-    if (duplicateSku) throw new Error('DUPLICATE_SKU');
+  if (parsed.spu) {
+    const duplicateSpu = await findAdminProductBySpu(parsed.spu, productId);
+    if (duplicateSpu) throw new Error('DUPLICATE_SPU');
   }
 
   const [product] = await db

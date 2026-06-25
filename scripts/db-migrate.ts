@@ -174,6 +174,17 @@ async function baselineIfNeeded(sql: SqlClient, allTags: string[]) {
     }
   }
 
+  if (allTags.includes('0013_products_spu_rename') && await tableExists(sql, 'products')) {
+    const hasSpu = await columnExists(sql, 'products', 'spu');
+    if (hasSpu) {
+      baselineTags.push('0013_products_spu_rename');
+    }
+  }
+
+  if (allTags.includes('0014_product_feature_values_i18n') && await tableExists(sql, 'product_feature_assignments')) {
+    baselineTags.push('0014_product_feature_values_i18n');
+  }
+
   for (const tag of baselineTags) {
     await markApplied(sql, tag);
     console.log(`[db:migrate] Baseline ${tag} (schema already present)`);

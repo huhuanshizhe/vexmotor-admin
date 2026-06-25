@@ -51,7 +51,7 @@ type OverviewProps = {
   lowStockItems: Array<{
     id: string;
     name: string;
-    sku: string;
+    spu: string;
     stockQuantity: number;
     status: keyof typeof productStatusLabels;
   }>;
@@ -147,7 +147,7 @@ export function AdminOverviewClient({ metrics, recentOrders, recentInquiries, lo
                   render: (_, row) => (
                     <div>
                       <div>{row.name}</div>
-                      <Typography.Text type="secondary">{row.sku}</Typography.Text>
+                      <Typography.Text type="secondary">{row.spu}</Typography.Text>
                     </div>
                   ),
                 },

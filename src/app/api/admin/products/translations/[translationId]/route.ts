@@ -11,8 +11,8 @@ function mapProductError(error: unknown) {
   switch (error.message) {
     case 'SLUG_CONFLICT':
       return { status: 409, code: 'SLUG_CONFLICT', message: '该语言下 slug 已被占用' };
-    case 'DUPLICATE_SKU':
-      return { status: 409, code: 'DUPLICATE_SKU', message: 'SKU 已存在' };
+    case 'DUPLICATE_SPU':
+      return { status: 409, code: 'DUPLICATE_SPU', message: 'SPU 已存在' };
     default:
       return null;
   }

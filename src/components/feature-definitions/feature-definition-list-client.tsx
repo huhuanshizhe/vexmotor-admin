@@ -259,25 +259,6 @@ export function FeatureDefinitionListClient({
       ),
     },
     {
-      title: '值',
-      dataIndex: 'valueDisplay',
-      width: 160,
-      ellipsis: true,
-      onHeaderCell: adminTableNowrapHeader,
-      render: (value: string) => <Typography.Text ellipsis title={value}>{value}</Typography.Text>,
-    },
-    {
-      title: '值单位',
-      dataIndex: 'unit',
-      width: 100,
-      onHeaderCell: adminTableNowrapHeader,
-      render: (value: string | null, row: AdminFeatureDefinitionListItem) => (
-        row.valueType === 'number' && value
-          ? <Tag color="green">{value}</Tag>
-          : <Typography.Text type="secondary">—</Typography.Text>
-      ),
-    },
-    {
       title: '状态',
       dataIndex: 'status',
       width: 72,

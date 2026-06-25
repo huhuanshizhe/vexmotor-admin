@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     items: filtered.map((item) => ({
       id: item.id,
       name: item.name,
-      sku: item.sku,
+      spu: item.spu,
     })),
   });
 }
