@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
 
 import { md5Hash } from '@/lib/auth/password';
+import { normalizeCompanyCountryCode } from '@/lib/customer-countries';
+import { normalizeCustomerIndustry } from '@/lib/customer-industries';
 import { db } from '@/server/db';
 import { products, users, verificationTokens } from '@/server/db/schema';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '@/server/email';
@@ -158,6 +160,11 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
       firstName,
       lastName,
       company: input.companyName.trim() || null,
+      industry: normalizeCustomerIndustry(input.industry),
+      companyCountryCode: normalizeCompanyCountryCode(input.country),
+      website: input.website.trim() || null,
+      taxId: input.taxId.trim() || null,
+      companySize: input.companySize.trim() || null,
       role: 'customer',
       status: 'pending',
     })

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getAuthSession, getCurrentUserId } from '@/server/auth/session';
 import { getAdminInquiryDetail, updateAdminInquiry } from '@/server/admin/inquiries';
 
 const patchSchema = z.object({
@@ -27,14 +26,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const { id } = await params;
-  const currentUserId = await getCurrentUserId();
-  const session = await getAuthSession();
   const updated = await updateAdminInquiry({
     id,
     status: parsed.data.status,
     internalNote: parsed.data.internalNote,
-    handledBy: currentUserId,
-    handledByEmail: session?.user?.email ?? null,
   });
 
   if (!updated) {

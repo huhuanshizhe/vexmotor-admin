@@ -4,7 +4,7 @@ import { and, desc, eq, gt } from 'drizzle-orm';
 
 import { productNameSql, productSlugSql } from '@/server/products/resolve-product-translation';
 import { db } from '@/server/db';
-import { inquiries, products, verificationTokens } from '@/server/db/schema';
+import { inquiries, inquiryMessages, products, verificationTokens } from '@/server/db/schema';
 
 export type InquiryStatus = 'new' | 'contacted' | 'quoted' | 'closed';
 
@@ -45,6 +45,7 @@ export function getGuestInquiryAccessCookieName(inquiryId: string) {
 }
 
 export async function createStorefrontInquiry(input: InquiryInput): Promise<InquiryReceipt | null> {
+  const now = new Date();
   const [created] = await db
     .insert(inquiries)
     .values({
@@ -57,6 +58,9 @@ export async function createStorefrontInquiry(input: InquiryInput): Promise<Inqu
       country: input.country ?? null,
       message: input.message,
       status: 'new',
+      awaitingAdmin: true,
+      queueKind: 'new_inquiry',
+      lastMessageAt: now,
       sourcePageUrl: input.sourcePageUrl ?? null,
     })
     .returning();
@@ -64,6 +68,13 @@ export async function createStorefrontInquiry(input: InquiryInput): Promise<Inqu
   if (!created) {
     return null;
   }
+
+  await db.insert(inquiryMessages).values({
+    inquiryId: created.id,
+    senderType: 'customer',
+    body: input.message,
+    createdAt: now,
+  });
 
   if (input.userId) {
     return toInquiryReceipt(created);

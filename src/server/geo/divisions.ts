@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 
 import type { ShippingContinentCode } from '@/lib/shipping-continents';
+import { formatGeoCountryLabel } from '@/lib/geo-display';
 import { db } from '@/server/db';
 import { geoDivisions } from '@/server/db/schema';
 
@@ -15,10 +16,7 @@ export type GeoCountryRow = {
   nameEnTitle: string;
 };
 
-function formatGeoCountryLabel(row: Pick<GeoCountryRow, 'isoAlpha2' | 'nameEn' | 'nameZh'>) {
-  const zh = row.nameZh ? ` — ${row.nameZh}` : '';
-  return `${row.isoAlpha2} — ${row.nameEn}${zh}`;
-}
+export { formatGeoCountryLabel } from '@/lib/geo-display';
 
 export async function listGeoCountries(options?: { continent?: string }) {
   const conditions = [eq(geoDivisions.level, 'country'), eq(geoDivisions.enabled, true)];

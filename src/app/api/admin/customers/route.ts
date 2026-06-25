@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { createAdminCustomer, getAdminCustomers } from '@/server/admin/customers';
+import { parseCustomerListQuery } from '@/lib/customer-list-query';
+import { createAdminCustomer, listAdminCustomers } from '@/server/admin/customers';
 
 const customerSchema = z.object({
   email: z.string().email(),
@@ -9,19 +10,22 @@ const customerSchema = z.object({
   lastName: z.string().min(1),
   company: z.string().nullable().optional().transform((value) => value ?? null),
   phone: z.string().nullable().optional().transform((value) => value ?? null),
-  avatarUrl: z.string().nullable().optional().transform((value) => value ?? null),
   role: z.enum(['customer', 'staff', 'admin']).default('customer'),
-  status: z.enum(['active', 'disabled', 'pending']).default('pending'),
+  password: z.string().min(8),
 });
 
 export async function GET(request: NextRequest) {
-  const search = request.nextUrl.searchParams.get('search')?.trim().toLowerCase() ?? '';
-  const items = await getAdminCustomers();
-  const filtered = search
-    ? items.filter((item) => [item.email, item.firstName, item.lastName, item.company ?? '', item.phone ?? ''].join(' ').toLowerCase().includes(search))
-    : items;
+  const query = parseCustomerListQuery(Object.fromEntries(request.nextUrl.searchParams.entries()));
+  const result = await listAdminCustomers(query);
 
-  return NextResponse.json({ items: filtered, meta: { total: filtered.length } });
+  return NextResponse.json({
+    items: result.items,
+    meta: {
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {

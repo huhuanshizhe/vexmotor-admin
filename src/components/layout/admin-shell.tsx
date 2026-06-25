@@ -3,6 +3,7 @@
 import {
   AppstoreOutlined,
   BarsOutlined,
+  CommentOutlined,
   DashboardOutlined,
   FileTextOutlined,
   GlobalOutlined,
@@ -42,7 +43,7 @@ const iconByKey: Record<string, React.ReactNode> = {
   '/admin/logistics/shipping': <GlobalOutlined />,
   'order-management': <OrderedListOutlined />,
   '/admin/orders': <OrderedListOutlined />,
-  '/admin/inquiries': <InboxOutlined />,
+  '/admin/inquiries': <CommentOutlined />,
   '/admin/customers': <TeamOutlined />,
   'content-management': <BarsOutlined />,
   '/admin/editorial/boards': <AppstoreOutlined />,

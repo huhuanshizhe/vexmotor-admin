@@ -43,6 +43,20 @@
       "when": 1781200000000,
       "tag": "0015_geo_divisions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781300000000,
+      "tag": "0016_customer_profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781400000000,
+      "tag": "0017_inquiry_threads",
+      "breakpoints": true
     }
   ]
 }

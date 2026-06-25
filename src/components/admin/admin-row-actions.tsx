@@ -108,6 +108,8 @@ export type AdminEntityRowActionsProps = {
   onDelete: () => void;
   /** 为 false 时不显示编辑按钮 */
   showEdit?: boolean;
+  /** 为 false 时不显示删除按钮 */
+  showDelete?: boolean;
   /** 使用自定义删除流程（如 Modal.confirm、删除前校验）时设为 callback */
   deleteMode?: 'popconfirm' | 'callback';
   toggleDisableDescription?: string;
@@ -144,6 +146,7 @@ export function AdminEntityRowActions({
   toggleEnableOkText,
   toggleUsePopconfirm = true,
   showEdit = true,
+  showDelete = true,
 }: AdminEntityRowActionsProps) {
   const disableDescription = toggleDisableDescription ?? `停用后前台将不再展示该${entityName}。`;
   const enableDescription = toggleEnableDescription ?? `启用后${entityName}将恢复展示。`;
@@ -218,7 +221,7 @@ export function AdminEntityRowActions({
           onClick={onToggleActive}
         />
       )}
-      {deleteButton}
+      {showDelete ? deleteButton : null}
     </Space>
   );
 }

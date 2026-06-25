@@ -52,6 +52,17 @@ export const inquiryStatusLabels = {
   closed: '已关闭',
 } as const;
 
+export const inquiryQueueKindLabels = {
+  new_inquiry: '新询盘',
+  customer_replied: '新回复',
+} as const;
+
+export const inquiryResolutionLabels = {
+  resolved: '已解决',
+  terminated: '已终止',
+  replied: '已回复',
+} as const;
+
 export const userRoleLabels = {
   customer: '客户',
   staff: '员工',
@@ -83,6 +94,8 @@ export const categoryStatusOptions = Object.entries(categoryStatusLabels).map(([
 export const brandStatusOptions = Object.entries(brandStatusLabels).map(([value, label]) => ({ value, label }));
 export const orderStatusOptions = Object.entries(orderStatusLabels).map(([value, label]) => ({ value, label }));
 export const inquiryStatusOptions = Object.entries(inquiryStatusLabels).map(([value, label]) => ({ value, label }));
+export const inquiryQueueKindOptions = Object.entries(inquiryQueueKindLabels).map(([value, label]) => ({ value, label }));
+export const inquiryResolutionOptions = Object.entries(inquiryResolutionLabels).map(([value, label]) => ({ value, label }));
 export const userRoleOptions = Object.entries(userRoleLabels).map(([value, label]) => ({ value, label }));
 export const userStatusOptions = Object.entries(userStatusLabels).map(([value, label]) => ({ value, label }));
 export const contentStatusOptions = Object.entries(contentStatusLabels).map(([value, label]) => ({ value, label }));
@@ -133,6 +146,17 @@ export const inquiryStatusColors = {
   closed: 'green',
 } as const;
 
+export const inquiryQueueKindColors = {
+  new_inquiry: 'gold',
+  customer_replied: 'orange',
+} as const;
+
+export const inquiryResolutionColors = {
+  resolved: 'green',
+  terminated: 'red',
+  replied: 'blue',
+} as const;
+
 export const userRoleColors = {
   customer: 'default',
   staff: 'blue',
@@ -155,6 +179,17 @@ export const cmsStatusColors = {
   published: 'green',
   archived: 'orange',
 } as const;
+
+export function getInquiryResolutionLabel(input: {
+  resolvedAt: Date | string | null;
+  terminatedAt: Date | string | null;
+  status: keyof typeof inquiryStatusLabels;
+}) {
+  if (input.terminatedAt) return inquiryResolutionLabels.terminated;
+  if (input.resolvedAt) return inquiryResolutionLabels.resolved;
+  if (input.status !== 'new') return inquiryResolutionLabels.replied;
+  return '—';
+}
 
 export function formatAdminMoney(amount: string | number | null | undefined, currencyCode = 'USD') {
   const numericAmount = Number(amount ?? 0);
@@ -187,4 +222,50 @@ export function formatAdminDate(value: string | Date | null | undefined) {
 
 export function toPrettyJson(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+export function formatAdminAddress(row: {
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  state?: string | null;
+  postalCode?: string | null;
+  countryCode: string;
+  company?: string | null;
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+}) {
+  const name = [row.firstName, row.lastName].filter(Boolean).join(' ').trim();
+  const lines = [
+    name || null,
+    row.company,
+    row.addressLine1,
+    row.addressLine2,
+    [row.city, row.state, row.postalCode].filter(Boolean).join(', '),
+    row.countryCode,
+    row.phone,
+  ].filter((line) => Boolean(line && String(line).trim()));
+
+  return lines.join('\n');
+}
+
+export function formatAdminSnapshotAddress(snapshot: Record<string, unknown>) {
+  const read = (key: string) => {
+    const value = snapshot[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  };
+
+  return formatAdminAddress({
+    firstName: read('firstName') ?? read('first_name') ?? undefined,
+    lastName: read('lastName') ?? read('last_name') ?? undefined,
+    company: read('company'),
+    phone: read('phone'),
+    addressLine1: read('addressLine1') ?? read('address_line_1') ?? read('addressLine1') ?? '—',
+    addressLine2: read('addressLine2') ?? read('address_line_2'),
+    city: read('city') ?? '—',
+    state: read('state'),
+    postalCode: read('postalCode') ?? read('postal_code'),
+    countryCode: read('countryCode') ?? read('country_code') ?? '—',
+  });
 }

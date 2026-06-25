@@ -40,10 +40,13 @@ export const simpleStatusEnum = pgEnum('simple_status', ['active', 'inactive']);
 export const cartStatusEnum = pgEnum('cart_status', ['active', 'converted', 'abandoned']);
 export const orderStatusEnum = pgEnum('order_status', ['pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled', 'refunded']);
 export const inquiryStatusEnum = pgEnum('inquiry_status', ['new', 'contacted', 'quoted', 'closed']);
+export const inquiryQueueKindEnum = pgEnum('inquiry_queue_kind', ['new_inquiry', 'customer_replied']);
+export const inquiryMessageSenderTypeEnum = pgEnum('inquiry_message_sender_type', ['customer', 'admin']);
 export const contentStatusEnum = pgEnum('content_status', ['active', 'inactive']);
 export const cmsStatusEnum = pgEnum('cms_status', ['draft', 'published', 'archived']);
 export const newsletterStatusEnum = pgEnum('newsletter_status', ['subscribed', 'unsubscribed']);
 export const accountTypeEnum = pgEnum('account_type', ['oauth', 'oidc', 'email', 'credentials']);
+export const customerMessageSenderTypeEnum = pgEnum('customer_message_sender_type', ['admin', 'customer']);
 export const editorialContentTypeEnum = pgEnum('editorial_content_type', ['content']);
 export const editorialContentModuleEnum = pgEnum('editorial_content_module', ['editorial', 'faq']);
 export const productRelationTypeEnum = pgEnum('product_relation_type', ['drivers', 'mechanical-integration', 'power-control', 'custom']);
@@ -61,6 +64,18 @@ export const users = pgTable(
     company: varchar('company', { length: 150 }),
     phone: varchar('phone', { length: 50 }),
     avatarUrl: text('avatar_url'),
+    jobTitle: varchar('job_title', { length: 100 }),
+    industry: varchar('industry', { length: 80 }),
+    companyCountryCode: varchar('company_country_code', { length: 2 }),
+    companyState: varchar('company_state', { length: 100 }),
+    companyCity: varchar('company_city', { length: 100 }),
+    companyAddressLine1: varchar('company_address_line1', { length: 255 }),
+    companyAddressLine2: varchar('company_address_line2', { length: 255 }),
+    companyPostalCode: varchar('company_postal_code', { length: 30 }),
+    website: varchar('website', { length: 255 }),
+    taxId: varchar('tax_id', { length: 100 }),
+    companySize: varchar('company_size', { length: 50 }),
+    internalNote: text('internal_note'),
     role: userRoleEnum('role').notNull().default('customer'),
     status: userStatusEnum('status').notNull().default('active'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
@@ -70,6 +85,9 @@ export const users = pgTable(
   },
   (table) => ({
     emailUnique: uniqueIndex('users_email_unique').on(table.email),
+    industryIdx: index('users_industry_idx').on(table.industry),
+    companyCountryCodeIdx: index('users_company_country_code_idx').on(table.companyCountryCode),
+    statusIdx: index('users_status_idx').on(table.status),
   }),
 );
 
@@ -90,6 +108,16 @@ export const admins = pgTable(
     emailUnique: uniqueIndex('admins_email_unique').on(table.email),
   }),
 );
+
+export const customerMessages = pgTable('customer_messages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  senderType: customerMessageSenderTypeEnum('sender_type').notNull(),
+  adminId: uuid('admin_id').references(() => admins.id, { onDelete: 'set null' }),
+  body: text('body').notNull(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const accounts = pgTable(
   'accounts',
@@ -565,24 +593,52 @@ export const orderItems = pgTable('order_items', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const inquiries = pgTable('inquiries', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
-  fullName: varchar('full_name', { length: 150 }).notNull(),
-  email: varchar('email', { length: 320 }).notNull(),
-  phone: varchar('phone', { length: 50 }),
-  company: varchar('company', { length: 150 }),
-  country: varchar('country', { length: 100 }),
-  message: text('message').notNull(),
-  status: inquiryStatusEnum('status').notNull().default('new'),
-  sourcePageUrl: text('source_page_url'),
-  handledBy: uuid('handled_by').references(() => users.id, { onDelete: 'set null' }),
-  handledAt: timestamp('handled_at', { withTimezone: true }),
-  internalNote: text('internal_note'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const inquiries = pgTable(
+  'inquiries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    fullName: varchar('full_name', { length: 150 }).notNull(),
+    email: varchar('email', { length: 320 }).notNull(),
+    phone: varchar('phone', { length: 50 }),
+    company: varchar('company', { length: 150 }),
+    country: varchar('country', { length: 100 }),
+    message: text('message').notNull(),
+    status: inquiryStatusEnum('status').notNull().default('new'),
+    awaitingAdmin: boolean('awaiting_admin').notNull().default(true),
+    queueKind: inquiryQueueKindEnum('queue_kind'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    terminatedAt: timestamp('terminated_at', { withTimezone: true }),
+    terminatedBy: uuid('terminated_by').references(() => admins.id, { onDelete: 'set null' }),
+    lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+    sourcePageUrl: text('source_page_url'),
+    handledBy: uuid('handled_by').references(() => users.id, { onDelete: 'set null' }),
+    handledAt: timestamp('handled_at', { withTimezone: true }),
+    internalNote: text('internal_note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    awaitingAdminIdx: index('inquiries_awaiting_admin_idx').on(table.awaitingAdmin),
+    lastMessageAtIdx: index('inquiries_last_message_at_idx').on(table.lastMessageAt),
+  }),
+);
+
+export const inquiryMessages = pgTable(
+  'inquiry_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    inquiryId: uuid('inquiry_id').notNull().references(() => inquiries.id, { onDelete: 'cascade' }),
+    senderType: inquiryMessageSenderTypeEnum('sender_type').notNull(),
+    adminId: uuid('admin_id').references(() => admins.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    inquiryCreatedIdx: index('inquiry_messages_inquiry_created_idx').on(table.inquiryId, table.createdAt),
+  }),
+);
 
 export const wishlists = pgTable(
   'wishlists',
