@@ -1,12 +1,13 @@
 'use client';
 
-import { Button, Col, DatePicker, Empty, Form, Input, Modal, Row, Space, Tabs, Tag, Typography, Alert, Popconfirm, message } from 'antd';
+import { Button, Col, Empty, Form, Input, Modal, Row, Space, Tabs, Tag, Typography, Alert, Popconfirm, message } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
+import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
@@ -696,13 +697,11 @@ export function ContentEditorModal({
           <Typography.Text type="secondary">
             将所有已填写的语言版本保存为已发布状态，并统一使用所选发布时间。
           </Typography.Text>
-          <DatePicker
-            showTime
-            style={{ width: '100%' }}
+          <AdminDateTimePicker
+            mode="datetime"
             value={scheduleValue}
             onChange={(value) => setScheduleValue(value)}
             disabledDate={(current) => current.isBefore(dayjs().startOf('day'))}
-            format="YYYY-MM-DD HH:mm"
           />
         </Space>
       </Modal>

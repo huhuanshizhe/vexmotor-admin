@@ -1,12 +1,13 @@
 'use client';
 
-import { Button, Col, DatePicker, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, TreeSelect, message } from 'antd';
+import { Button, Col, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, TreeSelect, message } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
+import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { ProductAttachmentsField } from '@/components/products/product-attachments-field';
@@ -603,7 +604,7 @@ export function ProductEditorModal({
                                   return (
                                     <Col xs={24} md={8}>
                                       <Form.Item label="EOL 日期" name="eolDate">
-                                        <DatePicker style={{ width: '100%' }} />
+                                        <AdminDateTimePicker mode="date" />
                                       </Form.Item>
                                     </Col>
                                   );
@@ -618,7 +619,7 @@ export function ProductEditorModal({
                                   return (
                                     <Col xs={24} md={8}>
                                       <Form.Item label="最后采购日期" name="lastTimeBuyDate">
-                                        <DatePicker style={{ width: '100%' }} />
+                                        <AdminDateTimePicker mode="date" />
                                       </Form.Item>
                                     </Col>
                                   );

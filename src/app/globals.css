@@ -9272,3 +9272,22 @@ main {
   margin-inline: 0 !important;
   max-width: 100%;
 }
+
+/* AdminDateTimePicker: 日期+时间左右并排，避免面板切换遮挡 */
+.admin-datetime-picker-popup .ant-picker-datetime-panel {
+  flex-direction: row;
+}
+
+.admin-datetime-picker-popup .ant-picker-datetime-panel .ant-picker-date-panel,
+.admin-datetime-picker-popup .ant-picker-datetime-panel .ant-picker-time-panel {
+  opacity: 1 !important;
+}
+
+.admin-datetime-picker-popup .ant-picker-datetime-panel-active .ant-picker-date-panel,
+.admin-datetime-picker-popup .ant-picker-datetime-panel-active .ant-picker-time-panel {
+  opacity: 1 !important;
+}
+
+.admin-datetime-picker-popup .ant-picker-time-panel-column {
+  scrollbar-width: thin;
+}

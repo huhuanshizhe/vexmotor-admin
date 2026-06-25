@@ -1,9 +1,10 @@
 'use client';
 
-import { DatePicker, Form, Input, InputNumber, Modal, Select, Switch, Typography } from 'antd';
+import { Form, Input, InputNumber, Modal, Select, Switch, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 
+import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
 import { EntityMultiPicker } from '@/components/promotion/entity-multi-picker';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
 import type { AdminCouponDetail } from '@/lib/coupon-list-query';
@@ -265,10 +266,10 @@ export function CouponEditorModal({
         ) : null}
 
         <Form.Item label="优惠开始时间" name="startsAt">
-          <DatePicker showTime style={{ width: '100%' }} />
+          <AdminDateTimePicker mode="datetime" />
         </Form.Item>
         <Form.Item label="优惠结束时间" name="endsAt">
-          <DatePicker showTime style={{ width: '100%' }} />
+          <AdminDateTimePicker mode="datetime" />
         </Form.Item>
 
         <Typography.Title level={5} style={{ marginTop: 8 }}>使用限制</Typography.Title>
