@@ -1,0 +1,1994 @@
+[
+  {
+    "code": "AF",
+    "iso_alpha2": "AF",
+    "iso_alpha3": "AFG",
+    "continent_code": "ASIA",
+    "name_en": "Afghanistan",
+    "name_zh": "阿富汗"
+  },
+  {
+    "code": "AX",
+    "iso_alpha2": "AX",
+    "iso_alpha3": "ALA",
+    "continent_code": "EUROPE",
+    "name_en": "Åland Islands",
+    "name_zh": "奥兰群岛"
+  },
+  {
+    "code": "AL",
+    "iso_alpha2": "AL",
+    "iso_alpha3": "ALB",
+    "continent_code": "EUROPE",
+    "name_en": "Albania",
+    "name_zh": "阿尔巴尼亚"
+  },
+  {
+    "code": "DZ",
+    "iso_alpha2": "DZ",
+    "iso_alpha3": "DZA",
+    "continent_code": "AFRICA",
+    "name_en": "Algeria",
+    "name_zh": "阿尔及利亚"
+  },
+  {
+    "code": "AS",
+    "iso_alpha2": "AS",
+    "iso_alpha3": "ASM",
+    "continent_code": "OCEANIA",
+    "name_en": "American Samoa",
+    "name_zh": "美属萨摩亚"
+  },
+  {
+    "code": "AD",
+    "iso_alpha2": "AD",
+    "iso_alpha3": "AND",
+    "continent_code": "EUROPE",
+    "name_en": "Andorra",
+    "name_zh": "安道尔"
+  },
+  {
+    "code": "AO",
+    "iso_alpha2": "AO",
+    "iso_alpha3": "AGO",
+    "continent_code": "AFRICA",
+    "name_en": "Angola",
+    "name_zh": "安哥拉"
+  },
+  {
+    "code": "AI",
+    "iso_alpha2": "AI",
+    "iso_alpha3": "AIA",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Anguilla",
+    "name_zh": "安圭拉"
+  },
+  {
+    "code": "AQ",
+    "iso_alpha2": "AQ",
+    "iso_alpha3": "ATA",
+    "continent_code": "OTHER",
+    "name_en": "Antarctica",
+    "name_zh": "南极洲"
+  },
+  {
+    "code": "AG",
+    "iso_alpha2": "AG",
+    "iso_alpha3": "ATG",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Antigua and Barbuda",
+    "name_zh": "安提瓜和巴布达"
+  },
+  {
+    "code": "AR",
+    "iso_alpha2": "AR",
+    "iso_alpha3": "ARG",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Argentina",
+    "name_zh": "阿根廷"
+  },
+  {
+    "code": "AM",
+    "iso_alpha2": "AM",
+    "iso_alpha3": "ARM",
+    "continent_code": "ASIA",
+    "name_en": "Armenia",
+    "name_zh": "亚美尼亚"
+  },
+  {
+    "code": "AW",
+    "iso_alpha2": "AW",
+    "iso_alpha3": "ABW",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Aruba",
+    "name_zh": "阿鲁巴"
+  },
+  {
+    "code": "AU",
+    "iso_alpha2": "AU",
+    "iso_alpha3": "AUS",
+    "continent_code": "OCEANIA",
+    "name_en": "Australia",
+    "name_zh": "澳大利亚"
+  },
+  {
+    "code": "AT",
+    "iso_alpha2": "AT",
+    "iso_alpha3": "AUT",
+    "continent_code": "EUROPE",
+    "name_en": "Austria",
+    "name_zh": "奥地利"
+  },
+  {
+    "code": "AZ",
+    "iso_alpha2": "AZ",
+    "iso_alpha3": "AZE",
+    "continent_code": "ASIA",
+    "name_en": "Azerbaijan",
+    "name_zh": "阿塞拜疆"
+  },
+  {
+    "code": "BS",
+    "iso_alpha2": "BS",
+    "iso_alpha3": "BHS",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Bahamas",
+    "name_zh": "巴哈马"
+  },
+  {
+    "code": "BH",
+    "iso_alpha2": "BH",
+    "iso_alpha3": "BHR",
+    "continent_code": "ASIA",
+    "name_en": "Bahrain",
+    "name_zh": "巴林"
+  },
+  {
+    "code": "BD",
+    "iso_alpha2": "BD",
+    "iso_alpha3": "BGD",
+    "continent_code": "ASIA",
+    "name_en": "Bangladesh",
+    "name_zh": "孟加拉国"
+  },
+  {
+    "code": "BB",
+    "iso_alpha2": "BB",
+    "iso_alpha3": "BRB",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Barbados",
+    "name_zh": "巴巴多斯"
+  },
+  {
+    "code": "BY",
+    "iso_alpha2": "BY",
+    "iso_alpha3": "BLR",
+    "continent_code": "EUROPE",
+    "name_en": "Belarus",
+    "name_zh": "白俄罗斯"
+  },
+  {
+    "code": "BE",
+    "iso_alpha2": "BE",
+    "iso_alpha3": "BEL",
+    "continent_code": "EUROPE",
+    "name_en": "Belgium",
+    "name_zh": "比利时"
+  },
+  {
+    "code": "BZ",
+    "iso_alpha2": "BZ",
+    "iso_alpha3": "BLZ",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Belize",
+    "name_zh": "伯利兹"
+  },
+  {
+    "code": "BJ",
+    "iso_alpha2": "BJ",
+    "iso_alpha3": "BEN",
+    "continent_code": "AFRICA",
+    "name_en": "Benin",
+    "name_zh": "贝宁"
+  },
+  {
+    "code": "BM",
+    "iso_alpha2": "BM",
+    "iso_alpha3": "BMU",
+    "continent_code": "NORTH_AMERICA",
+    "name_en": "Bermuda",
+    "name_zh": "百慕大"
+  },
+  {
+    "code": "BT",
+    "iso_alpha2": "BT",
+    "iso_alpha3": "BTN",
+    "continent_code": "ASIA",
+    "name_en": "Bhutan",
+    "name_zh": "不丹"
+  },
+  {
+    "code": "BO",
+    "iso_alpha2": "BO",
+    "iso_alpha3": "BOL",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Bolivia, Plurinational State of",
+    "name_zh": "玻利维亚"
+  },
+  {
+    "code": "BQ",
+    "iso_alpha2": "BQ",
+    "iso_alpha3": "BES",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Bonaire, Sint Eustatius and Saba",
+    "name_zh": "荷属加勒比区"
+  },
+  {
+    "code": "BA",
+    "iso_alpha2": "BA",
+    "iso_alpha3": "BIH",
+    "continent_code": "EUROPE",
+    "name_en": "Bosnia and Herzegovina",
+    "name_zh": "波斯尼亚和黑塞哥维那"
+  },
+  {
+    "code": "BW",
+    "iso_alpha2": "BW",
+    "iso_alpha3": "BWA",
+    "continent_code": "AFRICA",
+    "name_en": "Botswana",
+    "name_zh": "博茨瓦纳"
+  },
+  {
+    "code": "BV",
+    "iso_alpha2": "BV",
+    "iso_alpha3": "BVT",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Bouvet Island",
+    "name_zh": "布韦岛"
+  },
+  {
+    "code": "BR",
+    "iso_alpha2": "BR",
+    "iso_alpha3": "BRA",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Brazil",
+    "name_zh": "巴西"
+  },
+  {
+    "code": "IO",
+    "iso_alpha2": "IO",
+    "iso_alpha3": "IOT",
+    "continent_code": "AFRICA",
+    "name_en": "British Indian Ocean Territory",
+    "name_zh": "英属印度洋领地"
+  },
+  {
+    "code": "BN",
+    "iso_alpha2": "BN",
+    "iso_alpha3": "BRN",
+    "continent_code": "ASIA",
+    "name_en": "Brunei Darussalam",
+    "name_zh": "文莱"
+  },
+  {
+    "code": "BG",
+    "iso_alpha2": "BG",
+    "iso_alpha3": "BGR",
+    "continent_code": "EUROPE",
+    "name_en": "Bulgaria",
+    "name_zh": "保加利亚"
+  },
+  {
+    "code": "BF",
+    "iso_alpha2": "BF",
+    "iso_alpha3": "BFA",
+    "continent_code": "AFRICA",
+    "name_en": "Burkina Faso",
+    "name_zh": "布基纳法索"
+  },
+  {
+    "code": "BI",
+    "iso_alpha2": "BI",
+    "iso_alpha3": "BDI",
+    "continent_code": "AFRICA",
+    "name_en": "Burundi",
+    "name_zh": "布隆迪"
+  },
+  {
+    "code": "CV",
+    "iso_alpha2": "CV",
+    "iso_alpha3": "CPV",
+    "continent_code": "AFRICA",
+    "name_en": "Cabo Verde",
+    "name_zh": "佛得角"
+  },
+  {
+    "code": "KH",
+    "iso_alpha2": "KH",
+    "iso_alpha3": "KHM",
+    "continent_code": "ASIA",
+    "name_en": "Cambodia",
+    "name_zh": "柬埔寨"
+  },
+  {
+    "code": "CM",
+    "iso_alpha2": "CM",
+    "iso_alpha3": "CMR",
+    "continent_code": "AFRICA",
+    "name_en": "Cameroon",
+    "name_zh": "喀麦隆"
+  },
+  {
+    "code": "CA",
+    "iso_alpha2": "CA",
+    "iso_alpha3": "CAN",
+    "continent_code": "NORTH_AMERICA",
+    "name_en": "Canada",
+    "name_zh": "加拿大"
+  },
+  {
+    "code": "KY",
+    "iso_alpha2": "KY",
+    "iso_alpha3": "CYM",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Cayman Islands",
+    "name_zh": "开曼群岛"
+  },
+  {
+    "code": "CF",
+    "iso_alpha2": "CF",
+    "iso_alpha3": "CAF",
+    "continent_code": "AFRICA",
+    "name_en": "Central African Republic",
+    "name_zh": "中非共和国"
+  },
+  {
+    "code": "TD",
+    "iso_alpha2": "TD",
+    "iso_alpha3": "TCD",
+    "continent_code": "AFRICA",
+    "name_en": "Chad",
+    "name_zh": "乍得"
+  },
+  {
+    "code": "CL",
+    "iso_alpha2": "CL",
+    "iso_alpha3": "CHL",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Chile",
+    "name_zh": "智利"
+  },
+  {
+    "code": "CN",
+    "iso_alpha2": "CN",
+    "iso_alpha3": "CHN",
+    "continent_code": "ASIA",
+    "name_en": "China",
+    "name_zh": "中国"
+  },
+  {
+    "code": "CX",
+    "iso_alpha2": "CX",
+    "iso_alpha3": "CXR",
+    "continent_code": "OCEANIA",
+    "name_en": "Christmas Island",
+    "name_zh": "圣诞岛"
+  },
+  {
+    "code": "CC",
+    "iso_alpha2": "CC",
+    "iso_alpha3": "CCK",
+    "continent_code": "OCEANIA",
+    "name_en": "Cocos (Keeling) Islands",
+    "name_zh": "科科斯（基林）群岛"
+  },
+  {
+    "code": "CO",
+    "iso_alpha2": "CO",
+    "iso_alpha3": "COL",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Colombia",
+    "name_zh": "哥伦比亚"
+  },
+  {
+    "code": "KM",
+    "iso_alpha2": "KM",
+    "iso_alpha3": "COM",
+    "continent_code": "AFRICA",
+    "name_en": "Comoros",
+    "name_zh": "科摩罗"
+  },
+  {
+    "code": "CG",
+    "iso_alpha2": "CG",
+    "iso_alpha3": "COG",
+    "continent_code": "AFRICA",
+    "name_en": "Congo",
+    "name_zh": "刚果（布）"
+  },
+  {
+    "code": "CD",
+    "iso_alpha2": "CD",
+    "iso_alpha3": "COD",
+    "continent_code": "AFRICA",
+    "name_en": "Congo, Democratic Republic of the",
+    "name_zh": "刚果（金）"
+  },
+  {
+    "code": "CK",
+    "iso_alpha2": "CK",
+    "iso_alpha3": "COK",
+    "continent_code": "OCEANIA",
+    "name_en": "Cook Islands",
+    "name_zh": "库克群岛"
+  },
+  {
+    "code": "CR",
+    "iso_alpha2": "CR",
+    "iso_alpha3": "CRI",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Costa Rica",
+    "name_zh": "哥斯达黎加"
+  },
+  {
+    "code": "CI",
+    "iso_alpha2": "CI",
+    "iso_alpha3": "CIV",
+    "continent_code": "AFRICA",
+    "name_en": "Côte d'Ivoire",
+    "name_zh": "科特迪瓦"
+  },
+  {
+    "code": "HR",
+    "iso_alpha2": "HR",
+    "iso_alpha3": "HRV",
+    "continent_code": "EUROPE",
+    "name_en": "Croatia",
+    "name_zh": "克罗地亚"
+  },
+  {
+    "code": "CU",
+    "iso_alpha2": "CU",
+    "iso_alpha3": "CUB",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Cuba",
+    "name_zh": "古巴"
+  },
+  {
+    "code": "CW",
+    "iso_alpha2": "CW",
+    "iso_alpha3": "CUW",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Curaçao",
+    "name_zh": "库拉索"
+  },
+  {
+    "code": "CY",
+    "iso_alpha2": "CY",
+    "iso_alpha3": "CYP",
+    "continent_code": "ASIA",
+    "name_en": "Cyprus",
+    "name_zh": "塞浦路斯"
+  },
+  {
+    "code": "CZ",
+    "iso_alpha2": "CZ",
+    "iso_alpha3": "CZE",
+    "continent_code": "EUROPE",
+    "name_en": "Czechia",
+    "name_zh": "捷克"
+  },
+  {
+    "code": "DK",
+    "iso_alpha2": "DK",
+    "iso_alpha3": "DNK",
+    "continent_code": "EUROPE",
+    "name_en": "Denmark",
+    "name_zh": "丹麦"
+  },
+  {
+    "code": "DJ",
+    "iso_alpha2": "DJ",
+    "iso_alpha3": "DJI",
+    "continent_code": "AFRICA",
+    "name_en": "Djibouti",
+    "name_zh": "吉布提"
+  },
+  {
+    "code": "DM",
+    "iso_alpha2": "DM",
+    "iso_alpha3": "DMA",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Dominica",
+    "name_zh": "多米尼克"
+  },
+  {
+    "code": "DO",
+    "iso_alpha2": "DO",
+    "iso_alpha3": "DOM",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Dominican Republic",
+    "name_zh": "多米尼加共和国"
+  },
+  {
+    "code": "EC",
+    "iso_alpha2": "EC",
+    "iso_alpha3": "ECU",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Ecuador",
+    "name_zh": "厄瓜多尔"
+  },
+  {
+    "code": "EG",
+    "iso_alpha2": "EG",
+    "iso_alpha3": "EGY",
+    "continent_code": "AFRICA",
+    "name_en": "Egypt",
+    "name_zh": "埃及"
+  },
+  {
+    "code": "SV",
+    "iso_alpha2": "SV",
+    "iso_alpha3": "SLV",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "El Salvador",
+    "name_zh": "萨尔瓦多"
+  },
+  {
+    "code": "GQ",
+    "iso_alpha2": "GQ",
+    "iso_alpha3": "GNQ",
+    "continent_code": "AFRICA",
+    "name_en": "Equatorial Guinea",
+    "name_zh": "赤道几内亚"
+  },
+  {
+    "code": "ER",
+    "iso_alpha2": "ER",
+    "iso_alpha3": "ERI",
+    "continent_code": "AFRICA",
+    "name_en": "Eritrea",
+    "name_zh": "厄立特里亚"
+  },
+  {
+    "code": "EE",
+    "iso_alpha2": "EE",
+    "iso_alpha3": "EST",
+    "continent_code": "EUROPE",
+    "name_en": "Estonia",
+    "name_zh": "爱沙尼亚"
+  },
+  {
+    "code": "SZ",
+    "iso_alpha2": "SZ",
+    "iso_alpha3": "SWZ",
+    "continent_code": "AFRICA",
+    "name_en": "Eswatini",
+    "name_zh": "斯威士兰"
+  },
+  {
+    "code": "ET",
+    "iso_alpha2": "ET",
+    "iso_alpha3": "ETH",
+    "continent_code": "AFRICA",
+    "name_en": "Ethiopia",
+    "name_zh": "埃塞俄比亚"
+  },
+  {
+    "code": "FK",
+    "iso_alpha2": "FK",
+    "iso_alpha3": "FLK",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Falkland Islands (Malvinas)",
+    "name_zh": "福克兰群岛"
+  },
+  {
+    "code": "FO",
+    "iso_alpha2": "FO",
+    "iso_alpha3": "FRO",
+    "continent_code": "EUROPE",
+    "name_en": "Faroe Islands",
+    "name_zh": "法罗群岛"
+  },
+  {
+    "code": "FJ",
+    "iso_alpha2": "FJ",
+    "iso_alpha3": "FJI",
+    "continent_code": "OCEANIA",
+    "name_en": "Fiji",
+    "name_zh": "斐济"
+  },
+  {
+    "code": "FI",
+    "iso_alpha2": "FI",
+    "iso_alpha3": "FIN",
+    "continent_code": "EUROPE",
+    "name_en": "Finland",
+    "name_zh": "芬兰"
+  },
+  {
+    "code": "FR",
+    "iso_alpha2": "FR",
+    "iso_alpha3": "FRA",
+    "continent_code": "EUROPE",
+    "name_en": "France",
+    "name_zh": "法国"
+  },
+  {
+    "code": "GF",
+    "iso_alpha2": "GF",
+    "iso_alpha3": "GUF",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "French Guiana",
+    "name_zh": "法属圭亚那"
+  },
+  {
+    "code": "PF",
+    "iso_alpha2": "PF",
+    "iso_alpha3": "PYF",
+    "continent_code": "OCEANIA",
+    "name_en": "French Polynesia",
+    "name_zh": "法属波利尼西亚"
+  },
+  {
+    "code": "TF",
+    "iso_alpha2": "TF",
+    "iso_alpha3": "ATF",
+    "continent_code": "AFRICA",
+    "name_en": "French Southern Territories",
+    "name_zh": "法属南部领地"
+  },
+  {
+    "code": "GA",
+    "iso_alpha2": "GA",
+    "iso_alpha3": "GAB",
+    "continent_code": "AFRICA",
+    "name_en": "Gabon",
+    "name_zh": "加蓬"
+  },
+  {
+    "code": "GM",
+    "iso_alpha2": "GM",
+    "iso_alpha3": "GMB",
+    "continent_code": "AFRICA",
+    "name_en": "Gambia",
+    "name_zh": "冈比亚"
+  },
+  {
+    "code": "GE",
+    "iso_alpha2": "GE",
+    "iso_alpha3": "GEO",
+    "continent_code": "ASIA",
+    "name_en": "Georgia",
+    "name_zh": "格鲁吉亚"
+  },
+  {
+    "code": "DE",
+    "iso_alpha2": "DE",
+    "iso_alpha3": "DEU",
+    "continent_code": "EUROPE",
+    "name_en": "Germany",
+    "name_zh": "德国"
+  },
+  {
+    "code": "GH",
+    "iso_alpha2": "GH",
+    "iso_alpha3": "GHA",
+    "continent_code": "AFRICA",
+    "name_en": "Ghana",
+    "name_zh": "加纳"
+  },
+  {
+    "code": "GI",
+    "iso_alpha2": "GI",
+    "iso_alpha3": "GIB",
+    "continent_code": "EUROPE",
+    "name_en": "Gibraltar",
+    "name_zh": "直布罗陀"
+  },
+  {
+    "code": "GR",
+    "iso_alpha2": "GR",
+    "iso_alpha3": "GRC",
+    "continent_code": "EUROPE",
+    "name_en": "Greece",
+    "name_zh": "希腊"
+  },
+  {
+    "code": "GL",
+    "iso_alpha2": "GL",
+    "iso_alpha3": "GRL",
+    "continent_code": "NORTH_AMERICA",
+    "name_en": "Greenland",
+    "name_zh": "格陵兰"
+  },
+  {
+    "code": "GD",
+    "iso_alpha2": "GD",
+    "iso_alpha3": "GRD",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Grenada",
+    "name_zh": "格林纳达"
+  },
+  {
+    "code": "GP",
+    "iso_alpha2": "GP",
+    "iso_alpha3": "GLP",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Guadeloupe",
+    "name_zh": "瓜德罗普"
+  },
+  {
+    "code": "GU",
+    "iso_alpha2": "GU",
+    "iso_alpha3": "GUM",
+    "continent_code": "OCEANIA",
+    "name_en": "Guam",
+    "name_zh": "关岛"
+  },
+  {
+    "code": "GT",
+    "iso_alpha2": "GT",
+    "iso_alpha3": "GTM",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Guatemala",
+    "name_zh": "危地马拉"
+  },
+  {
+    "code": "GG",
+    "iso_alpha2": "GG",
+    "iso_alpha3": "GGY",
+    "continent_code": "EUROPE",
+    "name_en": "Guernsey",
+    "name_zh": "根西岛"
+  },
+  {
+    "code": "GN",
+    "iso_alpha2": "GN",
+    "iso_alpha3": "GIN",
+    "continent_code": "AFRICA",
+    "name_en": "Guinea",
+    "name_zh": "几内亚"
+  },
+  {
+    "code": "GW",
+    "iso_alpha2": "GW",
+    "iso_alpha3": "GNB",
+    "continent_code": "AFRICA",
+    "name_en": "Guinea-Bissau",
+    "name_zh": "几内亚比绍"
+  },
+  {
+    "code": "GY",
+    "iso_alpha2": "GY",
+    "iso_alpha3": "GUY",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Guyana",
+    "name_zh": "圭亚那"
+  },
+  {
+    "code": "HT",
+    "iso_alpha2": "HT",
+    "iso_alpha3": "HTI",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Haiti",
+    "name_zh": "海地"
+  },
+  {
+    "code": "HM",
+    "iso_alpha2": "HM",
+    "iso_alpha3": "HMD",
+    "continent_code": "OCEANIA",
+    "name_en": "Heard Island and McDonald Islands",
+    "name_zh": "赫德岛和麦克唐纳群岛"
+  },
+  {
+    "code": "VA",
+    "iso_alpha2": "VA",
+    "iso_alpha3": "VAT",
+    "continent_code": "EUROPE",
+    "name_en": "Holy See",
+    "name_zh": "梵蒂冈"
+  },
+  {
+    "code": "HN",
+    "iso_alpha2": "HN",
+    "iso_alpha3": "HND",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Honduras",
+    "name_zh": "洪都拉斯"
+  },
+  {
+    "code": "HK",
+    "iso_alpha2": "HK",
+    "iso_alpha3": "HKG",
+    "continent_code": "ASIA",
+    "name_en": "Hong Kong",
+    "name_zh": "中国香港特别行政区"
+  },
+  {
+    "code": "HU",
+    "iso_alpha2": "HU",
+    "iso_alpha3": "HUN",
+    "continent_code": "EUROPE",
+    "name_en": "Hungary",
+    "name_zh": "匈牙利"
+  },
+  {
+    "code": "IS",
+    "iso_alpha2": "IS",
+    "iso_alpha3": "ISL",
+    "continent_code": "EUROPE",
+    "name_en": "Iceland",
+    "name_zh": "冰岛"
+  },
+  {
+    "code": "IN",
+    "iso_alpha2": "IN",
+    "iso_alpha3": "IND",
+    "continent_code": "ASIA",
+    "name_en": "India",
+    "name_zh": "印度"
+  },
+  {
+    "code": "ID",
+    "iso_alpha2": "ID",
+    "iso_alpha3": "IDN",
+    "continent_code": "ASIA",
+    "name_en": "Indonesia",
+    "name_zh": "印度尼西亚"
+  },
+  {
+    "code": "IR",
+    "iso_alpha2": "IR",
+    "iso_alpha3": "IRN",
+    "continent_code": "ASIA",
+    "name_en": "Iran, Islamic Republic of",
+    "name_zh": "伊朗"
+  },
+  {
+    "code": "IQ",
+    "iso_alpha2": "IQ",
+    "iso_alpha3": "IRQ",
+    "continent_code": "ASIA",
+    "name_en": "Iraq",
+    "name_zh": "伊拉克"
+  },
+  {
+    "code": "IE",
+    "iso_alpha2": "IE",
+    "iso_alpha3": "IRL",
+    "continent_code": "EUROPE",
+    "name_en": "Ireland",
+    "name_zh": "爱尔兰"
+  },
+  {
+    "code": "IM",
+    "iso_alpha2": "IM",
+    "iso_alpha3": "IMN",
+    "continent_code": "EUROPE",
+    "name_en": "Isle of Man",
+    "name_zh": "马恩岛"
+  },
+  {
+    "code": "IL",
+    "iso_alpha2": "IL",
+    "iso_alpha3": "ISR",
+    "continent_code": "ASIA",
+    "name_en": "Israel",
+    "name_zh": "以色列"
+  },
+  {
+    "code": "IT",
+    "iso_alpha2": "IT",
+    "iso_alpha3": "ITA",
+    "continent_code": "EUROPE",
+    "name_en": "Italy",
+    "name_zh": "意大利"
+  },
+  {
+    "code": "JM",
+    "iso_alpha2": "JM",
+    "iso_alpha3": "JAM",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Jamaica",
+    "name_zh": "牙买加"
+  },
+  {
+    "code": "JP",
+    "iso_alpha2": "JP",
+    "iso_alpha3": "JPN",
+    "continent_code": "ASIA",
+    "name_en": "Japan",
+    "name_zh": "日本"
+  },
+  {
+    "code": "JE",
+    "iso_alpha2": "JE",
+    "iso_alpha3": "JEY",
+    "continent_code": "EUROPE",
+    "name_en": "Jersey",
+    "name_zh": "泽西岛"
+  },
+  {
+    "code": "JO",
+    "iso_alpha2": "JO",
+    "iso_alpha3": "JOR",
+    "continent_code": "ASIA",
+    "name_en": "Jordan",
+    "name_zh": "约旦"
+  },
+  {
+    "code": "KZ",
+    "iso_alpha2": "KZ",
+    "iso_alpha3": "KAZ",
+    "continent_code": "ASIA",
+    "name_en": "Kazakhstan",
+    "name_zh": "哈萨克斯坦"
+  },
+  {
+    "code": "KE",
+    "iso_alpha2": "KE",
+    "iso_alpha3": "KEN",
+    "continent_code": "AFRICA",
+    "name_en": "Kenya",
+    "name_zh": "肯尼亚"
+  },
+  {
+    "code": "KI",
+    "iso_alpha2": "KI",
+    "iso_alpha3": "KIR",
+    "continent_code": "OCEANIA",
+    "name_en": "Kiribati",
+    "name_zh": "基里巴斯"
+  },
+  {
+    "code": "KP",
+    "iso_alpha2": "KP",
+    "iso_alpha3": "PRK",
+    "continent_code": "ASIA",
+    "name_en": "Korea, Democratic People's Republic of",
+    "name_zh": "朝鲜"
+  },
+  {
+    "code": "KR",
+    "iso_alpha2": "KR",
+    "iso_alpha3": "KOR",
+    "continent_code": "ASIA",
+    "name_en": "Korea, Republic of",
+    "name_zh": "韩国"
+  },
+  {
+    "code": "KW",
+    "iso_alpha2": "KW",
+    "iso_alpha3": "KWT",
+    "continent_code": "ASIA",
+    "name_en": "Kuwait",
+    "name_zh": "科威特"
+  },
+  {
+    "code": "KG",
+    "iso_alpha2": "KG",
+    "iso_alpha3": "KGZ",
+    "continent_code": "ASIA",
+    "name_en": "Kyrgyzstan",
+    "name_zh": "吉尔吉斯斯坦"
+  },
+  {
+    "code": "LA",
+    "iso_alpha2": "LA",
+    "iso_alpha3": "LAO",
+    "continent_code": "ASIA",
+    "name_en": "Lao People's Democratic Republic",
+    "name_zh": "老挝"
+  },
+  {
+    "code": "LV",
+    "iso_alpha2": "LV",
+    "iso_alpha3": "LVA",
+    "continent_code": "EUROPE",
+    "name_en": "Latvia",
+    "name_zh": "拉脱维亚"
+  },
+  {
+    "code": "LB",
+    "iso_alpha2": "LB",
+    "iso_alpha3": "LBN",
+    "continent_code": "ASIA",
+    "name_en": "Lebanon",
+    "name_zh": "黎巴嫩"
+  },
+  {
+    "code": "LS",
+    "iso_alpha2": "LS",
+    "iso_alpha3": "LSO",
+    "continent_code": "AFRICA",
+    "name_en": "Lesotho",
+    "name_zh": "莱索托"
+  },
+  {
+    "code": "LR",
+    "iso_alpha2": "LR",
+    "iso_alpha3": "LBR",
+    "continent_code": "AFRICA",
+    "name_en": "Liberia",
+    "name_zh": "利比里亚"
+  },
+  {
+    "code": "LY",
+    "iso_alpha2": "LY",
+    "iso_alpha3": "LBY",
+    "continent_code": "AFRICA",
+    "name_en": "Libya",
+    "name_zh": "利比亚"
+  },
+  {
+    "code": "LI",
+    "iso_alpha2": "LI",
+    "iso_alpha3": "LIE",
+    "continent_code": "EUROPE",
+    "name_en": "Liechtenstein",
+    "name_zh": "列支敦士登"
+  },
+  {
+    "code": "LT",
+    "iso_alpha2": "LT",
+    "iso_alpha3": "LTU",
+    "continent_code": "EUROPE",
+    "name_en": "Lithuania",
+    "name_zh": "立陶宛"
+  },
+  {
+    "code": "LU",
+    "iso_alpha2": "LU",
+    "iso_alpha3": "LUX",
+    "continent_code": "EUROPE",
+    "name_en": "Luxembourg",
+    "name_zh": "卢森堡"
+  },
+  {
+    "code": "MO",
+    "iso_alpha2": "MO",
+    "iso_alpha3": "MAC",
+    "continent_code": "ASIA",
+    "name_en": "Macao",
+    "name_zh": "中国澳门特别行政区"
+  },
+  {
+    "code": "MG",
+    "iso_alpha2": "MG",
+    "iso_alpha3": "MDG",
+    "continent_code": "AFRICA",
+    "name_en": "Madagascar",
+    "name_zh": "马达加斯加"
+  },
+  {
+    "code": "MW",
+    "iso_alpha2": "MW",
+    "iso_alpha3": "MWI",
+    "continent_code": "AFRICA",
+    "name_en": "Malawi",
+    "name_zh": "马拉维"
+  },
+  {
+    "code": "MY",
+    "iso_alpha2": "MY",
+    "iso_alpha3": "MYS",
+    "continent_code": "ASIA",
+    "name_en": "Malaysia",
+    "name_zh": "马来西亚"
+  },
+  {
+    "code": "MV",
+    "iso_alpha2": "MV",
+    "iso_alpha3": "MDV",
+    "continent_code": "ASIA",
+    "name_en": "Maldives",
+    "name_zh": "马尔代夫"
+  },
+  {
+    "code": "ML",
+    "iso_alpha2": "ML",
+    "iso_alpha3": "MLI",
+    "continent_code": "AFRICA",
+    "name_en": "Mali",
+    "name_zh": "马里"
+  },
+  {
+    "code": "MT",
+    "iso_alpha2": "MT",
+    "iso_alpha3": "MLT",
+    "continent_code": "EUROPE",
+    "name_en": "Malta",
+    "name_zh": "马耳他"
+  },
+  {
+    "code": "MH",
+    "iso_alpha2": "MH",
+    "iso_alpha3": "MHL",
+    "continent_code": "OCEANIA",
+    "name_en": "Marshall Islands",
+    "name_zh": "马绍尔群岛"
+  },
+  {
+    "code": "MQ",
+    "iso_alpha2": "MQ",
+    "iso_alpha3": "MTQ",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Martinique",
+    "name_zh": "马提尼克"
+  },
+  {
+    "code": "MR",
+    "iso_alpha2": "MR",
+    "iso_alpha3": "MRT",
+    "continent_code": "AFRICA",
+    "name_en": "Mauritania",
+    "name_zh": "毛里塔尼亚"
+  },
+  {
+    "code": "MU",
+    "iso_alpha2": "MU",
+    "iso_alpha3": "MUS",
+    "continent_code": "AFRICA",
+    "name_en": "Mauritius",
+    "name_zh": "毛里求斯"
+  },
+  {
+    "code": "YT",
+    "iso_alpha2": "YT",
+    "iso_alpha3": "MYT",
+    "continent_code": "AFRICA",
+    "name_en": "Mayotte",
+    "name_zh": "马约特"
+  },
+  {
+    "code": "MX",
+    "iso_alpha2": "MX",
+    "iso_alpha3": "MEX",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Mexico",
+    "name_zh": "墨西哥"
+  },
+  {
+    "code": "FM",
+    "iso_alpha2": "FM",
+    "iso_alpha3": "FSM",
+    "continent_code": "OCEANIA",
+    "name_en": "Micronesia, Federated States of",
+    "name_zh": "密克罗尼西亚"
+  },
+  {
+    "code": "MD",
+    "iso_alpha2": "MD",
+    "iso_alpha3": "MDA",
+    "continent_code": "EUROPE",
+    "name_en": "Moldova, Republic of",
+    "name_zh": "摩尔多瓦"
+  },
+  {
+    "code": "MC",
+    "iso_alpha2": "MC",
+    "iso_alpha3": "MCO",
+    "continent_code": "EUROPE",
+    "name_en": "Monaco",
+    "name_zh": "摩纳哥"
+  },
+  {
+    "code": "MN",
+    "iso_alpha2": "MN",
+    "iso_alpha3": "MNG",
+    "continent_code": "ASIA",
+    "name_en": "Mongolia",
+    "name_zh": "蒙古"
+  },
+  {
+    "code": "ME",
+    "iso_alpha2": "ME",
+    "iso_alpha3": "MNE",
+    "continent_code": "EUROPE",
+    "name_en": "Montenegro",
+    "name_zh": "黑山"
+  },
+  {
+    "code": "MS",
+    "iso_alpha2": "MS",
+    "iso_alpha3": "MSR",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Montserrat",
+    "name_zh": "蒙特塞拉特"
+  },
+  {
+    "code": "MA",
+    "iso_alpha2": "MA",
+    "iso_alpha3": "MAR",
+    "continent_code": "AFRICA",
+    "name_en": "Morocco",
+    "name_zh": "摩洛哥"
+  },
+  {
+    "code": "MZ",
+    "iso_alpha2": "MZ",
+    "iso_alpha3": "MOZ",
+    "continent_code": "AFRICA",
+    "name_en": "Mozambique",
+    "name_zh": "莫桑比克"
+  },
+  {
+    "code": "MM",
+    "iso_alpha2": "MM",
+    "iso_alpha3": "MMR",
+    "continent_code": "ASIA",
+    "name_en": "Myanmar",
+    "name_zh": "缅甸"
+  },
+  {
+    "code": "NA",
+    "iso_alpha2": "NA",
+    "iso_alpha3": "NAM",
+    "continent_code": "AFRICA",
+    "name_en": "Namibia",
+    "name_zh": "纳米比亚"
+  },
+  {
+    "code": "NR",
+    "iso_alpha2": "NR",
+    "iso_alpha3": "NRU",
+    "continent_code": "OCEANIA",
+    "name_en": "Nauru",
+    "name_zh": "瑙鲁"
+  },
+  {
+    "code": "NP",
+    "iso_alpha2": "NP",
+    "iso_alpha3": "NPL",
+    "continent_code": "ASIA",
+    "name_en": "Nepal",
+    "name_zh": "尼泊尔"
+  },
+  {
+    "code": "NL",
+    "iso_alpha2": "NL",
+    "iso_alpha3": "NLD",
+    "continent_code": "EUROPE",
+    "name_en": "Netherlands, Kingdom of the",
+    "name_zh": "荷兰"
+  },
+  {
+    "code": "NC",
+    "iso_alpha2": "NC",
+    "iso_alpha3": "NCL",
+    "continent_code": "OCEANIA",
+    "name_en": "New Caledonia",
+    "name_zh": "新喀里多尼亚"
+  },
+  {
+    "code": "NZ",
+    "iso_alpha2": "NZ",
+    "iso_alpha3": "NZL",
+    "continent_code": "OCEANIA",
+    "name_en": "New Zealand",
+    "name_zh": "新西兰"
+  },
+  {
+    "code": "NI",
+    "iso_alpha2": "NI",
+    "iso_alpha3": "NIC",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Nicaragua",
+    "name_zh": "尼加拉瓜"
+  },
+  {
+    "code": "NE",
+    "iso_alpha2": "NE",
+    "iso_alpha3": "NER",
+    "continent_code": "AFRICA",
+    "name_en": "Niger",
+    "name_zh": "尼日尔"
+  },
+  {
+    "code": "NG",
+    "iso_alpha2": "NG",
+    "iso_alpha3": "NGA",
+    "continent_code": "AFRICA",
+    "name_en": "Nigeria",
+    "name_zh": "尼日利亚"
+  },
+  {
+    "code": "NU",
+    "iso_alpha2": "NU",
+    "iso_alpha3": "NIU",
+    "continent_code": "OCEANIA",
+    "name_en": "Niue",
+    "name_zh": "纽埃"
+  },
+  {
+    "code": "NF",
+    "iso_alpha2": "NF",
+    "iso_alpha3": "NFK",
+    "continent_code": "OCEANIA",
+    "name_en": "Norfolk Island",
+    "name_zh": "诺福克岛"
+  },
+  {
+    "code": "MK",
+    "iso_alpha2": "MK",
+    "iso_alpha3": "MKD",
+    "continent_code": "EUROPE",
+    "name_en": "North Macedonia",
+    "name_zh": "北马其顿"
+  },
+  {
+    "code": "MP",
+    "iso_alpha2": "MP",
+    "iso_alpha3": "MNP",
+    "continent_code": "OCEANIA",
+    "name_en": "Northern Mariana Islands",
+    "name_zh": "北马里亚纳群岛"
+  },
+  {
+    "code": "NO",
+    "iso_alpha2": "NO",
+    "iso_alpha3": "NOR",
+    "continent_code": "EUROPE",
+    "name_en": "Norway",
+    "name_zh": "挪威"
+  },
+  {
+    "code": "OM",
+    "iso_alpha2": "OM",
+    "iso_alpha3": "OMN",
+    "continent_code": "ASIA",
+    "name_en": "Oman",
+    "name_zh": "阿曼"
+  },
+  {
+    "code": "PK",
+    "iso_alpha2": "PK",
+    "iso_alpha3": "PAK",
+    "continent_code": "ASIA",
+    "name_en": "Pakistan",
+    "name_zh": "巴基斯坦"
+  },
+  {
+    "code": "PW",
+    "iso_alpha2": "PW",
+    "iso_alpha3": "PLW",
+    "continent_code": "OCEANIA",
+    "name_en": "Palau",
+    "name_zh": "帕劳"
+  },
+  {
+    "code": "PS",
+    "iso_alpha2": "PS",
+    "iso_alpha3": "PSE",
+    "continent_code": "ASIA",
+    "name_en": "Palestine, State of",
+    "name_zh": "巴勒斯坦领土"
+  },
+  {
+    "code": "PA",
+    "iso_alpha2": "PA",
+    "iso_alpha3": "PAN",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Panama",
+    "name_zh": "巴拿马"
+  },
+  {
+    "code": "PG",
+    "iso_alpha2": "PG",
+    "iso_alpha3": "PNG",
+    "continent_code": "OCEANIA",
+    "name_en": "Papua New Guinea",
+    "name_zh": "巴布亚新几内亚"
+  },
+  {
+    "code": "PY",
+    "iso_alpha2": "PY",
+    "iso_alpha3": "PRY",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Paraguay",
+    "name_zh": "巴拉圭"
+  },
+  {
+    "code": "PE",
+    "iso_alpha2": "PE",
+    "iso_alpha3": "PER",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Peru",
+    "name_zh": "秘鲁"
+  },
+  {
+    "code": "PH",
+    "iso_alpha2": "PH",
+    "iso_alpha3": "PHL",
+    "continent_code": "ASIA",
+    "name_en": "Philippines",
+    "name_zh": "菲律宾"
+  },
+  {
+    "code": "PN",
+    "iso_alpha2": "PN",
+    "iso_alpha3": "PCN",
+    "continent_code": "OCEANIA",
+    "name_en": "Pitcairn",
+    "name_zh": "皮特凯恩群岛"
+  },
+  {
+    "code": "PL",
+    "iso_alpha2": "PL",
+    "iso_alpha3": "POL",
+    "continent_code": "EUROPE",
+    "name_en": "Poland",
+    "name_zh": "波兰"
+  },
+  {
+    "code": "PT",
+    "iso_alpha2": "PT",
+    "iso_alpha3": "PRT",
+    "continent_code": "EUROPE",
+    "name_en": "Portugal",
+    "name_zh": "葡萄牙"
+  },
+  {
+    "code": "PR",
+    "iso_alpha2": "PR",
+    "iso_alpha3": "PRI",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Puerto Rico",
+    "name_zh": "波多黎各"
+  },
+  {
+    "code": "QA",
+    "iso_alpha2": "QA",
+    "iso_alpha3": "QAT",
+    "continent_code": "ASIA",
+    "name_en": "Qatar",
+    "name_zh": "卡塔尔"
+  },
+  {
+    "code": "RE",
+    "iso_alpha2": "RE",
+    "iso_alpha3": "REU",
+    "continent_code": "AFRICA",
+    "name_en": "Réunion",
+    "name_zh": "留尼汪"
+  },
+  {
+    "code": "RO",
+    "iso_alpha2": "RO",
+    "iso_alpha3": "ROU",
+    "continent_code": "EUROPE",
+    "name_en": "Romania",
+    "name_zh": "罗马尼亚"
+  },
+  {
+    "code": "RU",
+    "iso_alpha2": "RU",
+    "iso_alpha3": "RUS",
+    "continent_code": "EUROPE",
+    "name_en": "Russian Federation",
+    "name_zh": "俄罗斯"
+  },
+  {
+    "code": "RW",
+    "iso_alpha2": "RW",
+    "iso_alpha3": "RWA",
+    "continent_code": "AFRICA",
+    "name_en": "Rwanda",
+    "name_zh": "卢旺达"
+  },
+  {
+    "code": "BL",
+    "iso_alpha2": "BL",
+    "iso_alpha3": "BLM",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Saint Barthélemy",
+    "name_zh": "圣巴泰勒米"
+  },
+  {
+    "code": "SH",
+    "iso_alpha2": "SH",
+    "iso_alpha3": "SHN",
+    "continent_code": "AFRICA",
+    "name_en": "Saint Helena, Ascension and Tristan da Cunha",
+    "name_zh": "圣赫勒拿"
+  },
+  {
+    "code": "KN",
+    "iso_alpha2": "KN",
+    "iso_alpha3": "KNA",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Saint Kitts and Nevis",
+    "name_zh": "圣基茨和尼维斯"
+  },
+  {
+    "code": "LC",
+    "iso_alpha2": "LC",
+    "iso_alpha3": "LCA",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Saint Lucia",
+    "name_zh": "圣卢西亚"
+  },
+  {
+    "code": "MF",
+    "iso_alpha2": "MF",
+    "iso_alpha3": "MAF",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Saint Martin (French part)",
+    "name_zh": "法属圣马丁"
+  },
+  {
+    "code": "PM",
+    "iso_alpha2": "PM",
+    "iso_alpha3": "SPM",
+    "continent_code": "NORTH_AMERICA",
+    "name_en": "Saint Pierre and Miquelon",
+    "name_zh": "圣皮埃尔和密克隆群岛"
+  },
+  {
+    "code": "VC",
+    "iso_alpha2": "VC",
+    "iso_alpha3": "VCT",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Saint Vincent and the Grenadines",
+    "name_zh": "圣文森特和格林纳丁斯"
+  },
+  {
+    "code": "WS",
+    "iso_alpha2": "WS",
+    "iso_alpha3": "WSM",
+    "continent_code": "OCEANIA",
+    "name_en": "Samoa",
+    "name_zh": "萨摩亚"
+  },
+  {
+    "code": "SM",
+    "iso_alpha2": "SM",
+    "iso_alpha3": "SMR",
+    "continent_code": "EUROPE",
+    "name_en": "San Marino",
+    "name_zh": "圣马力诺"
+  },
+  {
+    "code": "ST",
+    "iso_alpha2": "ST",
+    "iso_alpha3": "STP",
+    "continent_code": "AFRICA",
+    "name_en": "Sao Tome and Principe",
+    "name_zh": "圣多美和普林西比"
+  },
+  {
+    "code": "SA",
+    "iso_alpha2": "SA",
+    "iso_alpha3": "SAU",
+    "continent_code": "ASIA",
+    "name_en": "Saudi Arabia",
+    "name_zh": "沙特阿拉伯"
+  },
+  {
+    "code": "SN",
+    "iso_alpha2": "SN",
+    "iso_alpha3": "SEN",
+    "continent_code": "AFRICA",
+    "name_en": "Senegal",
+    "name_zh": "塞内加尔"
+  },
+  {
+    "code": "RS",
+    "iso_alpha2": "RS",
+    "iso_alpha3": "SRB",
+    "continent_code": "EUROPE",
+    "name_en": "Serbia",
+    "name_zh": "塞尔维亚"
+  },
+  {
+    "code": "SC",
+    "iso_alpha2": "SC",
+    "iso_alpha3": "SYC",
+    "continent_code": "AFRICA",
+    "name_en": "Seychelles",
+    "name_zh": "塞舌尔"
+  },
+  {
+    "code": "SL",
+    "iso_alpha2": "SL",
+    "iso_alpha3": "SLE",
+    "continent_code": "AFRICA",
+    "name_en": "Sierra Leone",
+    "name_zh": "塞拉利昂"
+  },
+  {
+    "code": "SG",
+    "iso_alpha2": "SG",
+    "iso_alpha3": "SGP",
+    "continent_code": "ASIA",
+    "name_en": "Singapore",
+    "name_zh": "新加坡"
+  },
+  {
+    "code": "SX",
+    "iso_alpha2": "SX",
+    "iso_alpha3": "SXM",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Sint Maarten (Dutch part)",
+    "name_zh": "荷属圣马丁"
+  },
+  {
+    "code": "SK",
+    "iso_alpha2": "SK",
+    "iso_alpha3": "SVK",
+    "continent_code": "EUROPE",
+    "name_en": "Slovakia",
+    "name_zh": "斯洛伐克"
+  },
+  {
+    "code": "SI",
+    "iso_alpha2": "SI",
+    "iso_alpha3": "SVN",
+    "continent_code": "EUROPE",
+    "name_en": "Slovenia",
+    "name_zh": "斯洛文尼亚"
+  },
+  {
+    "code": "SB",
+    "iso_alpha2": "SB",
+    "iso_alpha3": "SLB",
+    "continent_code": "OCEANIA",
+    "name_en": "Solomon Islands",
+    "name_zh": "所罗门群岛"
+  },
+  {
+    "code": "SO",
+    "iso_alpha2": "SO",
+    "iso_alpha3": "SOM",
+    "continent_code": "AFRICA",
+    "name_en": "Somalia",
+    "name_zh": "索马里"
+  },
+  {
+    "code": "ZA",
+    "iso_alpha2": "ZA",
+    "iso_alpha3": "ZAF",
+    "continent_code": "AFRICA",
+    "name_en": "South Africa",
+    "name_zh": "南非"
+  },
+  {
+    "code": "GS",
+    "iso_alpha2": "GS",
+    "iso_alpha3": "SGS",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "South Georgia and the South Sandwich Islands",
+    "name_zh": "南乔治亚和南桑威奇群岛"
+  },
+  {
+    "code": "SS",
+    "iso_alpha2": "SS",
+    "iso_alpha3": "SSD",
+    "continent_code": "AFRICA",
+    "name_en": "South Sudan",
+    "name_zh": "南苏丹"
+  },
+  {
+    "code": "ES",
+    "iso_alpha2": "ES",
+    "iso_alpha3": "ESP",
+    "continent_code": "EUROPE",
+    "name_en": "Spain",
+    "name_zh": "西班牙"
+  },
+  {
+    "code": "LK",
+    "iso_alpha2": "LK",
+    "iso_alpha3": "LKA",
+    "continent_code": "ASIA",
+    "name_en": "Sri Lanka",
+    "name_zh": "斯里兰卡"
+  },
+  {
+    "code": "SD",
+    "iso_alpha2": "SD",
+    "iso_alpha3": "SDN",
+    "continent_code": "AFRICA",
+    "name_en": "Sudan",
+    "name_zh": "苏丹"
+  },
+  {
+    "code": "SR",
+    "iso_alpha2": "SR",
+    "iso_alpha3": "SUR",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Suriname",
+    "name_zh": "苏里南"
+  },
+  {
+    "code": "SJ",
+    "iso_alpha2": "SJ",
+    "iso_alpha3": "SJM",
+    "continent_code": "EUROPE",
+    "name_en": "Svalbard and Jan Mayen",
+    "name_zh": "斯瓦尔巴和扬马延"
+  },
+  {
+    "code": "SE",
+    "iso_alpha2": "SE",
+    "iso_alpha3": "SWE",
+    "continent_code": "EUROPE",
+    "name_en": "Sweden",
+    "name_zh": "瑞典"
+  },
+  {
+    "code": "CH",
+    "iso_alpha2": "CH",
+    "iso_alpha3": "CHE",
+    "continent_code": "EUROPE",
+    "name_en": "Switzerland",
+    "name_zh": "瑞士"
+  },
+  {
+    "code": "SY",
+    "iso_alpha2": "SY",
+    "iso_alpha3": "SYR",
+    "continent_code": "ASIA",
+    "name_en": "Syrian Arab Republic",
+    "name_zh": "叙利亚"
+  },
+  {
+    "code": "TW",
+    "iso_alpha2": "TW",
+    "iso_alpha3": "TWN",
+    "continent_code": "OTHER",
+    "name_en": "Taiwan, Province of China",
+    "name_zh": "台湾"
+  },
+  {
+    "code": "TJ",
+    "iso_alpha2": "TJ",
+    "iso_alpha3": "TJK",
+    "continent_code": "ASIA",
+    "name_en": "Tajikistan",
+    "name_zh": "塔吉克斯坦"
+  },
+  {
+    "code": "TZ",
+    "iso_alpha2": "TZ",
+    "iso_alpha3": "TZA",
+    "continent_code": "AFRICA",
+    "name_en": "Tanzania, United Republic of",
+    "name_zh": "坦桑尼亚"
+  },
+  {
+    "code": "TH",
+    "iso_alpha2": "TH",
+    "iso_alpha3": "THA",
+    "continent_code": "ASIA",
+    "name_en": "Thailand",
+    "name_zh": "泰国"
+  },
+  {
+    "code": "TL",
+    "iso_alpha2": "TL",
+    "iso_alpha3": "TLS",
+    "continent_code": "ASIA",
+    "name_en": "Timor-Leste",
+    "name_zh": "东帝汶"
+  },
+  {
+    "code": "TG",
+    "iso_alpha2": "TG",
+    "iso_alpha3": "TGO",
+    "continent_code": "AFRICA",
+    "name_en": "Togo",
+    "name_zh": "多哥"
+  },
+  {
+    "code": "TK",
+    "iso_alpha2": "TK",
+    "iso_alpha3": "TKL",
+    "continent_code": "OCEANIA",
+    "name_en": "Tokelau",
+    "name_zh": "托克劳"
+  },
+  {
+    "code": "TO",
+    "iso_alpha2": "TO",
+    "iso_alpha3": "TON",
+    "continent_code": "OCEANIA",
+    "name_en": "Tonga",
+    "name_zh": "汤加"
+  },
+  {
+    "code": "TT",
+    "iso_alpha2": "TT",
+    "iso_alpha3": "TTO",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Trinidad and Tobago",
+    "name_zh": "特立尼达和多巴哥"
+  },
+  {
+    "code": "TN",
+    "iso_alpha2": "TN",
+    "iso_alpha3": "TUN",
+    "continent_code": "AFRICA",
+    "name_en": "Tunisia",
+    "name_zh": "突尼斯"
+  },
+  {
+    "code": "TR",
+    "iso_alpha2": "TR",
+    "iso_alpha3": "TUR",
+    "continent_code": "ASIA",
+    "name_en": "Türkiye",
+    "name_zh": "土耳其"
+  },
+  {
+    "code": "TM",
+    "iso_alpha2": "TM",
+    "iso_alpha3": "TKM",
+    "continent_code": "ASIA",
+    "name_en": "Turkmenistan",
+    "name_zh": "土库曼斯坦"
+  },
+  {
+    "code": "TC",
+    "iso_alpha2": "TC",
+    "iso_alpha3": "TCA",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Turks and Caicos Islands",
+    "name_zh": "特克斯和凯科斯群岛"
+  },
+  {
+    "code": "TV",
+    "iso_alpha2": "TV",
+    "iso_alpha3": "TUV",
+    "continent_code": "OCEANIA",
+    "name_en": "Tuvalu",
+    "name_zh": "图瓦卢"
+  },
+  {
+    "code": "UG",
+    "iso_alpha2": "UG",
+    "iso_alpha3": "UGA",
+    "continent_code": "AFRICA",
+    "name_en": "Uganda",
+    "name_zh": "乌干达"
+  },
+  {
+    "code": "UA",
+    "iso_alpha2": "UA",
+    "iso_alpha3": "UKR",
+    "continent_code": "EUROPE",
+    "name_en": "Ukraine",
+    "name_zh": "乌克兰"
+  },
+  {
+    "code": "AE",
+    "iso_alpha2": "AE",
+    "iso_alpha3": "ARE",
+    "continent_code": "ASIA",
+    "name_en": "United Arab Emirates",
+    "name_zh": "阿拉伯联合酋长国"
+  },
+  {
+    "code": "GB",
+    "iso_alpha2": "GB",
+    "iso_alpha3": "GBR",
+    "continent_code": "EUROPE",
+    "name_en": "United Kingdom of Great Britain and Northern Ireland",
+    "name_zh": "英国"
+  },
+  {
+    "code": "US",
+    "iso_alpha2": "US",
+    "iso_alpha3": "USA",
+    "continent_code": "NORTH_AMERICA",
+    "name_en": "United States of America",
+    "name_zh": "美国"
+  },
+  {
+    "code": "UM",
+    "iso_alpha2": "UM",
+    "iso_alpha3": "UMI",
+    "continent_code": "OCEANIA",
+    "name_en": "United States Minor Outlying Islands",
+    "name_zh": "美国本土外小岛屿"
+  },
+  {
+    "code": "UY",
+    "iso_alpha2": "UY",
+    "iso_alpha3": "URY",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Uruguay",
+    "name_zh": "乌拉圭"
+  },
+  {
+    "code": "UZ",
+    "iso_alpha2": "UZ",
+    "iso_alpha3": "UZB",
+    "continent_code": "ASIA",
+    "name_en": "Uzbekistan",
+    "name_zh": "乌兹别克斯坦"
+  },
+  {
+    "code": "VU",
+    "iso_alpha2": "VU",
+    "iso_alpha3": "VUT",
+    "continent_code": "OCEANIA",
+    "name_en": "Vanuatu",
+    "name_zh": "瓦努阿图"
+  },
+  {
+    "code": "VE",
+    "iso_alpha2": "VE",
+    "iso_alpha3": "VEN",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Venezuela, Bolivarian Republic of",
+    "name_zh": "委内瑞拉"
+  },
+  {
+    "code": "VN",
+    "iso_alpha2": "VN",
+    "iso_alpha3": "VNM",
+    "continent_code": "ASIA",
+    "name_en": "Viet Nam",
+    "name_zh": "越南"
+  },
+  {
+    "code": "VG",
+    "iso_alpha2": "VG",
+    "iso_alpha3": "VGB",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Virgin Islands (British)",
+    "name_zh": "英属维尔京群岛"
+  },
+  {
+    "code": "VI",
+    "iso_alpha2": "VI",
+    "iso_alpha3": "VIR",
+    "continent_code": "SOUTH_AMERICA",
+    "name_en": "Virgin Islands (U.S.)",
+    "name_zh": "美属维尔京群岛"
+  },
+  {
+    "code": "WF",
+    "iso_alpha2": "WF",
+    "iso_alpha3": "WLF",
+    "continent_code": "OCEANIA",
+    "name_en": "Wallis and Futuna",
+    "name_zh": "瓦利斯和富图纳"
+  },
+  {
+    "code": "EH",
+    "iso_alpha2": "EH",
+    "iso_alpha3": "ESH",
+    "continent_code": "AFRICA",
+    "name_en": "Western Sahara",
+    "name_zh": "西撒哈拉"
+  },
+  {
+    "code": "YE",
+    "iso_alpha2": "YE",
+    "iso_alpha3": "YEM",
+    "continent_code": "ASIA",
+    "name_en": "Yemen",
+    "name_zh": "也门"
+  },
+  {
+    "code": "ZM",
+    "iso_alpha2": "ZM",
+    "iso_alpha3": "ZMB",
+    "continent_code": "AFRICA",
+    "name_en": "Zambia",
+    "name_zh": "赞比亚"
+  },
+  {
+    "code": "ZW",
+    "iso_alpha2": "ZW",
+    "iso_alpha3": "ZWE",
+    "continent_code": "AFRICA",
+    "name_en": "Zimbabwe",
+    "name_zh": "津巴布韦"
+  }
+]

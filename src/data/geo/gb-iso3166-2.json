@@ -1,0 +1,1430 @@
+[
+  {
+    "code": "GB-CHA",
+    "name_en": "Channel Islands",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-GSY",
+    "name_en": "Guernsey [Guernesey]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-JSY",
+    "name_en": "Jersey",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ENG",
+    "name_en": "England",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BDG",
+    "name_en": "Barking and Dagenham",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BNE",
+    "name_en": "Barnet",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BNS",
+    "name_en": "Barnsley",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BAS",
+    "name_en": "Bath and North East Somerset",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BDF",
+    "name_en": "Bedfordshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BEX",
+    "name_en": "Bexley",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BIR",
+    "name_en": "Birmingham (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BBD",
+    "name_en": "Blackburn with Darwen",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BPL",
+    "name_en": "Blackpool",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BOL",
+    "name_en": "Bolton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BMH",
+    "name_en": "Bournemouth",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BRC",
+    "name_en": "Bracknell Forest",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BRD",
+    "name_en": "Bradford (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BEN",
+    "name_en": "Brent",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BNH",
+    "name_en": "Brighton and Hove",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BST",
+    "name_en": "Bristol, City of",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BRY",
+    "name_en": "Bromley",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BKM",
+    "name_en": "Buckinghamshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BUR",
+    "name_en": "Bury",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CLD",
+    "name_en": "Calderdale",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CAM",
+    "name_en": "Cambridgeshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CMD",
+    "name_en": "Camden",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CHS",
+    "name_en": "Cheshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CON",
+    "name_en": "Cornwall",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-COV",
+    "name_en": "Coventry (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CRY",
+    "name_en": "Croydon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CMA",
+    "name_en": "Cumbria",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DAL",
+    "name_en": "Darlington",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DER",
+    "name_en": "Derby (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DBY",
+    "name_en": "Derbyshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DEV",
+    "name_en": "Devon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DNC",
+    "name_en": "Doncaster",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DOR",
+    "name_en": "Dorset",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DUD",
+    "name_en": "Dudley",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DUR",
+    "name_en": "Durharn",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-EAL",
+    "name_en": "Ealing",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ERY",
+    "name_en": "East Riding of Yorkshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ESX",
+    "name_en": "East Sussex",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ENF",
+    "name_en": "Enfield",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ESS",
+    "name_en": "Essex",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-GAT",
+    "name_en": "Gateshead",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-GLS",
+    "name_en": "Gloucestershire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-GRE",
+    "name_en": "Greenwich",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HCK",
+    "name_en": "Hackney",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HAL",
+    "name_en": "Haiton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HMF",
+    "name_en": "Hammersmith and Fulham",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HAM",
+    "name_en": "Hampshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HRY",
+    "name_en": "Haringey",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HRW",
+    "name_en": "Harrow",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HPL",
+    "name_en": "Hartlepool",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HAV",
+    "name_en": "Havering",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HEF",
+    "name_en": "Herefordshire, County of",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HRT",
+    "name_en": "Hertfordshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HIL",
+    "name_en": "Hillingdon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HNS",
+    "name_en": "Hounslow",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-IOW",
+    "name_en": "Isle of Wight",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-IOS",
+    "name_en": "Isles of Scilly",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ISL",
+    "name_en": "Islington",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-KEC",
+    "name_en": "Kensington and Chelsea",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-KEN",
+    "name_en": "Kent",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-KHL",
+    "name_en": "Kingston upon Hull, City of",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-KTT",
+    "name_en": "Kingston upon Thames",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-KIR",
+    "name_en": "Kirklees",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-KWL",
+    "name_en": "Knowsley",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LBH",
+    "name_en": "Lambeth",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LAN",
+    "name_en": "Lancashire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LDS",
+    "name_en": "Leeds (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LCE",
+    "name_en": "Leitester (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LEC",
+    "name_en": "Leicestershire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LEW",
+    "name_en": "Lewisham",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LIN",
+    "name_en": "Lincolnshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LIV",
+    "name_en": "Liverpool (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LND",
+    "name_en": "London, City of",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LUT",
+    "name_en": "Luton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MAN",
+    "name_en": "Manchester (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MDW",
+    "name_en": "Medway",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MRT",
+    "name_en": "Merton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MDB",
+    "name_en": "Middlesbrough",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MIK",
+    "name_en": "Milton Keynes",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NET",
+    "name_en": "Newcastle upon Tyne (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NWM",
+    "name_en": "Newham",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NFK",
+    "name_en": "Norfolk",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NEL",
+    "name_en": "North East Lincolnshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NLN",
+    "name_en": "North Lincolnshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NSM",
+    "name_en": "North Somerset",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NTY",
+    "name_en": "North Tyneside",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NYK",
+    "name_en": "North Yorkshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NTH",
+    "name_en": "Northamptonshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NBL",
+    "name_en": "Northumberland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NGM",
+    "name_en": "Nottingham (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NTT",
+    "name_en": "Nottinghamshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-OLD",
+    "name_en": "Oldham",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-OXF",
+    "name_en": "Oxfordshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-PTE",
+    "name_en": "Peterborough",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-PLY",
+    "name_en": "Plymouth (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-POL",
+    "name_en": "Poole",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-POR",
+    "name_en": "Portsmouth (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RDG",
+    "name_en": "Reading",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RDB",
+    "name_en": "Redbridge",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RCC",
+    "name_en": "Redcar and Cleveland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RIC",
+    "name_en": "Richmond upon Thames",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RCH",
+    "name_en": "Rochdale",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ROT",
+    "name_en": "Rotherharn",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RUT",
+    "name_en": "Rutland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SHN",
+    "name_en": "St. Helens",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SLF",
+    "name_en": "Salford (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SAW",
+    "name_en": "Sandweil",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SFT",
+    "name_en": "Sefton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SHF",
+    "name_en": "Sheffield (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SHR",
+    "name_en": "Shropshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SLG",
+    "name_en": "Slough",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SOL",
+    "name_en": "Solihull",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SOM",
+    "name_en": "Somerset",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SGC",
+    "name_en": "South Gloucestershire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STY",
+    "name_en": "South Tyneside",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STH",
+    "name_en": "Southampton (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SOS",
+    "name_en": "Southend-on-Sea",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SWK",
+    "name_en": "Southwark",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STS",
+    "name_en": "Staffordshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SKP",
+    "name_en": "Stockport",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STT",
+    "name_en": "Stockton-On-Tees",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STE",
+    "name_en": "Stoke-on-Trent (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SFK",
+    "name_en": "Suffolk",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SND",
+    "name_en": "Sunderland (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SRY",
+    "name_en": "Surrey",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STN",
+    "name_en": "Sutton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SWD",
+    "name_en": "Swindon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-TAM",
+    "name_en": "Tameside",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-TFW",
+    "name_en": "Telford and Wrekin",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-THR",
+    "name_en": "Thurrock",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-TOB",
+    "name_en": "Torbay",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-TWH",
+    "name_en": "Tower Hamlets",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-TRF",
+    "name_en": "Trafford",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WKF",
+    "name_en": "Wakefield (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WLL",
+    "name_en": "Walsall",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WFT",
+    "name_en": "Waltham Forest",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WND",
+    "name_en": "Wandsworth",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WRT",
+    "name_en": "Warrington",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WAR",
+    "name_en": "Warwickshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WBK",
+    "name_en": "West Berkshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WSX",
+    "name_en": "West Sussex",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WSM",
+    "name_en": "Westminster (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WGN",
+    "name_en": "Wigan",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WIL",
+    "name_en": "Wiltshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WNM",
+    "name_en": "Windsor and Maidenhead",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WRL",
+    "name_en": "Wirral",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WOK",
+    "name_en": "Wokingham",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WLV",
+    "name_en": "Wolverhampton",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WOR",
+    "name_en": "Worcestershire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-YOR",
+    "name_en": "York (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-IOM",
+    "name_en": "Isle of Man",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NIR",
+    "name_en": "Northern Ireland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ANT",
+    "name_en": "Antrim",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ARD",
+    "name_en": "Ards",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ARM",
+    "name_en": "Armagh",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BLA",
+    "name_en": "Ballymena",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BLY",
+    "name_en": "Ballymoney",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BNB",
+    "name_en": "Banbridge",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BFS",
+    "name_en": "Belfast (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CKF",
+    "name_en": "Carrickfergus",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CSR",
+    "name_en": "Castlereagh",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CLR",
+    "name_en": "Coleraine",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CKT",
+    "name_en": "Cookstown",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CGV",
+    "name_en": "Craigavon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DRY",
+    "name_en": "Derry (City of)",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DOW",
+    "name_en": "Down",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DGN",
+    "name_en": "Dungannon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-FER",
+    "name_en": "Fermanagh",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LRN",
+    "name_en": "Larne",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LMV",
+    "name_en": "Limavady",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-LSB",
+    "name_en": "Lisburn",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MFT",
+    "name_en": "Magherafelt",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MYL",
+    "name_en": "Moyle",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NYM",
+    "name_en": "Newry and Mourne",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NTA",
+    "name_en": "Newtownabbey",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NDN",
+    "name_en": "North Down",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-OMH",
+    "name_en": "Omagh",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STB",
+    "name_en": "Strabane",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SCT",
+    "name_en": "Scotland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ABE",
+    "name_en": "Aberdeen City",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ABD",
+    "name_en": "Aberdeenshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ANS",
+    "name_en": "Angus",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-AGB",
+    "name_en": "Argyll and Bute",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CLK",
+    "name_en": "Clackmannanshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DGY",
+    "name_en": "Dumfries and Galloway",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DND",
+    "name_en": "Dundee City",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-EAY",
+    "name_en": "East Ayrshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-EDU",
+    "name_en": "East Dunbartonshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ELN",
+    "name_en": "East Lothian",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ERW",
+    "name_en": "East Renfrewshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-EDH",
+    "name_en": "Edinburgh, City of",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ELS",
+    "name_en": "Eilean Siar",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-FAL",
+    "name_en": "Falkirk",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-FIF",
+    "name_en": "Fife",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-GLG",
+    "name_en": "Glasgow City",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-HLD",
+    "name_en": "Highland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-IVC",
+    "name_en": "Inverclyde",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MLN",
+    "name_en": "Midlothian",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MRY",
+    "name_en": "Moray",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NAY",
+    "name_en": "North Ayrshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NLK",
+    "name_en": "North Lanarkshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ORK",
+    "name_en": "Orkney Islands",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-PKN",
+    "name_en": "Perth and Kinross",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RFW",
+    "name_en": "Renfrewshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SCB",
+    "name_en": "Scottish Borders, The",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-ZET",
+    "name_en": "Shetland Islands",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SAY",
+    "name_en": "South Ayrshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SLK",
+    "name_en": "South Lanarkshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-STG",
+    "name_en": "Stirling",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WDU",
+    "name_en": "West Dunbartonshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WLN",
+    "name_en": "West Lothian",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WLS",
+    "name_en": "Wales [Cymru]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BGW",
+    "name_en": "Blaenau Gwent",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-BGE",
+    "name_en": "Bridgend [Pen-y-bont ar Ogwr GB-POG]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CAY",
+    "name_en": "Caerphilly [Caerffili GB-CAF]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CRF",
+    "name_en": "Cardiff (City of) [Caerdydd GB-CRD]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CMN",
+    "name_en": "Carmarthenshire [Sir Gaerfyrddin GB-GFY]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CGN",
+    "name_en": "Ceredigion [Sir Ceredigion]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-CWY",
+    "name_en": "Conwy",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-DEN",
+    "name_en": "Denbighshire [Sir Ddinbych GB-DDB]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-FLN",
+    "name_en": "Flintshire [Sir y Fflint GB-FFL]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-GWN",
+    "name_en": "Gwynedd",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-AGY",
+    "name_en": "Isle of Anglesey [Sir Ynys Man GB-YNM]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MTY",
+    "name_en": "Merthyr Tydfil [Merthyr Tudful GB-MTU]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-MON",
+    "name_en": "Monmouthshire [Sir Fynwy GB-FYN]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NTL",
+    "name_en": "Neath Port Talbot [Castell-nedd Port Talbot GB-CTL]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-NWP",
+    "name_en": "Newport [Casnewydd GB-CNW]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-PEM",
+    "name_en": "Pembrokeshire [Sir Benfro CB-BNF]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-POW",
+    "name_en": "Powys",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-RCT",
+    "name_en": "Rhondda, Cynon, Taff [Rhondda, Cynon, Taf]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-SWA",
+    "name_en": "Swansea (City of) [Abertawe GB-ATA]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-TOF",
+    "name_en": "Torfaen [Tor-faen]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-VGL",
+    "name_en": "Vale of Glamorgan, The [Bro Morgannwg GB-BMG]",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "GB-WRX",
+    "name_en": "Wrexham [Wrecsam GB-WRC]",
+    "level": "admin1",
+    "parent_code": null
+  }
+]

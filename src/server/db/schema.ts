@@ -48,6 +48,7 @@ export const editorialContentTypeEnum = pgEnum('editorial_content_type', ['conte
 export const editorialContentModuleEnum = pgEnum('editorial_content_module', ['editorial', 'faq']);
 export const productRelationTypeEnum = pgEnum('product_relation_type', ['drivers', 'mechanical-integration', 'power-control', 'custom']);
 export const textDirectionEnum = pgEnum('text_direction', ['ltr', 'rtl']);
+export const geoDivisionLevelEnum = pgEnum('geo_division_level', ['country', 'admin1', 'admin2', 'admin3', 'locality', 'postal']);
 
 export const users = pgTable(
   'users',
@@ -318,6 +319,37 @@ export const commerceSettings = pgTable('commerce_settings', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const geoDivisions = pgTable(
+  'geo_divisions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    parentId: uuid('parent_id').references((): AnyPgColumn => geoDivisions.id, { onDelete: 'cascade' }),
+    level: geoDivisionLevelEnum('level').notNull(),
+    code: varchar('code', { length: 32 }).notNull(),
+    isoAlpha2: varchar('iso_alpha2', { length: 2 }),
+    isoAlpha3: varchar('iso_alpha3', { length: 3 }),
+    continentCode: varchar('continent_code', { length: 32 }),
+    nameEn: varchar('name_en', { length: 200 }).notNull(),
+    nameZh: varchar('name_zh', { length: 200 }),
+    nameNative: varchar('name_native', { length: 200 }),
+    nameEnTitle: varchar('name_en_title', { length: 200 }).notNull(),
+    postalCode: varchar('postal_code', { length: 32 }),
+    postalCodePattern: varchar('postal_code_pattern', { length: 120 }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    enabled: boolean('enabled').notNull().default(true),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    parentCodeUnique: uniqueIndex('geo_divisions_parent_code_unique').on(table.parentId, table.code),
+    parentIdx: index('geo_divisions_parent_idx').on(table.parentId),
+    levelIdx: index('geo_divisions_level_idx').on(table.level),
+    continentIdx: index('geo_divisions_continent_idx').on(table.continentCode),
+    isoAlpha2Unique: uniqueIndex('geo_divisions_iso_alpha2_unique').on(table.isoAlpha2),
+  }),
+);
 
 export const editorialSettings = pgTable('editorial_settings', {
   id: varchar('id', { length: 32 }).primaryKey(),

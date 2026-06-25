@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import type { CommerceConfig } from '@/lib/commerce-config';
 import { getAdminCommerceConfig, updateAdminCommerceConfig } from '@/server/commerce/config';
+import { isShippingContinentCode } from '@/lib/shipping-continents';
 
 const volumePricingRuleSchema = z.object({
   id: z.string().default(''),
@@ -24,8 +26,11 @@ const shippingMethodSchema = z.object({
 
 const shippingCountryRateSchema = z.object({
   id: z.string().default(''),
-  countryCode: z.string().trim().min(2).max(16),
-  countryName: z.string().trim().min(1),
+  regionCode: z.string().trim().refine((value) => isShippingContinentCode(value), 'Invalid region code'),
+  countryIsoCode: z.string().trim().max(2).nullable().optional().transform((value) => value?.toUpperCase() || null),
+  regionName: z.string().trim().default(''),
+  countryName: z.string().trim().nullable().optional().transform((value) => value ?? null),
+  countryCode: z.string().trim().min(1).optional(),
   shippingMethodCode: z.string().trim().min(1),
   rate: z.coerce.number().min(0),
   freeShippingThreshold: z.coerce.number().min(0).nullable().optional().transform((value) => value ?? null),
@@ -56,6 +61,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const updated = await updateAdminCommerceConfig(parsed.data);
+  const updated = await updateAdminCommerceConfig(parsed.data as CommerceConfig);
   return NextResponse.json(updated);
 }

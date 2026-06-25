@@ -1,11 +1,15 @@
 'use client';
 
 import { Card, Form, Select, Space, Typography } from 'antd';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { CommerceConfig } from '@/lib/commerce-config';
 import { getCommonCurrencyGroupedSelectOptions } from '@/lib/currencies';
-import { getShippingRegionFlatSelectOptions } from '@/lib/shipping-regions';
+
+type GeoCountryOption = {
+  value: string;
+  label: string;
+};
 
 export type CommerceSettingsFormValues = {
   currencyCode: string;
@@ -20,12 +24,25 @@ type CommerceSettingsFormProps = {
 
 export function CommerceSettingsForm({ config, onChange }: CommerceSettingsFormProps) {
   const [form] = Form.useForm<CommerceSettingsFormValues>();
+  const [countryOptions, setCountryOptions] = useState<GeoCountryOption[]>([]);
   const currencyOptions = useMemo(() => getCommonCurrencyGroupedSelectOptions(), []);
-  const countryOptions = getShippingRegionFlatSelectOptions();
   const shippingMethodOptions = config.shippingMethods.map((method) => ({
     value: method.code,
     label: `${method.name} (${method.code})`,
   }));
+
+  useEffect(() => {
+    void fetch('/api/admin/geo/countries')
+      .then((response) => response.json())
+      .then((payload: { items?: Array<{ isoAlpha2: string; label: string }> }) => {
+        const options = (payload.items ?? []).map((item) => ({
+          value: item.isoAlpha2,
+          label: item.label,
+        }));
+        setCountryOptions(options);
+      })
+      .catch(() => setCountryOptions([]));
+  }, []);
 
   useEffect(() => {
     form.setFieldsValue({
@@ -55,8 +72,8 @@ export function CommerceSettingsForm({ config, onChange }: CommerceSettingsFormP
           >
             <Select showSearch optionFilterProp="label" options={currencyOptions} />
           </Form.Item>
-          <Form.Item label="默认国家/地区" name="defaultCountryCode" style={{ minWidth: 220, marginBottom: 0 }}>
-            <Select showSearch optionFilterProp="label" options={countryOptions} />
+          <Form.Item label="默认国家" name="defaultCountryCode" style={{ minWidth: 280, marginBottom: 0 }}>
+            <Select showSearch optionFilterProp="label" options={countryOptions} loading={!countryOptions.length} />
           </Form.Item>
           <Form.Item label="默认物流方式" name="defaultShippingMethodCode" style={{ minWidth: 260, marginBottom: 0 }}>
             <Select options={shippingMethodOptions} />

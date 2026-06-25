@@ -11,6 +11,8 @@ import {
   type ShippingMethodConfig,
   type VolumePricingRuleConfig,
 } from '@/lib/commerce-config';
+import { normalizeShippingCountryRateConfig } from '@/lib/commerce-shipping-rate';
+import { validateShippingRateScope } from '@/lib/shipping-rate-uniqueness';
 import { db } from '@/server/db';
 import { commerceSettings } from '@/server/db/schema';
 
@@ -66,7 +68,6 @@ function normalizeShippingMethod(method: ShippingMethodConfig, index: number): S
 
 function normalizeShippingCountryRate(
   rate: ShippingCountryRateConfig,
-  index: number,
   methodCodes: Set<string>,
 ): ShippingCountryRateConfig | null {
   const shippingMethodCode = normalizeMethodCode(rate.shippingMethodCode, '');
@@ -74,15 +75,13 @@ function normalizeShippingCountryRate(
     return null;
   }
 
-  const countryCode = normalizeCommerceCountryCode(rate.countryCode || defaultCommerceConfig.defaultCountryCode);
   const numericRate = Number.isFinite(Number(rate.rate)) ? Number(rate.rate) : 0;
   const numericFreeShippingThreshold = rate.freeShippingThreshold == null ? null : Number(rate.freeShippingThreshold);
   const numericTaxRate = Number.isFinite(Number(rate.taxRate)) ? Number(rate.taxRate) : 0;
 
-  return {
+  return normalizeShippingCountryRateConfig({
+    ...rate,
     id: sanitizeText(rate.id) ?? randomUUID(),
-    countryCode,
-    countryName: sanitizeText(rate.countryName) ?? countryCode,
     shippingMethodCode,
     rate: Number(Math.max(0, numericRate).toFixed(2)),
     freeShippingThreshold:
@@ -92,7 +91,22 @@ function normalizeShippingCountryRate(
     taxRate: Number(Math.min(Math.max(numericTaxRate, 0), 1).toFixed(4)),
     enabled: rate.enabled !== false,
     note: sanitizeText(rate.note),
-  };
+  });
+}
+
+function dedupeShippingRates(rates: ShippingCountryRateConfig[]) {
+  const result: ShippingCountryRateConfig[] = [];
+  for (const rate of rates) {
+    const validation = validateShippingRateScope(result, {
+      shippingMethodCode: rate.shippingMethodCode,
+      regionCode: rate.regionCode,
+      countryIsoCode: rate.countryIsoCode,
+    });
+    if (validation.ok) {
+      result.push(rate);
+    }
+  }
+  return result;
 }
 
 function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
@@ -105,24 +119,22 @@ function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
   const normalizedShippingMethods = shippingMethods.length ? shippingMethods : cloneCommerceConfig(defaultCommerceConfig).shippingMethods;
   const methodCodes = new Set(normalizedShippingMethods.map((method) => method.code));
 
-  const shippingCountryRates = input.shippingCountryRates
-    .map((rate, index) => normalizeShippingCountryRate(rate, index, methodCodes))
-    .filter((rate): rate is ShippingCountryRateConfig => Boolean(rate))
-    .sort(
-      (left, right) =>
-        left.countryCode.localeCompare(right.countryCode) ||
-        left.shippingMethodCode.localeCompare(right.shippingMethodCode) ||
-        left.countryName.localeCompare(right.countryName),
-    );
+  const shippingCountryRates = dedupeShippingRates(
+    input.shippingCountryRates
+      .map((rate) => normalizeShippingCountryRate(rate, methodCodes))
+      .filter((rate): rate is ShippingCountryRateConfig => Boolean(rate))
+      .sort(
+        (left, right) =>
+          left.regionCode.localeCompare(right.regionCode)
+          || (left.countryIsoCode ?? '').localeCompare(right.countryIsoCode ?? '')
+          || left.shippingMethodCode.localeCompare(right.shippingMethodCode),
+      ),
+  );
   const normalizedShippingCountryRates = shippingCountryRates.length
     ? shippingCountryRates
     : cloneCommerceConfig(defaultCommerceConfig).shippingCountryRates;
 
-  const availableCountryCodes = new Set(normalizedShippingCountryRates.map((rate) => normalizeCommerceCountryCode(rate.countryCode)));
   const normalizedDefaultCountryCode = normalizeCommerceCountryCode(input.defaultCountryCode || defaultCommerceConfig.defaultCountryCode);
-  const defaultCountryCode = availableCountryCodes.has(normalizedDefaultCountryCode)
-    ? normalizedDefaultCountryCode
-    : normalizeCommerceCountryCode(normalizedShippingCountryRates[0]?.countryCode || defaultCommerceConfig.defaultCountryCode);
 
   const normalizedDefaultShippingMethodCode = normalizeMethodCode(input.defaultShippingMethodCode, '');
   const defaultShippingMethodCode = methodCodes.has(normalizedDefaultShippingMethodCode)
@@ -131,7 +143,7 @@ function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
 
   return {
     currencyCode: normalizeCurrencyCode(input.currencyCode),
-    defaultCountryCode,
+    defaultCountryCode: normalizedDefaultCountryCode,
     defaultShippingMethodCode,
     volumePricingRules: normalizedVolumePricingRules,
     shippingMethods: normalizedShippingMethods,

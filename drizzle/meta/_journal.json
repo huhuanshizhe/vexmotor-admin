@@ -36,6 +36,13 @@
       "when": 1781100000000,
       "tag": "0005_category_translations",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781200000000,
+      "tag": "0015_geo_divisions",
+      "breakpoints": true
     }
   ]
 }

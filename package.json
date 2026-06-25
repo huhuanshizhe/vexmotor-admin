@@ -16,6 +16,7 @@
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/server/db/seed.ts",
+    "db:seed-geo": "tsx scripts/seed-geo-divisions.ts",
     "db:migrate-admins": "tsx scripts/migrate-admin-users.ts"
   },
   "dependencies": {

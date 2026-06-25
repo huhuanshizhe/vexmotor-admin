@@ -15,6 +15,7 @@ import { useCommerceConfig } from '@/components/commerce/use-commerce-config';
 import { ADMIN_ACTION_TOOLTIP_PROPS } from '@/components/admin/admin-row-actions';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
 import type { CommerceConfig, ShippingMethodConfig } from '@/lib/commerce-config';
+import { getShippingRateChipLabel } from '@/lib/commerce-shipping-rate';
 import { resolveSlugForSave } from '@/lib/slug';
 
 function resolveShippingMethodCodeForSave(
@@ -283,7 +284,7 @@ export function ShippingMethodsClient({ initialConfig }: { initialConfig: Commer
                             className="shipping-method-country-rates__chip"
                             onClick={() => openRatesModal(row, rate.id)}
                           >
-                            {rate.countryCode}
+                            {getShippingRateChipLabel(rate)}
                           </button>
                         ))}
                       </div>

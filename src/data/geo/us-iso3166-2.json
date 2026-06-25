@@ -1,0 +1,344 @@
+[
+  {
+    "code": "US-AL",
+    "name_en": "Alabama",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-AK",
+    "name_en": "Alaska",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-AZ",
+    "name_en": "Arizona",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-AR",
+    "name_en": "Arkansas",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-CA",
+    "name_en": "California",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-CO",
+    "name_en": "Colorado",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-CT",
+    "name_en": "Connecticut",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-DE",
+    "name_en": "Delaware",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-FL",
+    "name_en": "Florida",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-GA",
+    "name_en": "Georgia",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-HI",
+    "name_en": "Hawaii",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-ID",
+    "name_en": "Idaho",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-IL",
+    "name_en": "Illinois",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-IN",
+    "name_en": "Indiana",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-IA",
+    "name_en": "Iowa",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-KS",
+    "name_en": "Kansas",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-KY",
+    "name_en": "Kentucky",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-LA",
+    "name_en": "Louisiana",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-ME",
+    "name_en": "Maine",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MD",
+    "name_en": "Maryland",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MA",
+    "name_en": "Massachusetts",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MI",
+    "name_en": "Michigan",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MN",
+    "name_en": "Minnesota",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MS",
+    "name_en": "Mississippi",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MO",
+    "name_en": "Missouri",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MT",
+    "name_en": "Montana",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NE",
+    "name_en": "Nebraska",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NV",
+    "name_en": "Nevada",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NH",
+    "name_en": "New Hampshire",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NJ",
+    "name_en": "New Jersey",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NM",
+    "name_en": "New Mexico",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NY",
+    "name_en": "New York",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-NC",
+    "name_en": "North Carolina",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-ND",
+    "name_en": "North Dakota",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-OH",
+    "name_en": "Ohio",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-OK",
+    "name_en": "Oklahoma",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-OR",
+    "name_en": "Oregon",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-PA",
+    "name_en": "Pennsylvania",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-RI",
+    "name_en": "Rhode Island",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-SC",
+    "name_en": "South Carolina",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-SD",
+    "name_en": "South Dakota",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-TN",
+    "name_en": "Tennessee",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-TX",
+    "name_en": "Texas",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-UT",
+    "name_en": "Utah",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-VT",
+    "name_en": "Vermont",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-VA",
+    "name_en": "Virginia",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-WA",
+    "name_en": "Washington",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-WV",
+    "name_en": "West Virginia",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-WI",
+    "name_en": "Wisconsin",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-WY",
+    "name_en": "Wyoming",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-DC",
+    "name_en": "District of Columbia",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-AS",
+    "name_en": "American Samoa",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-GU",
+    "name_en": "Guam",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-MP",
+    "name_en": "Northern Mariana Islands",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-PR",
+    "name_en": "Puerto Rico",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-UM",
+    "name_en": "United States Minor Outlying Islands",
+    "level": "admin1",
+    "parent_code": null
+  },
+  {
+    "code": "US-VI",
+    "name_en": "Virgin Islands, U.S.",
+    "level": "admin1",
+    "parent_code": null
+  }
+]

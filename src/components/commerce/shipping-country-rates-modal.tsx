@@ -8,18 +8,29 @@ import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { adminTableFixedActionsColumn } from '@/components/admin/admin-table';
 import { createLocalId, formatCommerceMoney } from '@/components/commerce/commerce-utils';
 import type { CommerceConfig, ShippingCountryRateConfig, ShippingMethodConfig } from '@/lib/commerce-config';
+import {
+  normalizeShippingCountryRateConfig,
+} from '@/lib/commerce-shipping-rate';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
 import {
-  getShippingRegionFlatSelectOptions,
-  getShippingRegionGroupedSelectOptions,
-  getShippingRegionLabel,
-  getShippingRegionName,
-  isShippingRegionCode,
-} from '@/lib/shipping-regions';
+  getShippingContinent,
+  getShippingContinentLabel,
+  getShippingContinentSelectOptions,
+  isShippingContinentCode,
+  type ShippingContinentCode,
+} from '@/lib/shipping-continents';
+import { validateShippingRateScope } from '@/lib/shipping-rate-uniqueness';
 import { decimalToTaxRatePercentValue, formatTaxRatePercent, parseTaxRatePercentInput } from '@/lib/tax-rate';
 
+type GeoCountryOption = {
+  value: string;
+  label: string;
+  nameEn: string;
+};
+
 type CountryRateFormValues = {
-  countryCode: string;
+  regionCode: ShippingContinentCode;
+  countryIsoCode: string | null;
   rate: number;
   freeShippingThreshold: number | null;
   taxRatePercent: number | null;
@@ -47,37 +58,41 @@ export function ShippingCountryRatesModal({
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [continentCountries, setContinentCountries] = useState<GeoCountryOption[]>([]);
   const [form] = Form.useForm<CountryRateFormValues>();
+  const selectedRegionCode = Form.useWatch('regionCode', form);
 
   const rates = useMemo(
     () => (method
       ? config.shippingCountryRates
         .filter((rate) => rate.shippingMethodCode === method.code)
-        .sort((left, right) => left.countryCode.localeCompare(right.countryCode))
+        .sort(
+          (left, right) =>
+            left.regionCode.localeCompare(right.regionCode)
+            || (left.countryIsoCode ?? '').localeCompare(right.countryIsoCode ?? ''),
+        )
       : []),
     [config.shippingCountryRates, method],
   );
 
-  const usedCountryCodes = useMemo(() => rates.map((rate) => rate.countryCode), [rates]);
+  const regionOptions = useMemo(() => getShippingContinentSelectOptions(), []);
 
-  const addableCountryOptions = useMemo(
-    () => getShippingRegionGroupedSelectOptions(usedCountryCodes),
-    [usedCountryCodes],
-  );
-
-  const formCountryOptions = useMemo(() => {
-    if (!editingRateId) {
-      return addableCountryOptions;
+  useEffect(() => {
+    if (!selectedRegionCode) {
+      setContinentCountries([]);
+      return;
     }
-    const rate = rates.find((item) => item.id === editingRateId);
-    if (!rate) {
-      return [];
-    }
-    return [{
-      label: '当前',
-      options: [{ value: rate.countryCode, label: getShippingRegionLabel(rate.countryCode) }],
-    }];
-  }, [addableCountryOptions, editingRateId, rates]);
+    void fetch(`/api/admin/geo/countries?continent=${selectedRegionCode}`)
+      .then((response) => response.json())
+      .then((payload: { items?: Array<{ isoAlpha2: string; label: string; nameEn: string }> }) => {
+        setContinentCountries((payload.items ?? []).map((item) => ({
+          value: item.isoAlpha2,
+          label: item.label,
+          nameEn: item.nameEn,
+        })));
+      })
+      .catch(() => setContinentCountries([]));
+  }, [selectedRegionCode]);
 
   useEffect(() => {
     if (!open || !method) {
@@ -98,15 +113,9 @@ export function ShippingCountryRatesModal({
   function openRateForm(rate?: ShippingCountryRateConfig) {
     if (!method) return;
     setEditingRateId(rate?.id ?? null);
-    const selectableCountries = getShippingRegionFlatSelectOptions(
-      rates.filter((item) => item.id !== rate?.id).map((item) => item.countryCode),
-    );
-    const defaultCountryCode = selectableCountries.find((option) => option.value === config.defaultCountryCode)?.value
-      ?? selectableCountries[0]?.value
-      ?? config.defaultCountryCode;
-
     form.setFieldsValue({
-      countryCode: rate?.countryCode ?? defaultCountryCode,
+      regionCode: rate?.regionCode ?? 'EUROPE',
+      countryIsoCode: rate?.countryIsoCode ?? null,
       rate: rate?.rate ?? 0,
       freeShippingThreshold: rate?.freeShippingThreshold ?? null,
       taxRatePercent: rate?.taxRate ? decimalToTaxRatePercentValue(rate.taxRate) : null,
@@ -119,41 +128,47 @@ export function ShippingCountryRatesModal({
   function saveRate() {
     if (!method) return;
     void form.validateFields().then((values) => {
-      if (!isShippingRegionCode(values.countryCode)) {
-        void message.error('请选择有效的国家/地区');
+      if (!isShippingContinentCode(values.regionCode)) {
+        void message.error('请选择有效的地区');
         return;
       }
 
-      const duplicate = rates.some(
-        (rate) => rate.countryCode === values.countryCode && rate.id !== editingRateId,
-      );
-      if (duplicate) {
-        void message.error('该物流方式已存在此国家/地区的费率');
+      const validation = validateShippingRateScope(config.shippingCountryRates, {
+        shippingMethodCode: method.code,
+        regionCode: values.regionCode,
+        countryIsoCode: values.countryIsoCode,
+        editingId: editingRateId,
+      });
+      if (!validation.ok) {
+        void message.error(validation.message);
         return;
       }
 
       const taxRate = parseTaxRatePercentInput(values.taxRatePercent);
+      const selectedCountry = values.countryIsoCode
+        ? continentCountries.find((item) => item.value === values.countryIsoCode)
+        : null;
 
-      onChange((current) => {
-        const nextRate: ShippingCountryRateConfig = {
-          id: editingRateId ?? createLocalId('rate'),
-          countryCode: values.countryCode,
-          countryName: getShippingRegionName(values.countryCode),
-          shippingMethodCode: method.code,
-          rate: values.rate,
-          freeShippingThreshold: values.freeShippingThreshold == null ? null : values.freeShippingThreshold,
-          taxRate,
-          enabled: values.enabled,
-          note: values.note.trim() || null,
-        };
-
-        return {
-          ...current,
-          shippingCountryRates: editingRateId
-            ? current.shippingCountryRates.map((rate) => (rate.id === editingRateId ? nextRate : rate))
-            : [...current.shippingCountryRates, nextRate],
-        };
+      const nextRate = normalizeShippingCountryRateConfig({
+        id: editingRateId ?? createLocalId('rate'),
+        regionCode: values.regionCode,
+        countryIsoCode: values.countryIsoCode,
+        regionName: getShippingContinentLabel(values.regionCode).split(' — ')[1],
+        countryName: selectedCountry?.nameEn ?? null,
+        shippingMethodCode: method.code,
+        rate: values.rate,
+        freeShippingThreshold: values.freeShippingThreshold == null ? null : values.freeShippingThreshold,
+        taxRate,
+        enabled: values.enabled,
+        note: values.note.trim() || null,
       });
+
+      onChange((current) => ({
+        ...current,
+        shippingCountryRates: editingRateId
+          ? current.shippingCountryRates.map((rate) => (rate.id === editingRateId ? nextRate : rate))
+          : [...current.shippingCountryRates, nextRate],
+      }));
       setFormModalOpen(false);
       setEditingRateId(null);
       form.resetFields();
@@ -196,12 +211,7 @@ export function ShippingCountryRatesModal({
         <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
             <Typography.Text type="secondary">物流方式编码：{method?.code ?? '—'}</Typography.Text>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              disabled={!addableCountryOptions.length}
-              onClick={() => openRateForm()}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openRateForm()}>
               新增国家费率
             </Button>
           </Space>
@@ -209,7 +219,7 @@ export function ShippingCountryRatesModal({
           <Table
             rowKey="id"
             pagination={false}
-            scroll={{ x: 1020 }}
+            scroll={{ x: 960 }}
             dataSource={rates}
             onRow={(row) => ({
               onClick: () => setSelectedRateId(row.id),
@@ -221,9 +231,19 @@ export function ShippingCountryRatesModal({
             columns={[
               buildAdminListRowIndexColumn(1, rates.length || 1),
               {
-                title: '国家/地区',
-                dataIndex: 'countryName',
-                render: (_: string, row: ShippingCountryRateConfig) => getShippingRegionLabel(row.countryCode),
+                title: '地区',
+                dataIndex: 'regionCode',
+                render: (_: string, row: ShippingCountryRateConfig) => (
+                  getShippingContinent(row.regionCode)?.name ?? row.regionName ?? row.regionCode
+                ),
+              },
+              {
+                title: '国家',
+                dataIndex: 'countryIsoCode',
+                render: (_: string | null, row: ShippingCountryRateConfig) => {
+                  if (!row.countryIsoCode) return '—';
+                  return row.countryName ?? row.countryIsoCode;
+                },
               },
               {
                 title: '基础运费',
@@ -254,8 +274,8 @@ export function ShippingCountryRatesModal({
                     <AdminEntityRowActions
                       isActive={row.enabled}
                       entityName="国家费率"
-                      toggleDisableDescription="停用后该国家/地区将不再使用此费率估算。"
-                      toggleEnableDescription="启用后该国家/地区将恢复使用此费率估算。"
+                      toggleDisableDescription="停用后该费率范围将不再用于运费估算。"
+                      toggleEnableDescription="启用后该费率范围将恢复用于运费估算。"
                       onEdit={() => openRateForm(row)}
                       onToggleActive={() => patchRateEnabled(row, !row.enabled)}
                       onDelete={() => deleteRate(row.id)}
@@ -285,13 +305,27 @@ export function ShippingCountryRatesModal({
         onOk={saveRate}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical" initialValues={{ enabled: true, rate: 0, taxRatePercent: null, freeShippingThreshold: null }}>
-          <Form.Item label="国家/地区" name="countryCode" rules={[{ required: true, message: '请选择国家/地区' }]}>
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{ enabled: true, rate: 0, taxRatePercent: null, freeShippingThreshold: null, countryIsoCode: null }}
+          onValuesChange={(changed) => {
+            if ('regionCode' in changed) {
+              form.setFieldValue('countryIsoCode', null);
+            }
+          }}
+        >
+          <Form.Item label="地区" name="regionCode" rules={[{ required: true, message: '请选择地区' }]}>
+            <Select showSearch optionFilterProp="label" options={regionOptions} />
+          </Form.Item>
+          <Form.Item label="国家" name="countryIsoCode" extra="可选；留空表示仅按地区计费">
             <Select
+              allowClear
               showSearch
               optionFilterProp="label"
-              disabled={!!editingRateId}
-              options={formCountryOptions}
+              disabled={!selectedRegionCode}
+              options={continentCountries.map((country) => ({ value: country.value, label: country.label }))}
+              placeholder={selectedRegionCode ? '不选则仅按地区' : '请先选择地区'}
             />
           </Form.Item>
           <Form.Item label="基础运费" name="rate" rules={[{ required: true }]}>
