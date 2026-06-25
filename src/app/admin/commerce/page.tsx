@@ -1,9 +1,5 @@
-import { getAdminCommerceConfig } from '@/server/commerce/config';
+import { redirect } from 'next/navigation';
 
-import { AdminCommerceClient } from './commerce-client';
-
-export default async function AdminCommercePage() {
-  const initialConfig = await getAdminCommerceConfig();
-
-  return <AdminCommerceClient initialConfig={initialConfig} />;
+export default function AdminCommerceRedirectPage() {
+  redirect('/admin/logistics/shipping');
 }

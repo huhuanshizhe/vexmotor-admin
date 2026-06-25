@@ -15,7 +15,7 @@ import { productLifecycleOptions } from '@/lib/admin-display';
 import { buildCategoryParentTreeSelectData } from '@/lib/category-parent-tree-select';
 import { confirmProductListingChange } from '@/lib/confirm-product-listing';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
-import { COMMON_CURRENCIES } from '@/lib/currencies';
+import { getCommonCurrencyGroupedSelectOptions } from '@/lib/currencies';
 import {
   type AdminProductListItem,
   type AdminProductPayload,
@@ -179,20 +179,6 @@ function buildPayload(draft: LocaleDraft): AdminProductPayload {
   };
 }
 
-function groupCurrencyOptions() {
-  const grouped = new Map<string, typeof COMMON_CURRENCIES[number][]>();
-  for (const currency of COMMON_CURRENCIES) {
-    grouped.set(currency.region, [...(grouped.get(currency.region) ?? []), currency]);
-  }
-  return Array.from(grouped.entries()).map(([label, options]) => ({
-    label,
-    options: options.map((currency) => ({
-      value: currency.code,
-      label: `${currency.code} — ${currency.name}`,
-    })),
-  }));
-}
-
 export function ProductEditorModal({
   open,
   activeLanguages,
@@ -226,7 +212,7 @@ export function ProductEditorModal({
     () => buildCategoryParentTreeSelectData(categoryTree, new Set()),
     [categoryTree],
   );
-  const currencyOptions = useMemo(() => groupCurrencyOptions(), []);
+  const currencyOptions = useMemo(() => getCommonCurrencyGroupedSelectOptions(), []);
 
   useEffect(() => {
     if (!open) return;

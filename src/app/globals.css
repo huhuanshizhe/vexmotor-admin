@@ -8573,6 +8573,48 @@ main {
   line-height: 18px;
 }
 
+.shipping-method-country-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.shipping-method-country-rates__toolbar {
+  align-self: flex-start;
+}
+
+.shipping-method-country-rates__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shipping-method-country-rates__chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 2px 8px;
+  border: 1px solid rgba(22, 119, 255, 0.22);
+  border-radius: 4px;
+  background: rgba(22, 119, 255, 0.06);
+  color: rgba(0, 0, 0, 0.88);
+  font-size: 12px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.shipping-method-country-rates__chip:hover {
+  border-color: rgba(22, 119, 255, 0.42);
+  background: rgba(22, 119, 255, 0.1);
+}
+
+.shipping-method-country-rates__empty {
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .category-parent-tree-select-popup .ant-select-tree-indent-unit {
   width: 16px;
 }

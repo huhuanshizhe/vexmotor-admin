@@ -16,7 +16,7 @@ import { type ReactNode, useState } from 'react';
 export const ADMIN_ACTION_TOOLTIP_DELAY_SEC = 1.5;
 
 const ADMIN_ACTION_TOOLTIP_PROPS = {
-  destroyTooltipOnHide: true,
+  destroyOnHidden: true,
   mouseEnterDelay: ADMIN_ACTION_TOOLTIP_DELAY_SEC,
 } as const;
 

@@ -18,7 +18,14 @@ export const adminNavItems: AdminNavItem[] = [
       { key: '/admin/categories', title: '分类管理', href: '/admin/categories' },
       { key: '/admin/brands', title: '品牌管理', href: '/admin/brands' },
       { key: '/admin/product-features', title: '产品特性', href: '/admin/product-features' },
-      { key: '/admin/commerce', title: '定价与物流', href: '/admin/commerce' },
+      { key: '/admin/volume-pricing', title: '阶梯定价', href: '/admin/volume-pricing' },
+    ],
+  },
+  {
+    key: 'warehouse-logistics',
+    title: '仓储物流',
+    children: [
+      { key: '/admin/logistics/shipping', title: '物流方式', href: '/admin/logistics/shipping' },
     ],
   },
   {

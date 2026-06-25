@@ -57,8 +57,8 @@ function normalizeShippingMethod(method: ShippingMethodConfig, index: number): S
     id: sanitizeText(method.id) ?? randomUUID(),
     code: normalizeMethodCode(method.code || name, `method-${index + 1}`),
     name,
-    etaLabel: sanitizeText(method.etaLabel) ?? '待配置',
-    note: sanitizeText(method.note) ?? '请在后台补充该物流方式的适用说明。',
+    etaLabel: sanitizeText(method.etaLabel) ?? '',
+    note: sanitizeText(method.note) ?? '',
     enabled: method.enabled !== false,
     sortOrder: Math.max(0, Math.trunc(Number(method.sortOrder) || 0)),
   };

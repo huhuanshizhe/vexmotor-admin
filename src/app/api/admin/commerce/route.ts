@@ -16,8 +16,8 @@ const shippingMethodSchema = z.object({
   id: z.string().default(''),
   code: z.string().trim().min(1),
   name: z.string().trim().min(1),
-  etaLabel: z.string().trim().min(1),
-  note: z.string().trim().min(1),
+  etaLabel: z.string().trim().optional().transform((value) => value ?? ''),
+  note: z.string().trim().optional().transform((value) => value ?? ''),
   enabled: z.boolean().default(true),
   sortOrder: z.coerce.number().int().min(0).default(0),
 });

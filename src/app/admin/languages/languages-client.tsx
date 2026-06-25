@@ -7,7 +7,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { AdminActionIconButton } from '@/components/admin/admin-row-actions';
 import { adminTableNowrapHeader, adminTableScroll } from '@/components/admin/admin-table';
 
-import { COMMON_CURRENCIES, formatCurrencyLabel, getDefaultCurrencyForLanguage } from '@/lib/currencies';
+import { formatCurrencyLabel, getCommonCurrencyGroupedSelectOptions, getDefaultCurrencyForLanguage } from '@/lib/currencies';
 import type { CommonLanguage } from '@/lib/languages';
 import type { AdminSiteLanguageRow, SiteLanguageStatus } from '@/server/admin/languages';
 
@@ -34,24 +34,6 @@ function groupLanguageOptions(languages: CommonLanguage[]) {
   }));
 }
 
-function groupCurrencyOptions() {
-  const grouped = new Map<string, typeof COMMON_CURRENCIES[number][]>();
-  for (const currency of COMMON_CURRENCIES) {
-    grouped.set(currency.region, [...(grouped.get(currency.region) ?? []), currency]);
-  }
-
-  return Array.from(grouped.entries()).map(([region, items]) => ({
-    label: region,
-    options: items
-      .slice()
-      .sort((left, right) => left.code.localeCompare(right.code))
-      .map((currency) => ({
-        value: currency.code,
-        label: `${currency.code} — ${currency.name} (${currency.symbol})`,
-      })),
-  }));
-}
-
 export function AdminLanguagesClient({
   initialRows,
   initialAvailableLanguages,
@@ -72,7 +54,7 @@ export function AdminLanguagesClient({
   const [messageApi, contextHolder] = message.useMessage();
 
   const languageOptions = useMemo(() => groupLanguageOptions(availableLanguages), [availableLanguages]);
-  const currencyOptions = useMemo(() => groupCurrencyOptions(), []);
+  const currencyOptions = useMemo(() => getCommonCurrencyGroupedSelectOptions(), []);
 
   async function reloadRows(nextSearch = search) {
     const params = new URLSearchParams();
