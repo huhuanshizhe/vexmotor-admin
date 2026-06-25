@@ -52,6 +52,11 @@ export const editorialContentModuleEnum = pgEnum('editorial_content_module', ['e
 export const productRelationTypeEnum = pgEnum('product_relation_type', ['drivers', 'mechanical-integration', 'power-control', 'custom']);
 export const textDirectionEnum = pgEnum('text_direction', ['ltr', 'rtl']);
 export const geoDivisionLevelEnum = pgEnum('geo_division_level', ['country', 'admin1', 'admin2', 'admin3', 'locality', 'postal']);
+export const couponStatusEnum = pgEnum('coupon_status', ['active', 'inactive']);
+export const couponScopeEnum = pgEnum('coupon_scope', ['all', 'category', 'brand', 'product']);
+export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['percent', 'fixed_amount', 'special_price']);
+export const couponGrantSourceEnum = pgEnum('coupon_grant_source', ['admin_send', 'registration', 'self_claim']);
+export const couponDistributionTargetModeEnum = pgEnum('coupon_distribution_target_mode', ['all_customers', 'selected_customers']);
 
 export const users = pgTable(
   'users',
@@ -347,6 +352,112 @@ export const commerceSettings = pgTable('commerce_settings', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const promotionSettings = pgTable('promotion_settings', {
+  id: varchar('id', { length: 32 }).primaryKey(),
+  defaultCurrencyCode: varchar('default_currency_code', { length: 3 }).notNull().default('USD'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const coupons = pgTable(
+  'coupons',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 200 }).notNull(),
+    couponKey: varchar('coupon_key', { length: 64 }).notNull(),
+    scope: couponScopeEnum('scope').notNull(),
+    stackable: boolean('stackable').notNull().default(false),
+    discountType: couponDiscountTypeEnum('discount_type').notNull(),
+    thresholdAmount: numeric('threshold_amount', { precision: 12, scale: 2 }),
+    discountValue: numeric('discount_value', { precision: 12, scale: 4 }).notNull(),
+    maxDiscountAmount: numeric('max_discount_amount', { precision: 12, scale: 2 }),
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    status: couponStatusEnum('status').notNull().default('inactive'),
+    note: text('note'),
+    totalQuota: integer('total_quota'),
+    issuedQuantity: integer('issued_quantity').notNull().default(0),
+    perUserLimit: integer('per_user_limit'),
+    grantOnRegister: boolean('grant_on_register').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    couponKeyUnique: uniqueIndex('coupons_coupon_key_unique').on(table.couponKey),
+    statusDatesIdx: index('coupons_status_dates_idx').on(table.status, table.startsAt, table.endsAt),
+  }),
+);
+
+export const couponCategories = pgTable(
+  'coupon_categories',
+  {
+    couponId: uuid('coupon_id').notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').notNull().references(() => categories.id, { onDelete: 'cascade' }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.couponId, table.categoryId] }),
+  }),
+);
+
+export const couponBrands = pgTable(
+  'coupon_brands',
+  {
+    couponId: uuid('coupon_id').notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+    brandId: uuid('brand_id').notNull().references(() => brands.id, { onDelete: 'cascade' }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.couponId, table.brandId] }),
+  }),
+);
+
+export const couponProducts = pgTable(
+  'coupon_products',
+  {
+    couponId: uuid('coupon_id').notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.couponId, table.productId] }),
+  }),
+);
+
+export const couponDistributionBatches = pgTable(
+  'coupon_distribution_batches',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    couponId: uuid('coupon_id').notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+    adminId: uuid('admin_id').notNull().references(() => admins.id, { onDelete: 'restrict' }),
+    targetMode: couponDistributionTargetModeEnum('target_mode').notNull(),
+    quantityPerUser: integer('quantity_per_user').notNull(),
+    recipientCount: integer('recipient_count').notNull(),
+    totalQuantity: integer('total_quantity').notNull(),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    couponCreatedIdx: index('coupon_distribution_batches_coupon_created_idx').on(table.couponId, table.createdAt),
+  }),
+);
+
+export const couponGrants = pgTable(
+  'coupon_grants',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    couponId: uuid('coupon_id').notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity').notNull(),
+    source: couponGrantSourceEnum('source').notNull(),
+    batchId: uuid('batch_id').references(() => couponDistributionBatches.id, { onDelete: 'set null' }),
+    adminId: uuid('admin_id').references(() => admins.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    couponCreatedIdx: index('coupon_grants_coupon_created_idx').on(table.couponId, table.createdAt),
+    couponUserIdx: index('coupon_grants_coupon_user_idx').on(table.couponId, table.userId),
+    batchIdx: index('coupon_grants_batch_idx').on(table.batchId),
+  }),
+);
 
 export const geoDivisions = pgTable(
   'geo_divisions',

@@ -5,6 +5,7 @@ import { and, eq, gt } from 'drizzle-orm';
 import { md5Hash } from '@/lib/auth/password';
 import { normalizeCompanyCountryCode } from '@/lib/customer-countries';
 import { normalizeCustomerIndustry } from '@/lib/customer-industries';
+import { grantRegistrationCoupons } from '@/server/admin/coupons';
 import { db } from '@/server/db';
 import { products, users, verificationTokens } from '@/server/db/schema';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '@/server/email';
@@ -186,6 +187,10 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
   }
 
   await createRegistrationReview(input, created.id);
+
+  grantRegistrationCoupons(created.id).catch((err) => {
+    console.error('[auth] grantRegistrationCoupons error:', err);
+  });
 
   sendWelcomeEmail({
     to: normalizedEmail,

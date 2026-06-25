@@ -22,6 +22,13 @@ export const adminNavItems: AdminNavItem[] = [
     ],
   },
   {
+    key: 'promotion',
+    title: '促销',
+    children: [
+      { key: '/admin/promotion/coupons', title: '优惠券', href: '/admin/promotion/coupons' },
+    ],
+  },
+  {
     key: 'warehouse-logistics',
     title: '仓储物流',
     children: [

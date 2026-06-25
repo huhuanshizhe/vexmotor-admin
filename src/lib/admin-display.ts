@@ -96,6 +96,70 @@ export const orderStatusOptions = Object.entries(orderStatusLabels).map(([value,
 export const inquiryStatusOptions = Object.entries(inquiryStatusLabels).map(([value, label]) => ({ value, label }));
 export const inquiryQueueKindOptions = Object.entries(inquiryQueueKindLabels).map(([value, label]) => ({ value, label }));
 export const inquiryResolutionOptions = Object.entries(inquiryResolutionLabels).map(([value, label]) => ({ value, label }));
+
+export const couponStatusLabels = {
+  active: '启用',
+  inactive: '停用',
+} as const;
+
+export const couponScopeLabels = {
+  all: '全场通用',
+  category: '指定分类',
+  brand: '指定品牌',
+  product: '指定商品',
+} as const;
+
+export const couponDiscountTypeLabels = {
+  percent: '折扣',
+  fixed_amount: '满减',
+  special_price: '特价',
+} as const;
+
+export const couponGrantSourceLabels = {
+  admin_send: '管理员发放',
+  registration: '注册赠送',
+  self_claim: '用户领取',
+} as const;
+
+export const couponDistributionTargetModeLabels = {
+  all_customers: '全站客户',
+  selected_customers: '指定客户',
+} as const;
+
+export const couponStatusOptions = Object.entries(couponStatusLabels).map(([value, label]) => ({ value, label }));
+export const couponScopeOptions = Object.entries(couponScopeLabels).map(([value, label]) => ({ value, label }));
+export const couponDiscountTypeOptions = Object.entries(couponDiscountTypeLabels).map(([value, label]) => ({ value, label }));
+export const couponGrantSourceOptions = Object.entries(couponGrantSourceLabels).map(([value, label]) => ({ value, label }));
+
+export const couponStatusColors = {
+  active: 'green',
+  inactive: 'default',
+} as const;
+
+export const couponScopeColors = {
+  all: 'blue',
+  category: 'purple',
+  brand: 'cyan',
+  product: 'orange',
+} as const;
+
+export const couponDiscountTypeColors = {
+  percent: 'gold',
+  fixed_amount: 'red',
+  special_price: 'magenta',
+} as const;
+
+export function formatCouponDiscountSummary(input: {
+  discountType: keyof typeof couponDiscountTypeLabels;
+  discountValue: string | number;
+  defaultCurrencyCode?: string;
+}) {
+  const value = Number(input.discountValue);
+  if (input.discountType === 'percent') return `${value}%`;
+  const currency = input.defaultCurrencyCode ?? 'USD';
+  return formatAdminMoney(value, currency);
+}
+
 export const userRoleOptions = Object.entries(userRoleLabels).map(([value, label]) => ({ value, label }));
 export const userStatusOptions = Object.entries(userStatusLabels).map(([value, label]) => ({ value, label }));
 export const contentStatusOptions = Object.entries(contentStatusLabels).map(([value, label]) => ({ value, label }));
