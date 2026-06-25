@@ -1,5 +1,6 @@
 import type { ShippingContinentCode } from '@/lib/shipping-continents';
 import { getShippingContinent, migrateLegacyRegionCode } from '@/lib/shipping-continents';
+import { MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
 
 export type VolumePricingRuleConfig = {
   id: string;
@@ -106,11 +107,10 @@ export const defaultCommerceConfig: CommerceConfig = {
   defaultCountryCode: 'US',
   defaultShippingMethodCode: 'dhl-express',
   volumePricingRules: [
-    { id: 'tier-1', label: 'Tier 1', minQuantity: 1, priceFactor: 1, note: '试样、备件与小批量验证订单。', enabled: true },
-    { id: 'tier-2', label: 'Tier 2', minQuantity: 5, priceFactor: 0.96, note: '适合小批量补货与试产。', enabled: true },
-    { id: 'tier-3', label: 'Tier 3', minQuantity: 10, priceFactor: 0.93, note: '适合重复采购与工程项目。', enabled: true },
-    { id: 'tier-4', label: 'Tier 4', minQuantity: 50, priceFactor: 0.9, note: '适合项目批量与区域库存补货。', enabled: true },
-    { id: 'tier-5', label: 'Tier 5', minQuantity: 100, priceFactor: 0.87, note: '适合年度框架与持续放货计划。', enabled: true },
+    { id: 'tier-2', label: 'Tier 5', minQuantity: 5, priceFactor: 0.96, note: '适合小批量补货与试产。', enabled: true },
+    { id: 'tier-3', label: 'Tier 10', minQuantity: 10, priceFactor: 0.93, note: '适合重复采购与工程项目。', enabled: true },
+    { id: 'tier-4', label: 'Tier 50', minQuantity: 50, priceFactor: 0.9, note: '适合项目批量与区域库存补货。', enabled: true },
+    { id: 'tier-5', label: 'Tier 100', minQuantity: 100, priceFactor: 0.87, note: '适合年度框架与持续放货计划。', enabled: true },
   ],
   shippingMethods: [
     {
@@ -256,7 +256,35 @@ export function getVolumePricingForQuantity(
   const tiers = buildVolumePricingTiers(basePrice, currency, rules);
   const normalizedQuantity = Math.max(1, quantity);
 
-  return tiers.reduce((current, tier) => (normalizedQuantity >= tier.minQuantity ? tier : current), tiers[0]!);
+  if (!tiers.length) {
+    return buildListPriceTier(basePrice, currency, MIN_VOLUME_PRICING_QUANTITY);
+  }
+
+  const applicableTier = tiers.reduce<VolumePricingTier | null>(
+    (current, tier) => (normalizedQuantity >= tier.minQuantity ? tier : current),
+    null,
+  );
+
+  if (!applicableTier || normalizedQuantity < tiers[0]!.minQuantity) {
+    return buildListPriceTier(basePrice, currency, tiers[0]!.minQuantity);
+  }
+
+  return applicableTier;
+}
+
+function buildListPriceTier(basePrice: number, currency: string, firstTierMinQuantity: number): VolumePricingTier {
+  const maxQuantity = Math.max(MIN_VOLUME_PRICING_QUANTITY, firstTierMinQuantity) - 1;
+  return {
+    label: 'List',
+    minQuantity: 1,
+    maxQuantity: maxQuantity >= 1 ? maxQuantity : null,
+    rangeLabel: maxQuantity >= 1 ? `1-${maxQuantity}` : '1',
+    priceFactor: 1,
+    unitPriceAmount: roundMoney(basePrice),
+    unitPriceLabel: formatMoney(basePrice, currency),
+    savingsPercent: 0,
+    note: null,
+  };
 }
 
 export function getNextVolumeTier(

@@ -4,11 +4,12 @@ import { z } from 'zod';
 import type { CommerceConfig } from '@/lib/commerce-config';
 import { getAdminCommerceConfig, updateAdminCommerceConfig } from '@/server/commerce/config';
 import { isShippingContinentCode } from '@/lib/shipping-continents';
+import { MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
 
 const volumePricingRuleSchema = z.object({
   id: z.string().default(''),
-  label: z.string().trim().min(1),
-  minQuantity: z.coerce.number().int().min(1),
+  label: z.string().trim().optional().transform((value) => value ?? ''),
+  minQuantity: z.coerce.number().int().min(MIN_VOLUME_PRICING_QUANTITY),
   priceFactor: z.coerce.number().gt(0).lte(1),
   note: z.string().trim().nullable().optional().transform((value) => value ?? null),
   enabled: z.boolean().default(true),

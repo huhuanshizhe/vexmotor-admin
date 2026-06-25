@@ -13,6 +13,7 @@ import {
 } from '@/lib/commerce-config';
 import { normalizeShippingCountryRateConfig } from '@/lib/commerce-shipping-rate';
 import { validateShippingRateScope } from '@/lib/shipping-rate-uniqueness';
+import { validateVolumePricingDiscountPercent, validateVolumePricingMinQuantity, MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
 import { db } from '@/server/db';
 import { commerceSettings } from '@/server/db/schema';
 
@@ -38,18 +39,42 @@ function normalizeMethodCode(value: string | null | undefined, fallback: string)
   return normalized || fallback;
 }
 
-function normalizeVolumePricingRule(rule: VolumePricingRuleConfig, index: number): VolumePricingRuleConfig {
-  const minQuantity = Math.max(1, Math.trunc(Number(rule.minQuantity) || 1));
+function normalizeVolumePricingRule(rule: VolumePricingRuleConfig): VolumePricingRuleConfig | null {
+  const minQuantity = Math.max(MIN_VOLUME_PRICING_QUANTITY, Math.trunc(Number(rule.minQuantity) || MIN_VOLUME_PRICING_QUANTITY));
   const priceFactor = Number.isFinite(Number(rule.priceFactor)) ? Number(rule.priceFactor) : 1;
+  const discountPercent = (1 - priceFactor) * 100;
+  const discountValidation = validateVolumePricingDiscountPercent(discountPercent);
+  if (!discountValidation.ok) {
+    return null;
+  }
+
+  if (minQuantity < MIN_VOLUME_PRICING_QUANTITY) {
+    return null;
+  }
 
   return {
     id: sanitizeText(rule.id) ?? randomUUID(),
-    label: sanitizeText(rule.label) ?? `Tier ${index + 1}`,
+    label: sanitizeText(rule.label) ?? `Tier ${minQuantity}`,
     minQuantity,
     priceFactor: Number(Math.min(Math.max(priceFactor, 0.01), 1).toFixed(4)),
     note: sanitizeText(rule.note),
     enabled: rule.enabled !== false,
   };
+}
+
+function dedupeVolumePricingRules(rules: VolumePricingRuleConfig[]) {
+  const result: VolumePricingRuleConfig[] = [];
+  for (const rule of rules) {
+    const normalized = normalizeVolumePricingRule(rule);
+    if (!normalized) continue;
+    const validation = validateVolumePricingMinQuantity(result, {
+      minQuantity: normalized.minQuantity,
+    });
+    if (validation.ok) {
+      result.push(normalized);
+    }
+  }
+  return result.sort((left, right) => left.minQuantity - right.minQuantity || left.label.localeCompare(right.label));
 }
 
 function normalizeShippingMethod(method: ShippingMethodConfig, index: number): ShippingMethodConfig {
@@ -110,7 +135,7 @@ function dedupeShippingRates(rates: ShippingCountryRateConfig[]) {
 }
 
 function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
-  const volumePricingRules = input.volumePricingRules.map(normalizeVolumePricingRule).sort((left, right) => left.minQuantity - right.minQuantity || left.label.localeCompare(right.label));
+  const volumePricingRules = dedupeVolumePricingRules(input.volumePricingRules);
   const normalizedVolumePricingRules = volumePricingRules.length
     ? volumePricingRules
     : cloneCommerceConfig(defaultCommerceConfig).volumePricingRules;

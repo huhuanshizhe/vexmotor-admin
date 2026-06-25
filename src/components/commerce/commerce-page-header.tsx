@@ -9,7 +9,8 @@ type CommercePageHeaderProps = {
   description: string;
   statusMessage: string | null;
   isPending: boolean;
-  onSave: () => void;
+  onSave?: () => void;
+  showSave?: boolean;
   extra?: ReactNode;
 };
 
@@ -19,6 +20,7 @@ export function CommercePageHeader({
   statusMessage,
   isPending,
   onSave,
+  showSave = true,
   extra,
 }: CommercePageHeaderProps) {
   return (
@@ -34,9 +36,11 @@ export function CommercePageHeader({
             {statusMessage}
           </Typography.Text>
         ) : null}
-        <Button type="primary" icon={<SaveOutlined />} onClick={onSave} loading={isPending}>
-          保存配置
-        </Button>
+        {showSave ? (
+          <Button type="primary" icon={<SaveOutlined />} onClick={onSave} loading={isPending}>
+            保存配置
+          </Button>
+        ) : null}
       </Space>
     </Space>
   );
