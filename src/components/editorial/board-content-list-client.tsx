@@ -32,6 +32,7 @@ import {
   type EditorialContentModule,
   type EditorialEntryStatus,
 } from '@/lib/editorial-content';
+import type { EditorialBoardOption } from '@/components/editorial/board-multi-select';
 import type { AdminEditorialDashboard } from '@/lib/editorial-automation';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
@@ -67,6 +68,7 @@ type BoardContentListClientProps = {
     open: boolean;
     boardKey: string;
     boardLabel: string;
+    availableBoards: EditorialBoardOption[];
     editingEntry: AdminEditorialContentListItem | null;
     onClose: () => void;
     onSaved: (saved: AdminEditorialContentTranslation) => void;
@@ -127,6 +129,10 @@ export function BoardContentListClient({
     [initialDashboard.coverage],
   );
   const knownBoardKeys = useMemo(() => boards.map((board) => board.key), [boards]);
+  const availableBoards = useMemo<EditorialBoardOption[]>(
+    () => boards.map((board) => ({ key: board.key, title: board.title })),
+    [boards],
+  );
   const initialMountRef = useRef(true);
   const hydratedPageSizeRef = useRef(false);
 
@@ -449,6 +455,7 @@ export function BoardContentListClient({
         open: contentModalOpen,
         boardKey: modalBoardKey,
         boardLabel: modalBoardLabel,
+        availableBoards,
         editingEntry,
         onClose: closeContentModal,
         onSaved: handleEntrySaved,

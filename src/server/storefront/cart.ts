@@ -3,12 +3,18 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gt, inArray } from 'drizzle-orm';
 
 import { calculateOrderPricing } from '@/lib/commerce-config';
-import { normalizeLocale } from '@/lib/i18n';
+import { normalizeLocale, type Locale } from '@/lib/i18n';
+import { buildConfigurationLabel, type FeatureSelectionSnapshot } from '@/lib/product-feature-selection';
 import { getVolumePricingForQuantity } from '@/lib/volume-pricing';
+import { validateAndBuildFeatureSelections } from '@/server/admin/product-features';
 import { getCommerceConfig } from '@/server/commerce/config';
 import { db } from '@/server/db';
 import { productCompareAtPriceSql, productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
 import { addresses, cartItems, carts, orderCouponRedemptions, orderItems, orders, productImages, products, verificationTokens } from '@/server/db/schema';
+
+function cartLocale(locale?: string | null): Locale {
+  return normalizeLocale(locale);
+}
 
 function formatMoney(amount: string | number, currencyCode = 'USD') {
   const numeric = Number(amount);
@@ -137,7 +143,7 @@ export async function getOrCreateCart(input: { userId?: string | null; anonymous
   return created ?? null;
 }
 
-export async function getExistingActiveCartDetail(input: { userId?: string | null; anonymousToken?: string | null }) {
+export async function getExistingActiveCartDetail(input: { userId?: string | null; anonymousToken?: string | null; locale?: string | null }) {
   if (!input.userId && !input.anonymousToken) {
     return null;
   }
@@ -146,18 +152,19 @@ export async function getExistingActiveCartDetail(input: { userId?: string | nul
     ? await db.select().from(carts).where(and(eq(carts.userId, input.userId), eq(carts.status, 'active'))).limit(1)
     : await db.select().from(carts).where(and(eq(carts.anonymousToken, input.anonymousToken ?? ''), eq(carts.status, 'active'))).limit(1);
 
-  return existing ? getCartDetail(existing.id) : null;
+  return existing ? getCartDetail(existing.id, input.locale) : null;
 }
 
-export async function getActiveCartDetail(input: { userId?: string | null; anonymousToken?: string | null }) {
+export async function getActiveCartDetail(input: { userId?: string | null; anonymousToken?: string | null; locale?: string | null }) {
   const cart = await getOrCreateCart(input);
   if (!cart) {
     return null;
   }
-  return getCartDetail(cart.id);
+  return getCartDetail(cart.id, input.locale);
 }
 
-export async function getCartDetail(cartId: string) {
+export async function getCartDetail(cartId: string, localeInput?: string | null) {
+  const locale = cartLocale(localeInput);
   const commerceConfig = await getCommerceConfig();
 
   const [cart] = await db.select().from(carts).where(eq(carts.id, cartId)).limit(1);
@@ -170,15 +177,17 @@ export async function getCartDetail(cartId: string) {
       quantity: cartItems.quantity,
       unitPrice: cartItems.unitPrice,
       subtotal: cartItems.subtotal,
-      productName: productNameSql(products.id),
-      slug: productSlugSql(products.id),
+      configurationKey: cartItems.configurationKey,
+      featureSelections: cartItems.featureSelections,
+      productName: productNameSql(products.id, locale),
+      slug: productSlugSql(products.id, locale),
       spu: products.spu,
-      shortDescription: productShortDescriptionSql(products.id),
+      shortDescription: productShortDescriptionSql(products.id, locale),
       purchaseMode: products.purchaseMode,
-      stockQuantity: productStockQuantitySql(products.id),
-      currencyCode: productCurrencyCodeSql(products.id),
-      basePrice: productPriceSql(products.id),
-      compareAtPrice: productCompareAtPriceSql(products.id),
+      stockQuantity: productStockQuantitySql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
+      basePrice: productPriceSql(products.id, locale),
+      compareAtPrice: productCompareAtPriceSql(products.id, locale),
     })
     .from(cartItems)
     .innerJoin(products, eq(products.id, cartItems.productId))
@@ -223,29 +232,37 @@ export async function getCartDetail(cartId: string) {
 
   return {
     id: cart.id,
-    items: items.map((item) => ({
-      id: item.id,
-      productId: item.productId,
-      product: {
-        id: item.productId,
-        name: item.productName,
-        slug: item.slug,
-        spu: item.spu,
-        shortDescription: item.shortDescription,
-        price: formatMoney(item.basePrice, item.currencyCode),
-        compareAtPrice: item.compareAtPrice ? formatMoney(item.compareAtPrice, item.currencyCode) : null,
-        purchaseMode: item.purchaseMode,
-        inStock: item.stockQuantity > 0,
-        brand: null,
-        coverImage: firstImageByProductId.get(item.productId) ?? null,
-      },
-      quantity: item.quantity,
-      listUnitPrice: formatMoney(item.basePrice, item.currencyCode),
-      unitPrice: formatMoney(item.unitPrice, item.currencyCode),
-      subtotal: formatMoney(item.subtotal, item.currencyCode),
-      tierApplied: Number(item.unitPrice) < Number(item.basePrice),
-      variantLabel: '',
-    })),
+    locale,
+    items: items.map((item) => {
+      const featureSelections = (item.featureSelections ?? []) as FeatureSelectionSnapshot;
+      const configurationLabel = buildConfigurationLabel(featureSelections);
+      return {
+        id: item.id,
+        productId: item.productId,
+        product: {
+          id: item.productId,
+          name: item.productName,
+          slug: item.slug,
+          spu: item.spu,
+          shortDescription: item.shortDescription,
+          price: formatMoney(item.basePrice, item.currencyCode),
+          compareAtPrice: item.compareAtPrice ? formatMoney(item.compareAtPrice, item.currencyCode) : null,
+          purchaseMode: item.purchaseMode,
+          inStock: item.stockQuantity > 0,
+          brand: null,
+          coverImage: firstImageByProductId.get(item.productId) ?? null,
+        },
+        quantity: item.quantity,
+        listUnitPrice: formatMoney(item.basePrice, item.currencyCode),
+        unitPrice: formatMoney(item.unitPrice, item.currencyCode),
+        subtotal: formatMoney(item.subtotal, item.currencyCode),
+        tierApplied: Number(item.unitPrice) < Number(item.basePrice),
+        configurationKey: item.configurationKey,
+        featureSelections,
+        configurationLabel,
+        variantLabel: configurationLabel,
+      };
+    }),
     itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     couponCode: cart.couponCode,
     coupon: summary.coupon,
@@ -294,25 +311,45 @@ export async function updateCartCoupon(cartId: string, couponCode?: string | nul
   return { detail: await getCartDetail(cartId), error: null, message: null };
 }
 
-export async function addCartItem(input: { cartId: string; productId: string; quantity: number }) {
+export async function addCartItem(input: {
+  cartId: string;
+  productId: string;
+  quantity: number;
+  locale?: string | null;
+  featureValueIds?: string[];
+}) {
+  const locale = cartLocale(input.locale);
   const commerceConfig = await getCommerceConfig();
+  const validation = await validateAndBuildFeatureSelections(
+    input.productId,
+    locale,
+    input.featureValueIds ?? [],
+  );
+  if (!validation.ok) {
+    return validation;
+  }
+
   const [product] = await db
     .select({
       purchaseMode: products.purchaseMode,
-      price: productPriceSql(products.id),
-      currencyCode: productCurrencyCodeSql(products.id),
+      price: productPriceSql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
     })
     .from(products)
     .where(eq(products.id, input.productId))
     .limit(1);
   if (!product || product.purchaseMode !== 'buy') {
-    return null;
+    return { ok: false as const, code: 'PRODUCT_NOT_AVAILABLE' as const, message: 'Product cannot be added to cart' };
   }
 
   const [existing] = await db
     .select()
     .from(cartItems)
-    .where(and(eq(cartItems.cartId, input.cartId), eq(cartItems.productId, input.productId)))
+    .where(and(
+      eq(cartItems.cartId, input.cartId),
+      eq(cartItems.productId, input.productId),
+      eq(cartItems.configurationKey, validation.configurationKey),
+    ))
     .limit(1);
 
   const unitPriceBase = Number(product.price);
@@ -325,6 +362,7 @@ export async function addCartItem(input: { cartId: string; productId: string; qu
         quantity: nextQuantity,
         unitPrice: unitPrice.toFixed(2),
         subtotal: (nextQuantity * unitPrice).toFixed(2),
+        featureSelections: validation.featureSelections,
         updatedAt: new Date(),
       })
       .where(eq(cartItems.id, existing.id));
@@ -333,13 +371,19 @@ export async function addCartItem(input: { cartId: string; productId: string; qu
     await db.insert(cartItems).values({
       cartId: input.cartId,
       productId: input.productId,
+      configurationKey: validation.configurationKey,
+      featureSelections: validation.featureSelections,
       quantity: input.quantity,
       unitPrice: unitPrice.toFixed(2),
       subtotal: (input.quantity * unitPrice).toFixed(2),
     });
   }
 
-  return getCartDetail(input.cartId);
+  const detail = await getCartDetail(input.cartId, locale);
+  if (!detail) {
+    return { ok: false as const, code: 'CART_UNAVAILABLE' as const, message: 'Cart could not be loaded' };
+  }
+  return { ok: true as const, detail };
 }
 
 export async function updateCartItemQuantity(itemId: string, quantity: number) {
@@ -421,7 +465,7 @@ export async function createOrderFromCart(input: {
     return null;
   }
 
-  const detail = await getCartDetail(input.cartId);
+  const detail = await getCartDetail(input.cartId, input.locale);
   if (!detail || !detail.items.length) {
     return null;
   }
@@ -472,6 +516,8 @@ export async function createOrderFromCart(input: {
       productId: item.productId,
       productName: item.product.name,
       spu: item.product.spu,
+      variantLabel: item.configurationLabel || null,
+      featureSelections: item.featureSelections,
       quantity: item.quantity,
       unitPrice: item.unitPrice.amount.toFixed(2),
       subtotal: item.subtotal.amount.toFixed(2),

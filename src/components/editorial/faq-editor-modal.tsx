@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
+import { BoardMultiSelect } from '@/components/editorial/board-multi-select';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
 import {
@@ -16,6 +17,7 @@ import {
   resolveContentId,
 } from '@/lib/editorial-content';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
+import type { EditorialBoardOption } from '@/components/editorial/board-multi-select';
 
 type LocaleFormValues = {
   title: string;
@@ -33,6 +35,7 @@ type FaqEditorModalProps = {
   open: boolean;
   boardKey: string;
   boardLabel: string;
+  availableBoards: EditorialBoardOption[];
   activeLanguages: AdminSiteLanguageRow[];
   editingEntry: AdminEditorialContentListItem | null;
   onClose: () => void;
@@ -111,12 +114,14 @@ function validateDraft(locale: string, draft: LocaleDraft) {
 function buildEntryPayload(draft: LocaleDraft, locale: string, status: EditorialEntryStatus, options: {
   contentId: string;
   boardKey: string;
+  boardKeys: string[];
 }) {
   return {
     contentType: 'content' as const,
     contentModule: 'faq' as const,
     contentId: options.contentId ? options.contentId : undefined,
     boardKey: options.boardKey,
+    boardKeys: options.boardKeys,
     title: draft.title.trim(),
     locale,
     status,
@@ -164,6 +169,7 @@ export function FaqEditorModal({
   open,
   boardKey,
   boardLabel,
+  availableBoards,
   activeLanguages,
   editingEntry,
   onClose,
@@ -173,6 +179,7 @@ export function FaqEditorModal({
   const [form] = Form.useForm<LocaleFormValues>();
   const [isPending, startTransition] = useTransition();
   const [contentId, setContentId] = useState('');
+  const [boardKeys, setBoardKeys] = useState<string[]>([boardKey]);
   const [drafts, setDrafts] = useState<Record<string, LocaleDraft>>({});
   const [activeLocale, setActiveLocale] = useState('');
   const [loadingGroup, setLoadingGroup] = useState(false);
@@ -205,6 +212,7 @@ export function FaqEditorModal({
 
     const initialContentId = editingEntry?.id ?? '';
     setContentId(initialContentId);
+    setBoardKeys(editingEntry?.boardKeys?.length ? editingEntry.boardKeys : [boardKey]);
 
     const seedDrafts = Object.fromEntries(activeLanguages.map((language) => [language.code, createEmptyDraft()]));
     const nextLocale = editingEntry?.primaryLocale ?? defaultLocale;
@@ -242,8 +250,12 @@ export function FaqEditorModal({
       try {
         const response = await fetch(`/api/admin/editorial/content/${initialContentId}`);
         const payload = response.ok
-          ? (await response.json()) as { translations: AdminEditorialContentTranslation[] }
-          : { translations: [] as AdminEditorialContentTranslation[] };
+          ? (await response.json()) as { item: AdminEditorialContentListItem; translations: AdminEditorialContentTranslation[] }
+          : { item: null, translations: [] as AdminEditorialContentTranslation[] };
+
+        if (payload.item?.boardKeys?.length) {
+          setBoardKeys(payload.item.boardKeys);
+        }
 
         const mergedDrafts = { ...seedDrafts };
         for (const item of payload.translations) {
@@ -316,6 +328,7 @@ export function FaqEditorModal({
             body: JSON.stringify(buildEntryPayload(draft, locale, targetStatus, {
               contentId: nextContentId,
               boardKey,
+              boardKeys,
             })),
           },
         );
@@ -366,8 +379,15 @@ export function FaqEditorModal({
       <Form<LocaleFormValues> form={form} layout="vertical" disabled={isReadOnly} preserve>
         <Row gutter={[16, 0]}>
           <Col span={24}>
-            <Form.Item label="所属看板">
-              <Input value={boardLabel} disabled />
+            <Form.Item label="所属看板" required>
+              <BoardMultiSelect
+                boards={availableBoards}
+                contentModule="faq"
+                lockedBoardKey={boardKey}
+                value={boardKeys}
+                onChange={setBoardKeys}
+                disabled={isReadOnly}
+              />
             </Form.Item>
           </Col>
           <Col span={24}>

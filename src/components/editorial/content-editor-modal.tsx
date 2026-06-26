@@ -8,6 +8,7 @@ import { useEffect, useState, useTransition } from 'react';
 
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
+import { BoardMultiSelect } from '@/components/editorial/board-multi-select';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
@@ -20,6 +21,7 @@ import {
 } from '@/lib/editorial-content';
 import { validateSourceThenAutoSlug } from '@/lib/slug';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
+import type { EditorialBoardOption } from '@/components/editorial/board-multi-select';
 
 type SectionTabKey = 'content' | 'seo';
 
@@ -47,6 +49,7 @@ type ContentEditorModalProps = {
   open: boolean;
   boardKey: string;
   boardLabel: string;
+  availableBoards: EditorialBoardOption[];
   activeLanguages: AdminSiteLanguageRow[];
   editingEntry: AdminEditorialContentListItem | null;
   onClose: () => void;
@@ -156,6 +159,7 @@ function validateDraft(locale: string, draft: LocaleDraft) {
 function buildEntryPayload(draft: LocaleDraft, locale: string, status: EditorialEntryStatus, options: {
   contentId: string;
   boardKey: string;
+  boardKeys: string[];
   publishedAt?: string | null;
 }) {
   const publishedAt = options.publishedAt !== undefined
@@ -171,6 +175,7 @@ function buildEntryPayload(draft: LocaleDraft, locale: string, status: Editorial
     contentModule: 'editorial' as const,
     contentId: options.contentId ? options.contentId : undefined,
     boardKey: options.boardKey,
+    boardKeys: options.boardKeys,
     title: draft.title.trim(),
     slug: draft.slug.trim(),
     summary: draft.summary.trim() || null,
@@ -231,6 +236,7 @@ export function ContentEditorModal({
   open,
   boardKey,
   boardLabel,
+  availableBoards,
   activeLanguages,
   editingEntry,
   onClose,
@@ -240,6 +246,7 @@ export function ContentEditorModal({
   const [form] = Form.useForm<LocaleFormValues>();
   const [isPending, startTransition] = useTransition();
   const [contentId, setContentId] = useState('');
+  const [boardKeys, setBoardKeys] = useState<string[]>([boardKey]);
   const [drafts, setDrafts] = useState<Record<string, LocaleDraft>>({});
   const [activeLocale, setActiveLocale] = useState('');
   const [sectionTab, setSectionTab] = useState<SectionTabKey>('content');
@@ -283,6 +290,7 @@ export function ContentEditorModal({
 
     const initialContentId = editingEntry?.id ?? '';
     setContentId(initialContentId);
+    setBoardKeys(editingEntry?.boardKeys?.length ? editingEntry.boardKeys : [boardKey]);
     setSectionTab('content');
     setScheduleOpen(false);
 
@@ -323,8 +331,12 @@ export function ContentEditorModal({
       try {
         const response = await fetch(`/api/admin/editorial/content/${initialContentId}`);
         const payload = response.ok
-          ? (await response.json()) as { translations: AdminEditorialContentTranslation[] }
-          : { translations: [] as AdminEditorialContentTranslation[] };
+          ? (await response.json()) as { item: AdminEditorialContentListItem; translations: AdminEditorialContentTranslation[] }
+          : { item: null, translations: [] as AdminEditorialContentTranslation[] };
+
+        if (payload.item?.boardKeys?.length) {
+          setBoardKeys(payload.item.boardKeys);
+        }
 
         const mergedDrafts = { ...seedDrafts };
         for (const item of payload.translations) {
@@ -443,6 +455,7 @@ export function ContentEditorModal({
             body: JSON.stringify(buildEntryPayload(draft, locale, targetStatus, {
               contentId: nextContentId,
               boardKey,
+              boardKeys,
               publishedAt: options?.publishedAt,
             })),
           },
@@ -540,8 +553,15 @@ export function ContentEditorModal({
         <div style={{ display: sectionTab === 'content' ? 'block' : 'none' }}>
           <Row gutter={[16, 0]}>
             <Col span={24}>
-              <Form.Item label="所属看板">
-                <Input value={boardLabel} disabled />
+              <Form.Item label="所属看板" required>
+                <BoardMultiSelect
+                  boards={availableBoards}
+                  contentModule="editorial"
+                  lockedBoardKey={boardKey}
+                  value={boardKeys}
+                  onChange={setBoardKeys}
+                  disabled={isReadOnly}
+                />
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -550,7 +570,7 @@ export function ContentEditorModal({
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item label="摘要" name="summary">
+              <Form.Item label="摘要" name="summary" extra="留空时将根据正文自动提取">
                 <Input.TextArea rows={3} />
               </Form.Item>
             </Col>

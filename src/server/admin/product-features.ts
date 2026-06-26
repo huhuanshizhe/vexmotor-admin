@@ -5,6 +5,11 @@ import { z } from 'zod';
 
 import type { FeatureDefinitionStatus, FeatureValueType } from '@/lib/feature-definition-content';
 import {
+  buildConfigurationKey,
+  type FeatureSelectionSnapshot,
+  type StorefrontConfigurableFeature,
+} from '@/lib/product-feature-selection';
+import {
   type AdminProductFeatureAssignmentListItem,
   type AdminProductFeatureValueDetail,
   type AdminProductFeatureValueListItem,
@@ -791,4 +796,195 @@ export async function getStorefrontProductFeatures(productId: string, locale: st
   }
 
   return features;
+}
+
+export async function getStorefrontProductFeatureOptions(productId: string, locale: string): Promise<StorefrontConfigurableFeature[]> {
+  const normalizedLocale = normalizeLocale(locale);
+  const assignments = await db
+    .select({
+      assignment: productFeatureAssignments,
+      definition: featureDefinitions,
+    })
+    .from(productFeatureAssignments)
+    .innerJoin(featureDefinitions, eq(featureDefinitions.id, productFeatureAssignments.definitionId))
+    .where(and(
+      eq(productFeatureAssignments.productId, productId),
+      eq(productFeatureAssignments.status, 'active'),
+    ))
+    .orderBy(asc(productFeatureAssignments.sortOrder), asc(productFeatureAssignments.createdAt));
+
+  if (!assignments.length) return [];
+
+  const definitionIds = assignments.map((row) => row.definition.id);
+  const assignmentIds = assignments.map((row) => row.assignment.id);
+
+  const [definitionTranslations, values, valueTranslations] = await Promise.all([
+    db
+      .select()
+      .from(featureDefinitionTranslations)
+      .where(inArray(featureDefinitionTranslations.definitionId, definitionIds)),
+    db
+      .select()
+      .from(productFeatureValues)
+      .where(and(
+        inArray(productFeatureValues.assignmentId, assignmentIds),
+        eq(productFeatureValues.status, 'active'),
+      ))
+      .orderBy(asc(productFeatureValues.sortOrder), asc(productFeatureValues.createdAt)),
+    db
+      .select({
+        translation: productFeatureValueTranslations,
+        valueId: productFeatureValues.id,
+        assignmentId: productFeatureValues.assignmentId,
+      })
+      .from(productFeatureValueTranslations)
+      .innerJoin(productFeatureValues, eq(productFeatureValues.id, productFeatureValueTranslations.valueId))
+      .where(inArray(productFeatureValues.assignmentId, assignmentIds)),
+  ]);
+
+  const definitionTranslationMap = new Map<string, DefinitionTranslationRow[]>();
+  for (const row of definitionTranslations) {
+    const bucket = definitionTranslationMap.get(row.definitionId) ?? [];
+    bucket.push(row);
+    definitionTranslationMap.set(row.definitionId, bucket);
+  }
+
+  const valueTranslationsByValue = new Map<string, TranslationRow[]>();
+  for (const row of valueTranslations) {
+    const bucket = valueTranslationsByValue.get(row.valueId) ?? [];
+    bucket.push(row.translation);
+    valueTranslationsByValue.set(row.valueId, bucket);
+  }
+
+  const valuesByAssignment = new Map<string, ValueRow[]>();
+  for (const row of values) {
+    const bucket = valuesByAssignment.get(row.assignmentId) ?? [];
+    bucket.push(row);
+    valuesByAssignment.set(row.assignmentId, bucket);
+  }
+
+  return assignments.map(({ assignment, definition }) => {
+    const definitionLocaleRows = definitionTranslationMap.get(definition.id) ?? [];
+    const definitionTranslation = definitionLocaleRows.find((row) => row.locale === normalizedLocale)
+      ?? pickPrimaryDefinitionTranslation(definitionLocaleRows);
+    const unit = definitionTranslation?.unit ?? null;
+    const valueType = definition.valueType as FeatureValueType;
+    const assignmentValues = valuesByAssignment.get(assignment.id) ?? [];
+
+    const options = assignmentValues
+      .map((value) => {
+        const translations = valueTranslationsByValue.get(value.id) ?? [];
+        const valueTranslation = translations.find((row) => row.locale === normalizedLocale)
+          ?? translations[0]
+          ?? null;
+        const display = formatProductFeatureValueDisplay(valueType, valueTranslation, unit);
+        if (display === '—') return null;
+        return { valueId: value.id, display };
+      })
+      .filter((item): item is { valueId: string; display: string } => Boolean(item));
+
+    return {
+      definitionId: definition.id,
+      assignmentId: assignment.id,
+      key: definition.key,
+      name: definitionTranslation?.name ?? definition.key,
+      category: definition.specCategory,
+      valueType: definition.valueType,
+      unit: valueType === 'number' ? unit : null,
+      options,
+    };
+  });
+}
+
+type ValidateFeatureSelectionsResult =
+  | {
+      ok: true;
+      configurationKey: string;
+      featureSelections: FeatureSelectionSnapshot;
+    }
+  | {
+      ok: false;
+      code: 'INVALID_FEATURE_SELECTIONS';
+      message: string;
+    };
+
+export async function validateAndBuildFeatureSelections(
+  productId: string,
+  locale: string,
+  valueIds: string[],
+): Promise<ValidateFeatureSelectionsResult> {
+  const configurableFeatures = await getStorefrontProductFeatureOptions(productId, locale);
+
+  if (!configurableFeatures.length) {
+    if (valueIds.length > 0) {
+      return {
+        ok: false,
+        code: 'INVALID_FEATURE_SELECTIONS',
+        message: 'This product has no configurable features.',
+      };
+    }
+    return { ok: true, configurationKey: '', featureSelections: [] };
+  }
+
+  const uniqueValueIds = [...new Set(valueIds)];
+  if (uniqueValueIds.length !== valueIds.length) {
+    return {
+      ok: false,
+      code: 'INVALID_FEATURE_SELECTIONS',
+      message: 'Duplicate feature value selections are not allowed.',
+    };
+  }
+
+  const optionByValueId = new Map<string, { feature: StorefrontConfigurableFeature; option: { valueId: string; display: string } }>();
+  for (const feature of configurableFeatures) {
+    for (const option of feature.options) {
+      optionByValueId.set(option.valueId, { feature, option });
+    }
+  }
+
+  const featureSelections: FeatureSelectionSnapshot = [];
+
+  for (const feature of configurableFeatures) {
+    const selectedForFeature = valueIds.filter((valueId) => optionByValueId.get(valueId)?.feature.assignmentId === feature.assignmentId);
+    if (selectedForFeature.length !== 1) {
+      return {
+        ok: false,
+        code: 'INVALID_FEATURE_SELECTIONS',
+        message: `Select exactly one value for feature "${feature.name}".`,
+      };
+    }
+
+    const selected = optionByValueId.get(selectedForFeature[0]!);
+    if (!selected) {
+      return {
+        ok: false,
+        code: 'INVALID_FEATURE_SELECTIONS',
+        message: 'One or more selected feature values are invalid.',
+      };
+    }
+
+    featureSelections.push({
+      definitionId: feature.definitionId,
+      definitionKey: feature.key,
+      definitionName: feature.name,
+      valueId: selected.option.valueId,
+      display: selected.option.display,
+      unit: feature.unit,
+    });
+  }
+
+  const unknownValueIds = valueIds.filter((valueId) => !optionByValueId.has(valueId));
+  if (unknownValueIds.length) {
+    return {
+      ok: false,
+      code: 'INVALID_FEATURE_SELECTIONS',
+      message: 'One or more selected feature values are invalid.',
+    };
+  }
+
+  return {
+    ok: true,
+    configurationKey: buildConfigurationKey(featureSelections.map((item) => item.valueId)),
+    featureSelections,
+  };
 }

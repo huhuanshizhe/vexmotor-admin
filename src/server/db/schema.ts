@@ -644,6 +644,15 @@ export const cartItems = pgTable(
     cartId: uuid('cart_id').notNull().references(() => carts.id, { onDelete: 'cascade' }),
     productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
     variantId: uuid('variant_id').references(() => productVariants.id, { onDelete: 'set null' }),
+    configurationKey: varchar('configuration_key', { length: 64 }).notNull().default(''),
+    featureSelections: jsonb('feature_selections').$type<Array<{
+      definitionId: string;
+      definitionKey: string;
+      definitionName: string;
+      valueId: string;
+      display: string;
+      unit?: string | null;
+    }>>().notNull().default([]),
     quantity: integer('quantity').notNull().default(1),
     unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -651,7 +660,7 @@ export const cartItems = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    uniqueCartLine: uniqueIndex('cart_items_unique_line').on(table.cartId, table.productId, table.variantId),
+    uniqueCartLine: uniqueIndex('cart_items_unique_line').on(table.cartId, table.productId, table.configurationKey),
   }),
 );
 
@@ -723,6 +732,14 @@ export const orderItems = pgTable('order_items', {
   productName: varchar('product_name', { length: 255 }).notNull(),
   spu: varchar('spu', { length: 100 }).notNull(),
   variantLabel: varchar('variant_label', { length: 255 }),
+  featureSelections: jsonb('feature_selections').$type<Array<{
+    definitionId: string;
+    definitionKey: string;
+    definitionName: string;
+    valueId: string;
+    display: string;
+    unit?: string | null;
+  }>>().notNull().default([]),
   quantity: integer('quantity').notNull().default(1),
   unitPrice: numeric('unit_price', { precision: 12, scale: 2 }).notNull().default('0'),
   subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -946,6 +963,19 @@ export const editorialContents = pgTable(
     typeStatusPublishedIdx: index('editorial_contents_type_status_published_idx').on(table.contentType, table.status, table.publishedAt),
     boardKeyIdx: index('editorial_contents_board_key_idx').on(table.boardKey),
     contentModuleBoardIdx: index('editorial_contents_content_module_board_idx').on(table.contentModule, table.boardKey),
+  }),
+);
+
+export const editorialContentBoards = pgTable(
+  'editorial_content_boards',
+  {
+    contentId: uuid('content_id').notNull().references(() => editorialContents.id, { onDelete: 'cascade' }),
+    boardKey: varchar('board_key', { length: 100 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.contentId, table.boardKey], name: 'editorial_content_boards_pk' }),
+    boardKeyIdx: index('editorial_content_boards_board_key_idx').on(table.boardKey),
   }),
 );
 

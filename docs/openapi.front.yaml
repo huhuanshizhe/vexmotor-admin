@@ -27,6 +27,8 @@ tags:
   - name: Wishlist
   - name: Languages
   - name: Compare
+  - name: Brands
+  - name: Content
 components:
   securitySchemes:
     bearerAuth:
@@ -116,6 +118,21 @@ components:
       schema:
         type: string
         format: uuid
+    BoardKeyParam:
+      name: boardKey
+      in: path
+      required: true
+      schema:
+        type: string
+        description: 看板 key（如 faq、tech-faq、blog 类看板）
+    EditorialContentIdParam:
+      name: contentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+        description: 博客内容 ID（editorial_contents.id）
   schemas:
     ErrorResponse:
       type: object
@@ -220,7 +237,7 @@ components:
           type: string
         slug:
           type: string
-        sku:
+        spu:
           type: string
         shortDescription:
           type: string
@@ -241,7 +258,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Brand'
             - type: 'null'
-      required: [id, name, slug, sku, purchaseMode, inStock]
+      required: [id, name, slug, spu, purchaseMode, inStock]
       additionalProperties: false
     ProductVariantOption:
       type: object
@@ -300,11 +317,205 @@ components:
               type: string
             seoDescription:
               type: string
+            configurableFeatures:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            features:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            manufacturing:
+              type: object
+              additionalProperties: true
+            seo:
+              type: object
+              additionalProperties: true
+            paidSampleEnabled:
+              type: boolean
+            allowBackorder:
+              type: boolean
           required: [description, gallery, categories, attributes, attachments, relatedProducts]
-          additionalProperties: false
+          additionalProperties: true
+    BrandListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        logo:
+          type:
+            - object
+            - 'null'
+          properties:
+            url:
+              type: string
+            alt:
+              type: string
+        websiteUrl:
+          type:
+            - string
+            - 'null'
+      required: [id, name, slug]
+      additionalProperties: false
+    FaqListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        body:
+          type: string
+          description: FAQ 正文 HTML
+      required: [id, title, body]
+      additionalProperties: false
+    FaqListResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        boardKey:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqListItem'
+      required: [locale, boardKey, items]
+      additionalProperties: false
+    BlogListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        summary:
+          type:
+            - string
+            - 'null'
+        slug:
+          type: string
+        publishedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      required: [id, title, summary, slug, publishedAt]
+      additionalProperties: false
+    BlogListResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        boardKey:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogListItem'
+      required: [locale, boardKey, items]
+      additionalProperties: false
+    BlogDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        summary:
+          type:
+            - string
+            - 'null'
+        body:
+          type: string
+          description: 博客正文 HTML
+        slug:
+          type: string
+        cover:
+          type:
+            - object
+            - 'null'
+          properties:
+            url:
+              type: string
+            alt:
+              type: string
+          required: [url, alt]
+        seo:
+          type: object
+          properties:
+            title:
+              type:
+                - string
+                - 'null'
+            description:
+              type:
+                - string
+                - 'null'
+          required: [title, description]
+        publishedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        boardKeys:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        relatedProductSlugs:
+          type: array
+          items:
+            type: string
+      required: [id, title, summary, body, slug, cover, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
+      additionalProperties: false
+    FeatureSelectionInput:
+      type: object
+      properties:
+        valueId:
+          type: string
+          format: uuid
+      required: [valueId]
+      additionalProperties: false
+    FeatureSelectionSnapshotItem:
+      type: object
+      properties:
+        definitionId:
+          type: string
+          format: uuid
+        definitionKey:
+          type: string
+        definitionName:
+          type: string
+        valueId:
+          type: string
+          format: uuid
+        display:
+          type: string
+        unit:
+          type:
+            - string
+            - 'null'
+      required: [definitionId, definitionKey, definitionName, valueId, display]
+      additionalProperties: false
     ProductListResponse:
       type: object
       properties:
+        locale:
+          type: string
         items:
           type: array
           items:
@@ -316,7 +527,7 @@ components:
           items:
             type: object
             additionalProperties: true
-      required: [items, meta, facets]
+      required: [locale, items, meta, facets]
       additionalProperties: false
     CartItem:
       type: object
@@ -338,6 +549,14 @@ components:
           $ref: '#/components/schemas/Money'
         variantLabel:
           type: string
+        configurationLabel:
+          type: string
+        configurationKey:
+          type: string
+        featureSelections:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureSelectionSnapshotItem'
       required: [id, productId, product, quantity, unitPrice, subtotal]
       additionalProperties: false
     Cart:
@@ -346,6 +565,8 @@ components:
         id:
           type: string
           format: uuid
+        locale:
+          type: string
         items:
           type: array
           items:
@@ -578,7 +799,7 @@ components:
           format: uuid
         productName:
           type: string
-        sku:
+        spu:
           type: string
         quantity:
           type: integer
@@ -586,7 +807,7 @@ components:
           $ref: '#/components/schemas/Money'
         subtotal:
           $ref: '#/components/schemas/Money'
-      required: [id, productName, sku, quantity, unitPrice, subtotal]
+      required: [id, productName, spu, quantity, unitPrice, subtotal]
       additionalProperties: false
     OrderSummary:
       type: object
@@ -845,14 +1066,13 @@ components:
         productId:
           type: string
           format: uuid
-        variantId:
-          type:
-            - string
-            - 'null'
-          format: uuid
         quantity:
           type: integer
           minimum: 1
+        featureSelections:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureSelectionInput'
       required: [productId, quantity]
       additionalProperties: false
     UpdateCartItemRequest:
@@ -1013,6 +1233,8 @@ paths:
       tags: [Search]
       summary: 搜索商品
       parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
         - $ref: '#/components/parameters/SearchKeywordParam'
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PageSizeParam'
@@ -1023,12 +1245,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductListResponse'
+        '400':
+          description: 缺少关键词
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/brands:
+    get:
+      tags: [Brands]
+      summary: 获取品牌列表
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 品牌列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locale:
+                    type: string
+                  brands:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrandListItem'
+                required: [locale, brands]
+  /api/front/boards/{boardKey}/faqs:
+    get:
+      tags: [Content]
+      summary: 按看板获取已发布 FAQ 列表
+      parameters:
+        - $ref: '#/components/parameters/BoardKeyParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: FAQ 列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FaqListResponse'
+  /api/front/boards/{boardKey}/blogs:
+    get:
+      tags: [Content]
+      summary: 按看板获取已发布博客列表
+      parameters:
+        - $ref: '#/components/parameters/BoardKeyParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 博客列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogListResponse'
+  /api/front/blogs/{contentId}:
+    get:
+      tags: [Content]
+      summary: 获取博客详情（按内容 ID）
+      parameters:
+        - $ref: '#/components/parameters/EditorialContentIdParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 博客详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogDetail'
+        '404':
+          description: 博客不存在或未发布
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/products/{slug}:
     get:
       tags: [Products]
       summary: 获取商品详情
       parameters:
         - $ref: '#/components/parameters/ProductSlugParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
       responses:
         '200':
           description: 商品详情
@@ -1061,6 +1364,9 @@ paths:
     get:
       tags: [Cart]
       summary: 获取当前购物车
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
       responses:
         '200':
           description: 购物车详情
@@ -1070,7 +1376,10 @@ paths:
                 $ref: '#/components/schemas/Cart'
     post:
       tags: [Cart]
-      summary: 添加商品到购物车
+      summary: 添加商品到购物车（需为每个可配置特性选定一个值）
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
       requestBody:
         required: true
         content:

@@ -17,8 +17,9 @@ import {
   resolveContentModuleByBoard,
 } from '@/lib/editorial-content';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
+import { extractSummaryFromHtmlBody } from '@/lib/editorial-summary';
 import { db } from '@/server/db';
-import { editorialContentTranslations, editorialContents } from '@/server/db/schema';
+import { editorialContentBoards, editorialContentTranslations, editorialContents } from '@/server/db/schema';
 
 const payloadSchema = z.object({
   body: z.string().trim().refine(hasMeaningfulHtmlBody, { message: 'Body is required' }),
@@ -31,11 +32,12 @@ const payloadSchema = z.object({
   relatedProductSlugs: z.array(z.string().trim().min(1)).default([]),
 });
 
-export const adminEditorialContentTranslationSchema = z.object({
+const adminEditorialContentTranslationBaseSchema = z.object({
   contentId: z.string().uuid().optional(),
   contentType: z.literal('content').optional(),
   contentModule: z.enum(editorialContentModules).optional(),
-  boardKey: z.string().trim().min(1),
+  boardKey: z.string().trim().min(1).optional(),
+  boardKeys: z.array(z.string().trim().min(1)).min(1).optional(),
   title: z.string().trim().min(1),
   slug: z.string().trim().min(1).optional(),
   summary: z.string().trim().nullable().optional(),
@@ -47,16 +49,23 @@ export const adminEditorialContentTranslationSchema = z.object({
   payload: payloadSchema,
 });
 
-export const adminEditorialContentTranslationPatchSchema = adminEditorialContentTranslationSchema.partial();
+export const adminEditorialContentTranslationSchema = adminEditorialContentTranslationBaseSchema.superRefine((data, ctx) => {
+  if (!data.boardKeys?.length && !data.boardKey) {
+    ctx.addIssue({ code: 'custom', message: 'boardKey or boardKeys is required', path: ['boardKey'] });
+  }
+});
+
+export const adminEditorialContentTranslationPatchSchema = adminEditorialContentTranslationBaseSchema.partial();
 
 export const adminEditorialContentPatchSchema = z.object({
   boardKey: z.string().trim().min(1).optional(),
+  boardKeys: z.array(z.string().trim().min(1)).min(1).optional(),
   status: z.enum(editorialEntryStatuses).optional(),
   publishedAt: z.coerce.date().nullable().optional(),
 });
 
 /** @deprecated */
-export const adminEditorialContentEntrySchema = adminEditorialContentTranslationSchema.extend({
+export const adminEditorialContentEntrySchema = adminEditorialContentTranslationBaseSchema.extend({
   translationGroupId: z.string().uuid().optional(),
 }).transform((value) => ({
   ...value,
@@ -95,6 +104,73 @@ function normalizeBoardKey(value: string | null | undefined) {
   return normalizeEntityKeyForSave(value ?? '') ?? 'content';
 }
 
+function resolveBoardKeys(input: { boardKeys?: string[]; boardKey?: string | null }) {
+  const fromArray = input.boardKeys?.map(normalizeBoardKey).filter(Boolean);
+  if (fromArray?.length) return [...new Set(fromArray)];
+  if (input.boardKey) return [normalizeBoardKey(input.boardKey)];
+  return [] as string[];
+}
+
+type SyncContentBoardsResult = { ok: true; boardKeys: string[]; primaryBoardKey: string } | { ok: false; code: string };
+
+async function loadBoardKeysByContentIds(contentIds: string[]) {
+  if (!contentIds.length) return new Map<string, string[]>();
+
+  const rows = await db
+    .select()
+    .from(editorialContentBoards)
+    .where(inArray(editorialContentBoards.contentId, contentIds))
+    .orderBy(asc(editorialContentBoards.boardKey));
+
+  const grouped = new Map<string, string[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(row.contentId) ?? [];
+    bucket.push(normalizeBoardKey(row.boardKey));
+    grouped.set(row.contentId, bucket);
+  }
+  return grouped;
+}
+
+async function syncContentBoards(
+  contentId: string,
+  boardKeysInput: string[],
+  options?: { lockedBoardKey?: string; contentModule?: EditorialContentModule },
+): Promise<SyncContentBoardsResult> {
+  let boardKeys = [...new Set(boardKeysInput.map(normalizeBoardKey).filter(Boolean))];
+  const lockedBoardKey = options?.lockedBoardKey ? normalizeBoardKey(options.lockedBoardKey) : null;
+
+  if (lockedBoardKey && !boardKeys.includes(lockedBoardKey)) {
+    boardKeys = [lockedBoardKey, ...boardKeys];
+  }
+
+  if (boardKeys.length < 1) {
+    return { ok: false, code: 'BOARD_KEYS_REQUIRED' };
+  }
+
+  if (options?.contentModule) {
+    for (const key of boardKeys) {
+      if (resolveContentModuleByBoard(key) !== options.contentModule) {
+        return { ok: false, code: 'MODULE_BOARD_MISMATCH' };
+      }
+    }
+  }
+
+  const primaryBoardKey = lockedBoardKey ?? boardKeys[0]!;
+
+  await db.transaction(async (tx) => {
+    await tx.delete(editorialContentBoards).where(eq(editorialContentBoards.contentId, contentId));
+    await tx.insert(editorialContentBoards).values(
+      boardKeys.map((boardKey) => ({ contentId, boardKey })),
+    );
+    await tx
+      .update(editorialContents)
+      .set({ boardKey: primaryBoardKey, updatedAt: new Date() })
+      .where(eq(editorialContents.id, contentId));
+  });
+
+  return { ok: true, boardKeys, primaryBoardKey };
+}
+
 function normalizeDateValue(value: Date | string | null | undefined) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -113,16 +189,21 @@ function normalizePayload(payload: EditorialContentPayload): EditorialContentPay
 
 function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedTitle = input.title.trim();
-  const normalizedSummary = normalizeText(input.summary);
   const normalizedPayload = normalizePayload(input.payload);
+  const boardKeys = resolveBoardKeys(input);
+  const boardKey = boardKeys[0] ?? 'content';
+  const contentModule = input.contentModule ?? resolveContentModuleByBoard(boardKey);
+  let normalizedSummary = normalizeText(input.summary);
+  if (contentModule === 'editorial' && !normalizedSummary) {
+    normalizedSummary = normalizeText(extractSummaryFromHtmlBody(normalizedPayload.body));
+  }
   const normalizedSlug = resolveSlugForSave({
     sourceText: normalizedTitle,
     slug: input.slug,
   });
-  const boardKey = normalizeBoardKey(input.boardKey);
-  const contentModule = input.contentModule ?? resolveContentModuleByBoard(boardKey);
 
   return {
+    boardKeys,
     boardKey,
     contentModule,
     title: normalizedTitle,
@@ -139,7 +220,11 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   };
 }
 
-function normalizeTranslationRow(content: ContentRow, translation: TranslationRow): AdminEditorialContentTranslation | null {
+function normalizeTranslationRow(
+  content: ContentRow,
+  translation: TranslationRow,
+  boardKeys?: string[],
+): AdminEditorialContentTranslation | null {
   if (content.contentType !== 'content' || translation.contentType !== 'content') return null;
   const payload = payloadSchema.safeParse({
     ...translation.payload,
@@ -147,11 +232,14 @@ function normalizeTranslationRow(content: ContentRow, translation: TranslationRo
   });
   if (!payload.success) return null;
 
+  const resolvedBoardKeys = boardKeys?.length ? boardKeys : [normalizeBoardKey(content.boardKey)];
+
   return {
     id: translation.id,
     contentId: content.id,
     contentType: 'content',
-    boardKey: normalizeBoardKey(content.boardKey),
+    boardKey: resolvedBoardKeys[0] ?? normalizeBoardKey(content.boardKey),
+    boardKeys: resolvedBoardKeys,
     locale: translation.locale,
     title: translation.title,
     slug: translation.slug,
@@ -179,15 +267,22 @@ function pickPrimaryTranslation(translations: TranslationRow[]) {
   return sorted[0] ?? null;
 }
 
-function toListItem(content: ContentRow, translations: TranslationRow[]): AdminEditorialContentListItem | null {
+function toListItem(
+  content: ContentRow,
+  translations: TranslationRow[],
+  boardKeys?: string[],
+): AdminEditorialContentListItem | null {
   if (content.contentType !== 'content') return null;
   const primary = pickPrimaryTranslation(translations);
   if (!primary) return null;
 
+  const resolvedBoardKeys = boardKeys?.length ? boardKeys : [normalizeBoardKey(content.boardKey)];
+
   return {
     id: content.id,
     contentType: 'content',
-    boardKey: normalizeBoardKey(content.boardKey),
+    boardKey: resolvedBoardKeys[0] ?? normalizeBoardKey(content.boardKey),
+    boardKeys: resolvedBoardKeys,
     status: content.status,
     title: primary.title,
     slug: primary.slug,
@@ -242,9 +337,17 @@ async function findContentIdsBySearch(
   }
 
   if (options.boardKey === '__unassigned__' && options.knownBoardKeys?.length) {
-    boardConditions.push(notInArray(editorialContents.boardKey, options.knownBoardKeys.map(normalizeBoardKey)));
+    const assignedToKnown = db
+      .select({ contentId: editorialContentBoards.contentId })
+      .from(editorialContentBoards)
+      .where(inArray(editorialContentBoards.boardKey, options.knownBoardKeys.map(normalizeBoardKey)));
+    boardConditions.push(notInArray(editorialContents.id, assignedToKnown));
   } else if (options.boardKey && options.boardKey !== '__unassigned__') {
-    boardConditions.push(eq(editorialContents.boardKey, normalizeBoardKey(options.boardKey)));
+    const boardContentIds = db
+      .select({ contentId: editorialContentBoards.contentId })
+      .from(editorialContentBoards)
+      .where(eq(editorialContentBoards.boardKey, normalizeBoardKey(options.boardKey)));
+    boardConditions.push(inArray(editorialContents.id, boardContentIds));
   }
 
   const rows = await db
@@ -280,9 +383,17 @@ function buildContentListConditions(options: {
   }
 
   if (options.boardKey === '__unassigned__' && options.knownBoardKeys?.length) {
-    conditions.push(notInArray(editorialContents.boardKey, options.knownBoardKeys.map(normalizeBoardKey)));
+    const assignedToKnown = db
+      .select({ contentId: editorialContentBoards.contentId })
+      .from(editorialContentBoards)
+      .where(inArray(editorialContentBoards.boardKey, options.knownBoardKeys.map(normalizeBoardKey)));
+    conditions.push(notInArray(editorialContents.id, assignedToKnown));
   } else if (options.boardKey && options.boardKey !== '__unassigned__') {
-    conditions.push(eq(editorialContents.boardKey, normalizeBoardKey(options.boardKey)));
+    const boardContentIds = db
+      .select({ contentId: editorialContentBoards.contentId })
+      .from(editorialContentBoards)
+      .where(eq(editorialContentBoards.boardKey, normalizeBoardKey(options.boardKey)));
+    conditions.push(inArray(editorialContents.id, boardContentIds));
   }
 
   if (options.matchingIds !== undefined && options.matchingIds !== null) {
@@ -356,9 +467,14 @@ export async function getAdminEditorialContentListPaginated(
     .offset(offset);
 
   const translationMap = await loadTranslationsByContentIds(contentRows.map((row) => row.id));
+  const boardKeysMap = await loadBoardKeysByContentIds(contentRows.map((row) => row.id));
 
   const items = contentRows
-    .map((content) => toListItem(content, translationMap.get(content.id) ?? []))
+    .map((content) => toListItem(
+      content,
+      translationMap.get(content.id) ?? [],
+      boardKeysMap.get(content.id),
+    ))
     .filter((item): item is AdminEditorialContentListItem => Boolean(item))
     .sort(sortListItems);
 
@@ -394,7 +510,8 @@ export async function getAdminEditorialContentListItem(contentId: string) {
     .where(eq(editorialContentTranslations.contentId, contentId))
     .orderBy(asc(editorialContentTranslations.locale));
 
-  return toListItem(content, translations);
+  const boardKeysMap = await loadBoardKeysByContentIds([contentId]);
+  return toListItem(content, translations, boardKeysMap.get(contentId));
 }
 
 export async function getAdminEditorialContentTranslations(contentId: string) {
@@ -412,8 +529,11 @@ export async function getAdminEditorialContentTranslations(contentId: string) {
     .where(eq(editorialContentTranslations.contentId, contentId))
     .orderBy(asc(editorialContentTranslations.locale));
 
+  const boardKeysMap = await loadBoardKeysByContentIds([contentId]);
+  const boardKeys = boardKeysMap.get(contentId);
+
   return translations
-    .map((translation) => normalizeTranslationRow(content, translation))
+    .map((translation) => normalizeTranslationRow(content, translation, boardKeys))
     .filter((item): item is AdminEditorialContentTranslation => Boolean(item));
 }
 
@@ -433,7 +553,7 @@ export async function getAdminEditorialContentTranslation(translationId: string)
     .where(eq(editorialContentTranslations.id, translationId))
     .limit(1);
 
-  return row ? normalizeTranslationRow(row.content, row.translation) : null;
+  return row ? normalizeTranslationRow(row.content, row.translation, (await loadBoardKeysByContentIds([row.content.id])).get(row.content.id)) : null;
 }
 
 /** @deprecated */
@@ -472,7 +592,7 @@ export async function findAdminEditorialContentTranslationBySlug(
     .where(and(...conditions))
     .limit(1);
 
-  return row ? normalizeTranslationRow(row.content, row.translation) : null;
+  return row ? normalizeTranslationRow(row.content, row.translation, (await loadBoardKeysByContentIds([row.content.id])).get(row.content.id)) : null;
 }
 
 /** @deprecated */
@@ -500,7 +620,7 @@ export async function findAdminEditorialContentTranslationByContentAndLocale(con
     .where(and(...conditions))
     .limit(1);
 
-  return row ? normalizeTranslationRow(row.content, row.translation) : null;
+  return row ? normalizeTranslationRow(row.content, row.translation, (await loadBoardKeysByContentIds([row.content.id])).get(row.content.id)) : null;
 }
 
 /** @deprecated */
@@ -577,13 +697,19 @@ export async function createAdminEditorialContentTranslation(input: TranslationC
 
   if (!created) return null;
 
+  const syncResult = await syncContentBoards(contentId, next.boardKeys, {
+    lockedBoardKey: input.boardKey ?? next.boardKey,
+    contentModule: next.contentModule,
+  });
+  if (!syncResult.ok) return null;
+
   const [content] = await db
     .select()
     .from(editorialContents)
     .where(eq(editorialContents.id, contentId))
     .limit(1);
 
-  return content ? normalizeTranslationRow(content, created) : null;
+  return content ? normalizeTranslationRow(content, created, syncResult.boardKeys) : null;
 }
 
 /** @deprecated */
@@ -602,6 +728,7 @@ export async function updateAdminEditorialContentTranslation(translationId: stri
     contentId: current.contentId,
     contentModule: input.contentModule ?? resolveContentModuleByBoard(input.boardKey ?? current.boardKey),
     boardKey: input.boardKey ?? current.boardKey,
+    boardKeys: input.boardKeys ?? current.boardKeys,
     title: input.title ?? current.title,
     slug: input.slug ?? current.slug,
     summary: input.summary === undefined ? current.summary : input.summary,
@@ -642,13 +769,19 @@ export async function updateAdminEditorialContentTranslation(translationId: stri
 
   if (!updated) return null;
 
+  const syncResult = await syncContentBoards(current.contentId, merged.boardKeys, {
+    lockedBoardKey: input.boardKey ?? merged.boardKey,
+    contentModule: merged.contentModule,
+  });
+  if (!syncResult.ok) return null;
+
   const [content] = await db
     .select()
     .from(editorialContents)
     .where(eq(editorialContents.id, current.contentId))
     .limit(1);
 
-  return content ? normalizeTranslationRow(content, updated) : null;
+  return content ? normalizeTranslationRow(content, updated, syncResult.boardKeys) : null;
 }
 
 /** @deprecated */
@@ -659,6 +792,21 @@ export async function updateAdminEditorialContentEntry(id: string, input: Transl
 export async function updateAdminEditorialContent(contentId: string, input: ContentPatchInput) {
   const current = await getAdminEditorialContentListItem(contentId);
   if (!current) return null;
+
+  if (input.boardKeys?.length) {
+    const [existingContent] = await db
+      .select()
+      .from(editorialContents)
+      .where(eq(editorialContents.id, contentId))
+      .limit(1);
+    if (!existingContent) return null;
+
+    const syncResult = await syncContentBoards(contentId, input.boardKeys, {
+      lockedBoardKey: input.boardKey ?? current.boardKey,
+      contentModule: existingContent.contentModule,
+    });
+    if (!syncResult.ok) return null;
+  }
 
   const nextStatus = input.status ?? current.status;
   const nextPublishedAt = input.publishedAt === undefined
@@ -687,7 +835,8 @@ export async function updateAdminEditorialContent(contentId: string, input: Cont
     .from(editorialContentTranslations)
     .where(eq(editorialContentTranslations.contentId, contentId));
 
-  return toListItem(updated, translations);
+  const boardKeysMap = await loadBoardKeysByContentIds([contentId]);
+  return toListItem(updated, translations, boardKeysMap.get(contentId));
 }
 
 export async function deleteAdminEditorialContent(contentId: string) {

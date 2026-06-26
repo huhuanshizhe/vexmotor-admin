@@ -1,3 +1,5 @@
+import type { StorefrontConfigurableFeature } from '@/lib/product-feature-selection';
+
 export type StorefrontImage = {
   id: string;
   url: string;
@@ -105,6 +107,22 @@ export type StorefrontProductDetail = StorefrontProductCard & {
   configurationRules?: unknown | null;
   torqueCurveData?: unknown | null;
   paidSampleEnabled?: boolean;
+  allowBackorder?: boolean;
+  configurableFeatures?: StorefrontConfigurableFeature[];
+  manufacturing?: {
+    moq: number;
+    leadTimeMin: number;
+    leadTimeMax: number;
+    leadTimeUnit: string;
+    lifecycleStatus: string;
+    eolDate: string | null;
+    lastTimeBuyDate: string | null;
+    efficiencyClass: string | null;
+  };
+  seo?: {
+    title: string | null;
+    description: string | null;
+  };
 };
 
 export type ProductListResult = {

@@ -42,6 +42,7 @@ export type AdminEditorialContentListItem = {
   id: string;
   contentType: 'content';
   boardKey: string;
+  boardKeys: string[];
   status: EditorialEntryStatus;
   title: string;
   slug: string;
@@ -60,6 +61,7 @@ export type AdminEditorialContentTranslation = {
   contentId: string;
   contentType: 'content';
   boardKey: string;
+  boardKeys: string[];
   locale: string;
   title: string;
   slug: string;

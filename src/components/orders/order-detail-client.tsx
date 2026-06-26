@@ -536,6 +536,16 @@ export function OrderDetailClient({
                   {item.spu}
                   {item.variantLabel ? ` · ${item.variantLabel}` : ''}
                 </div>
+                {item.featureSelections?.length ? (
+                  <ul style={{ color: '#677489', margin: '6px 0 0', paddingLeft: 18 }}>
+                    {item.featureSelections.map((selection) => (
+                      <li key={`${item.id}-${selection.valueId}`}>
+                        {selection.definitionName}: {selection.display}
+                        {selection.unit ? ` ${selection.unit}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <div style={{ color: '#677489', marginTop: 4 }}>
                   {orderMoney(item.unitPrice)} × {item.quantity}
                 </div>

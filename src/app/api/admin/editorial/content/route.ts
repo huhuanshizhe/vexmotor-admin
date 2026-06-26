@@ -53,9 +53,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const contentModule = parsed.data.contentModule ?? resolveContentModuleByBoard(parsed.data.boardKey);
+  const contentModule = parsed.data.contentModule ?? resolveContentModuleByBoard(parsed.data.boardKey ?? parsed.data.boardKeys?.[0] ?? '');
+  const boardKeys = parsed.data.boardKeys?.length
+    ? parsed.data.boardKeys
+    : parsed.data.boardKey
+      ? [parsed.data.boardKey]
+      : [];
 
-  if (parsed.data.contentModule && parsed.data.contentModule !== resolveContentModuleByBoard(parsed.data.boardKey)) {
+  if (!boardKeys.length) {
+    return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'boardKey or boardKeys is required' }, { status: 400 });
+  }
+
+  for (const key of boardKeys) {
+    if (resolveContentModuleByBoard(key) !== contentModule) {
+      return NextResponse.json({ code: 'MODULE_BOARD_MISMATCH', message: '看板与内容模块不匹配' }, { status: 400 });
+    }
+  }
+
+  if (parsed.data.contentModule && parsed.data.contentModule !== resolveContentModuleByBoard(boardKeys[0]!)) {
     return NextResponse.json({ code: 'MODULE_BOARD_MISMATCH', message: '看板与内容模块不匹配' }, { status: 400 });
   }
 

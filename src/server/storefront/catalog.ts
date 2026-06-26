@@ -15,7 +15,7 @@ import {
   productVariants,
 } from '@/server/db/schema';
 
-import { getStorefrontProductFeatures } from '@/server/admin/product-features';
+import { getStorefrontProductFeatureOptions, getStorefrontProductFeatures } from '@/server/admin/product-features';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
 import {
   footerContactBlocks,
@@ -585,8 +585,12 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
         leadTimeMax: productTranslations.leadTimeMax,
         leadTimeUnit: productTranslations.leadTimeUnit,
         lifecycleStatus: productTranslations.lifecycleStatus,
+        eolDate: productTranslations.eolDate,
+        lastTimeBuyDate: productTranslations.lastTimeBuyDate,
+        efficiencyClass: productTranslations.efficiencyClass,
         featured: products.featured,
         allowBackorder: products.allowBackorder,
+        paidSampleEnabled: products.paidSampleEnabled,
         brandId: brands.id,
         brandName: brandNameSql(brands.id, locale),
         brandSlug: brandSlugSql(brands.id, locale),
@@ -606,7 +610,7 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
       return null;
     }
 
-    const [images, categoryRows, attachmentRows, featureRows, variantRows] = await Promise.all([
+    const [images, categoryRows, attachmentRows, featureRows, configurableFeatures, variantRows] = await Promise.all([
       db.select().from(productImages).where(eq(productImages.productId, product.id)).orderBy(asc(productImages.sortOrder)),
       db
         .select({
@@ -622,11 +626,16 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
         .where(eq(productCategories.productId, product.id)),
       db.select().from(attachments).where(eq(attachments.productId, product.id)).orderBy(asc(attachments.sortOrder)),
       getStorefrontProductFeatures(product.id, locale),
+      getStorefrontProductFeatureOptions(product.id, locale),
       db.select().from(productVariants).where(eq(productVariants.productId, product.id)).orderBy(asc(productVariants.createdAt)),
     ]);
 
     const related = await getRelatedProducts(slug, categoryRows[0]?.slug ?? null, product.id, locale);
     const compatibleGroups = await getCompatibleGroups(product.id, locale);
+
+    const certifications = product.payload?.certifications ?? [];
+    const eolDate = product.eolDate ? product.eolDate.toISOString() : null;
+    const lastTimeBuyDate = product.lastTimeBuyDate ? product.lastTimeBuyDate.toISOString() : null;
 
     return {
       id: product.id,
@@ -647,10 +656,12 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
       leadTimeMax: product.leadTimeMax,
       leadTimeUnit: product.leadTimeUnit,
       lifecycleStatus: product.lifecycleStatus,
-      eolDate: null,
-      lastTimeBuyDate: null,
-      efficiencyClass: null,
-      certifications: undefined,
+      eolDate,
+      lastTimeBuyDate,
+      efficiencyClass: product.efficiencyClass,
+      certifications,
+      paidSampleEnabled: product.paidSampleEnabled,
+      allowBackorder: product.allowBackorder,
       configurationRules: undefined,
       torqueCurveData: undefined,
       brand: product.brandId && product.brandName && product.brandSlug ? { id: product.brandId, name: product.brandName, slug: product.brandSlug } : null,
@@ -673,7 +684,22 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
       compatibleGroups,
       seoTitle: product.seoTitle,
       seoDescription: product.seoDescription,
+      seo: {
+        title: product.seoTitle,
+        description: product.seoDescription,
+      },
+      manufacturing: {
+        moq: product.moq,
+        leadTimeMin: product.leadTimeMin,
+        leadTimeMax: product.leadTimeMax,
+        leadTimeUnit: product.leadTimeUnit,
+        lifecycleStatus: product.lifecycleStatus,
+        eolDate,
+        lastTimeBuyDate,
+        efficiencyClass: product.efficiencyClass,
+      },
       features: featureRows,
+      configurableFeatures,
       descriptionLong: product.descriptionLong || null,
     };
   } catch (error) {

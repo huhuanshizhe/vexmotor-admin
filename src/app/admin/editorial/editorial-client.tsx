@@ -35,6 +35,7 @@ export function AdminEditorialClient({
           open={props.open}
           boardKey={props.boardKey}
           boardLabel={props.boardLabel}
+          availableBoards={props.availableBoards}
           activeLanguages={activeLanguages}
           editingEntry={props.editingEntry}
           onClose={props.onClose}

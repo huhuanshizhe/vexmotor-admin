@@ -108,6 +108,14 @@ export type AdminOrderItem = {
   productName: string;
   spu: string;
   variantLabel: string | null;
+  featureSelections: Array<{
+    definitionId: string;
+    definitionKey: string;
+    definitionName: string;
+    valueId: string;
+    display: string;
+    unit?: string | null;
+  }>;
   quantity: number;
   unitPrice: string;
   subtotal: string;
@@ -533,6 +541,7 @@ export async function getAdminOrderDetail(orderNumber: string): Promise<AdminOrd
         productName: orderItems.productName,
         spu: orderItems.spu,
         variantLabel: orderItems.variantLabel,
+        featureSelections: orderItems.featureSelections,
         quantity: orderItems.quantity,
         unitPrice: orderItems.unitPrice,
         subtotal: orderItems.subtotal,
