@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 
-import { compareMd5 } from '@/lib/auth/password';
+import { compareMd5, md5Hash } from '@/lib/auth/password';
 import { db } from '@/server/db';
 import { admins } from '@/server/db/schema';
 
@@ -47,4 +47,17 @@ export function verifyAdminPassword(admin: AdminAuthRecord, password: string) {
     return true;
   }
   return compareMd5(password, admin.passwordHash);
+}
+
+export async function resetAdminOwnPassword(adminId: string, password: string) {
+  const [updated] = await db
+    .update(admins)
+    .set({
+      passwordHash: md5Hash(password),
+      updatedAt: new Date(),
+    })
+    .where(eq(admins.id, adminId))
+    .returning({ id: admins.id });
+
+  return updated ? { ok: true as const } : null;
 }

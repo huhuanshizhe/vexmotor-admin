@@ -197,6 +197,17 @@ export async function listActiveAdminInquiries(query: InquiryActiveListQuery) {
   return rows.map(mapListRow);
 }
 
+export async function listRecentAdminInquiries(limit = 5) {
+  const rows = await db
+    .select(inquiryListSelect)
+    .from(inquiries)
+    .innerJoin(products, eq(products.id, inquiries.productId))
+    .orderBy(desc(inquiries.lastMessageAt), desc(inquiries.createdAt))
+    .limit(limit);
+
+  return rows.map(mapListRow);
+}
+
 export async function listHistoryAdminInquiries(query: InquiryHistoryListQuery): Promise<AdminInquiryHistoryPage> {
   const page = Math.max(1, query.page);
   const pageSize = normalizePageSize(query.pageSize);

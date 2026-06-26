@@ -25,7 +25,6 @@ type OverviewProps = {
     totalInquiries: number;
     openInquiries: number;
     lowStockProducts: number;
-    activeBlocks: number;
     publishedPages: number;
     paidRevenue: number;
   };
@@ -90,7 +89,13 @@ export function AdminOverviewClient({ metrics, recentOrders, recentInquiries, lo
           <Card><Statistic title="已发布页面" value={metrics.publishedPages} /></Card>
         </Col>
         <Col xs={24} sm={12} xl={6}>
-          <Card><Statistic title="已收款销售额" value={metrics.paidRevenue} precision={2} prefix="$" /></Card>
+          <Card>
+            <Statistic
+              title="已收款销售额"
+              value={metrics.paidRevenue}
+              formatter={(value) => formatAdminMoney(value as number)}
+            />
+          </Card>
         </Col>
       </Row>
 

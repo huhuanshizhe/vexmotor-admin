@@ -236,6 +236,17 @@ async function appendOrderActionLog(input: {
   });
 }
 
+export async function listRecentAdminOrders(limit = 5) {
+  const rows = await db
+    .select(orderListSelect)
+    .from(orders)
+    .leftJoin(users, eq(users.id, orders.userId))
+    .orderBy(desc(orders.placedAt), desc(orders.createdAt))
+    .limit(limit);
+
+  return rows.map(mapListRow);
+}
+
 async function loadOrderShipments(orderId: string): Promise<AdminOrderShipment[]> {
   const shipmentRows = await db
     .select({

@@ -14,9 +14,8 @@ import {
   ShoppingOutlined,
   TagsOutlined,
   TeamOutlined,
-  UserOutlined,
 } from '@ant-design/icons';
-import { Avatar, Button, Layout, Menu, Space, Typography } from 'antd';
+import { Button, Layout, Menu, Space, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -29,6 +28,7 @@ import {
   getAdminPageTitle,
   type AdminNavItem,
 } from '@/lib/admin-navigation';
+import { AdminProfileMenu } from '@/components/layout/admin-profile-menu';
 
 const { Header, Sider, Content } = Layout;
 
@@ -110,10 +110,7 @@ export function AdminShell({ children }: PropsWithChildren) {
             <Button href="/" type="default">
               查看商城前台
             </Button>
-            <Space>
-              <Avatar icon={<UserOutlined />} />
-              <Typography.Text>管理员</Typography.Text>
-            </Space>
+            <AdminProfileMenu />
           </Space>
         </Header>
         <Content style={{ padding: 24, background: '#f6f7f9' }}>{children}</Content>
