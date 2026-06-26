@@ -35,7 +35,7 @@ import { getAdminBrandOptions } from '@/server/admin/brands';
 import { getAdminCategoryOptions } from '@/server/admin/categories';
 import { countProductFeatureAssignmentsByProductIds } from '@/server/admin/product-features';
 import { db } from '@/server/db';
-import { brands, categories, productTranslations, products } from '@/server/db/schema';
+import { brands, categories, productCategories, productTranslations, products } from '@/server/db/schema';
 import { brandNameSql } from '@/server/brands/resolve-brand-translation';
 import { categoryNameSql } from '@/server/categories/resolve-category-translation';
 import { DEFAULT_PRODUCT_LOCALE, normalizeProductSlug } from '@/server/products/resolve-product-translation';
@@ -68,6 +68,7 @@ export const adminProductTranslationSchema = z.object({
   spu: z.string().trim().min(1),
   brandId: z.string().uuid().nullable().optional(),
   defaultCategoryId: z.string().uuid().nullable().optional(),
+  categoryIds: z.array(z.string().uuid()).optional(),
   purchaseMode: z.enum(productPurchaseModes).optional(),
   paidSampleEnabled: z.boolean().optional(),
   featured: z.boolean().optional(),
@@ -100,6 +101,7 @@ export const adminProductPatchSchema = z.object({
   spu: z.string().trim().min(1).optional(),
   brandId: z.string().uuid().nullable().optional(),
   defaultCategoryId: z.string().uuid().nullable().optional(),
+  categoryIds: z.array(z.string().uuid()).optional(),
   purchaseMode: z.enum(productPurchaseModes).optional(),
   paidSampleEnabled: z.boolean().optional(),
   featured: z.boolean().optional(),
@@ -156,6 +158,42 @@ function normalizePayload(payload: AdminProductPayload | undefined): AdminProduc
   };
 }
 
+function resolveCategoryFields(input: {
+  categoryIds?: string[];
+  defaultCategoryId?: string | null;
+}) {
+  if (input.categoryIds !== undefined) {
+    const categoryIds = [...new Set(input.categoryIds.filter(Boolean))];
+    return {
+      categoryIds,
+      defaultCategoryId: categoryIds[0] ?? null,
+    };
+  }
+
+  const defaultCategoryId = input.defaultCategoryId ?? null;
+  return {
+    categoryIds: defaultCategoryId ? [defaultCategoryId] : [],
+    defaultCategoryId,
+  };
+}
+
+async function loadProductCategoryIds(productId: string) {
+  const rows = await db
+    .select({ categoryId: productCategories.categoryId })
+    .from(productCategories)
+    .where(eq(productCategories.productId, productId));
+  return rows.map((row) => row.categoryId);
+}
+
+async function syncProductCategories(productId: string, categoryIds: string[]) {
+  const uniqueIds = [...new Set(categoryIds.filter(Boolean))];
+  await db.delete(productCategories).where(eq(productCategories.productId, productId));
+  if (!uniqueIds.length) return;
+  await db.insert(productCategories).values(
+    uniqueIds.map((categoryId) => ({ productId, categoryId })),
+  );
+}
+
 function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedName = input.name.trim();
   const normalizedSlug = resolveSlugForSave({
@@ -163,12 +201,14 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
     slug: input.slug,
   });
   const normalizedPayload = normalizePayload(input.payload as AdminProductPayload | undefined);
+  const { categoryIds, defaultCategoryId } = resolveCategoryFields(input);
 
   return {
     locale: normalizeLocale(input.locale),
     spu: input.spu.trim(),
     brandId: input.brandId ?? null,
-    defaultCategoryId: input.defaultCategoryId ?? null,
+    defaultCategoryId,
+    categoryIds,
     purchaseMode: (input.purchaseMode ?? 'buy') as ProductPurchaseMode,
     paidSampleEnabled: input.paidSampleEnabled ?? false,
     featured: input.featured ?? false,
@@ -263,6 +303,7 @@ function toListItem(
   categoryName: string | null,
   preferredLocale?: string,
   featureCount = 0,
+  categoryIds?: string[],
 ): AdminProductListItem | null {
   const primary = pickPrimaryTranslation(translations, preferredLocale);
   if (!primary) return null;
@@ -283,6 +324,7 @@ function toListItem(
     brandId: product.brandId,
     brandName,
     defaultCategoryId: product.defaultCategoryId,
+    categoryIds: categoryIds ?? (product.defaultCategoryId ? [product.defaultCategoryId] : []),
     categoryName,
     featured: product.featured,
     paidSampleEnabled: product.paidSampleEnabled,
@@ -484,6 +526,11 @@ export async function getAdminProductListItem(productId: string, preferredLocale
     .where(eq(productTranslations.productId, productId))
     .orderBy(asc(productTranslations.locale));
 
+  const categoryIdRows = await loadProductCategoryIds(productId);
+  const categoryIds = categoryIdRows.length
+    ? categoryIdRows
+    : (row.product.defaultCategoryId ? [row.product.defaultCategoryId] : []);
+
   const featureCountMap = await countProductFeatureAssignmentsByProductIds([productId]);
   return toListItem(
     row.product,
@@ -492,6 +539,7 @@ export async function getAdminProductListItem(productId: string, preferredLocale
     row.categoryName,
     preferredLocale,
     featureCountMap.get(productId) ?? 0,
+    categoryIds,
   );
 }
 
@@ -629,6 +677,8 @@ export async function createAdminProductTranslation(input: TranslationCreateInpu
       .where(eq(products.id, productId));
   }
 
+  await syncProductCategories(productId, next.categoryIds);
+
   const [translation] = await db
     .insert(productTranslations)
     .values({
@@ -726,6 +776,8 @@ export async function updateAdminProductTranslation(translationId: string, input
     })
     .where(eq(products.id, existing.productId));
 
+  await syncProductCategories(existing.productId, next.categoryIds);
+
   const [translation] = await db
     .update(productTranslations)
     .set({
@@ -770,14 +822,23 @@ export async function updateAdminProductShared(productId: string, input: Product
     if (duplicateSpu) throw new Error('DUPLICATE_SPU');
   }
 
+  const resolved = resolveCategoryFields(parsed);
+  const shouldSyncCategories = parsed.categoryIds !== undefined || parsed.defaultCategoryId !== undefined;
+  const { categoryIds: _categoryIds, ...productFields } = parsed;
+
   const [product] = await db
     .update(products)
     .set({
-      ...parsed,
+      ...productFields,
+      ...(shouldSyncCategories ? { defaultCategoryId: resolved.defaultCategoryId } : {}),
       updatedAt: new Date(),
     })
     .where(eq(products.id, productId))
     .returning();
+
+  if (product && shouldSyncCategories) {
+    await syncProductCategories(productId, resolved.categoryIds);
+  }
 
   return product ?? null;
 }

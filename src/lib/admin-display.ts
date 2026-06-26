@@ -94,6 +94,9 @@ export const categoryStatusOptions = Object.entries(categoryStatusLabels).map(([
 export const brandStatusOptions = Object.entries(brandStatusLabels).map(([value, label]) => ({ value, label }));
 export const orderStatusOptions = Object.entries(orderStatusLabels).map(([value, label]) => ({ value, label }));
 export const inquiryStatusOptions = Object.entries(inquiryStatusLabels).map(([value, label]) => ({ value, label }));
+
+/** 销售跟进下拉：不含「已关闭」，终止操作使用「标记已终止」 */
+export const inquiryFollowUpStatusOptions = inquiryStatusOptions.filter((option) => option.value !== 'closed');
 export const inquiryQueueKindOptions = Object.entries(inquiryQueueKindLabels).map(([value, label]) => ({ value, label }));
 export const inquiryResolutionOptions = Object.entries(inquiryResolutionLabels).map(([value, label]) => ({ value, label }));
 

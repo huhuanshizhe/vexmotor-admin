@@ -36,7 +36,6 @@ export function AdminProductsClient({
           open={open}
           editingEntry={editingEntry}
           activeLanguages={activeLanguages}
-          brandOptions={brandOptions}
           categoryTree={categoryTree}
           onClose={onClose}
           onSaved={onSaved as (entry: AdminProductTranslation) => void}

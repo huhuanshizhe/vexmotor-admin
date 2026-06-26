@@ -10,7 +10,7 @@ import {
   getInquiryResolutionLabel,
   inquiryQueueKindLabels,
   inquiryStatusLabels,
-  inquiryStatusOptions,
+  inquiryFollowUpStatusOptions,
 } from '@/lib/admin-display';
 import { parseInquiryMessage } from '@/lib/inquiry-message';
 
@@ -294,10 +294,18 @@ export function InquiryDetailClient({
         <h2 style={{ marginTop: 0 }}>销售跟进</h2>
         <label style={{ display: 'grid', gap: 8 }}>
           <span>询盘状态</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as InquiryDetail['status'])} style={{ minHeight: 44, borderRadius: 12, border: '1px solid var(--color-border)', padding: '0 12px' }}>
-            {inquiryStatusOptions.map((option) => (
+          <select
+            value={status}
+            disabled={status === 'closed'}
+            onChange={(event) => setStatus(event.target.value as InquiryDetail['status'])}
+            style={{ minHeight: 44, borderRadius: 12, border: '1px solid var(--color-border)', padding: '0 12px' }}
+          >
+            {inquiryFollowUpStatusOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
+            {status === 'closed' ? (
+              <option value="closed">{inquiryStatusLabels.closed}</option>
+            ) : null}
           </select>
         </label>
         <label style={{ display: 'grid', gap: 8 }}>

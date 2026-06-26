@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { BrandPickerModal } from '@/components/brands/brand-picker-modal';
 import {
   type BrandPickerItem,
-  formatBrandSelectedDisplay,
 } from '@/lib/brand-picker';
 
 type BrandPickerFieldBaseProps = {
@@ -72,9 +71,8 @@ export function BrandPickerField(props: BrandPickerFieldProps) {
   const selectedItems = useMemo(
     () => selectedIds.map((id) => {
       const item = cache.get(id);
-      if (!item) return { id, name: id, subtitle: null as string | null, logoUrl: null as string | null };
-      const display = formatBrandSelectedDisplay(item);
-      return { id, name: display.name, subtitle: display.subtitle, logoUrl: item.logoUrl };
+      if (!item) return { id, name: id, logoUrl: null as string | null };
+      return { id, name: item.name, logoUrl: item.logoUrl };
     }),
     [cache, selectedIds],
   );
@@ -127,9 +125,6 @@ export function BrandPickerField(props: BrandPickerFieldProps) {
                 ) : null}
                 <div className="entity-picker-selected__body">
                   <div className="entity-picker-selected__name">{item.name}</div>
-                  {item.subtitle ? (
-                    <div className="entity-picker-selected__meta">{item.subtitle}</div>
-                  ) : null}
                 </div>
               </div>
               <Button

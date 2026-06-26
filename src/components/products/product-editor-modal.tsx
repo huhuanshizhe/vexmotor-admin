@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Col, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, TreeSelect, message } from 'antd';
+import { Button, Col, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Switch, Tabs, message } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
@@ -8,12 +8,13 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
+import { BrandPickerField } from '@/components/brands/brand-picker-field';
+import { CategoryPickerField } from '@/components/categories/category-picker-field';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { ProductAttachmentsField } from '@/components/products/product-attachments-field';
 import { ProductGalleryField } from '@/components/products/product-gallery-field';
 import { productLifecycleOptions } from '@/lib/admin-display';
-import { buildCategoryParentTreeSelectData } from '@/lib/category-parent-tree-select';
 import { confirmProductListingChange } from '@/lib/confirm-product-listing';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
 import { getCommonCurrencyGroupedSelectOptions } from '@/lib/currencies';
@@ -67,7 +68,6 @@ type ProductEditorModalProps = {
   open: boolean;
   activeLanguages: AdminSiteLanguageRow[];
   categoryTree: AdminCategoryTreeNode[];
-  brandOptions: Array<{ label: string; value: string }>;
   editingEntry: AdminProductListItem | null;
   onClose: () => void;
   onSaved: (entry: AdminProductTranslation) => void;
@@ -184,7 +184,6 @@ export function ProductEditorModal({
   open,
   activeLanguages,
   categoryTree,
-  brandOptions,
   editingEntry,
   onClose,
   onSaved,
@@ -192,7 +191,7 @@ export function ProductEditorModal({
   const [productId, setProductId] = useState<string | undefined>();
   const [spu, setSpu] = useState('');
   const [brandId, setBrandId] = useState<string | null>(null);
-  const [defaultCategoryId, setDefaultCategoryId] = useState<string | null>(null);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [featured, setFeatured] = useState(false);
   const [featuredSortOrder, setFeaturedSortOrder] = useState(0);
   const [purchaseMode, setPurchaseMode] = useState<ProductPurchaseMode>('buy');
@@ -209,11 +208,8 @@ export function ProductEditorModal({
 
   const hasLanguages = activeLanguages.length > 0;
   const isEditing = Boolean(editingEntry);
-  const categoryTreeData = useMemo(
-    () => buildCategoryParentTreeSelectData(categoryTree, new Set()),
-    [categoryTree],
-  );
   const currencyOptions = useMemo(() => getCommonCurrencyGroupedSelectOptions(), []);
+  const defaultCategoryId = categoryIds[0] ?? null;
 
   useEffect(() => {
     if (!open) return;
@@ -234,7 +230,7 @@ export function ProductEditorModal({
       setProductId(undefined);
       setSpu('');
       setBrandId(null);
-      setDefaultCategoryId(null);
+      setCategoryIds([]);
       setFeatured(false);
       setFeaturedSortOrder(0);
       setPurchaseMode('buy');
@@ -250,7 +246,13 @@ export function ProductEditorModal({
     setProductId(editingEntry.id);
     setSpu(editingEntry.spu);
     setBrandId(editingEntry.brandId);
-    setDefaultCategoryId(editingEntry.defaultCategoryId);
+    setCategoryIds(
+      editingEntry.categoryIds?.length
+        ? editingEntry.categoryIds
+        : editingEntry.defaultCategoryId
+          ? [editingEntry.defaultCategoryId]
+          : [],
+    );
     setFeatured(editingEntry.featured);
     setPaidSampleEnabled(editingEntry.paidSampleEnabled);
     setPurchaseMode(editingEntry.purchaseMode);
@@ -270,6 +272,15 @@ export function ProductEditorModal({
         if (firstTranslation) {
           setFeaturedSortOrder(firstTranslation.featuredSortOrder);
         }
+
+        setCategoryIds(
+          payload.item.categoryIds?.length
+            ? payload.item.categoryIds
+            : payload.item.defaultCategoryId
+              ? [payload.item.defaultCategoryId]
+              : [],
+        );
+        setBrandId(payload.item.brandId);
 
         const nextDrafts = Object.fromEntries(
           activeLanguages.map((language) => {
@@ -303,6 +314,8 @@ export function ProductEditorModal({
 
   function validateDraft(locale: string, draft: LocaleDraft) {
     if (!spu.trim()) return { ok: false as const, locale, message: '请填写 SPU' };
+    if (!categoryIds.length) return { ok: false as const, locale, message: '请选择至少一个分类' };
+    if (!brandId) return { ok: false as const, locale, message: '请选择品牌' };
     if (!draft.name.trim()) return { ok: false as const, locale, message: '请填写产品名称' };
     if (!draft.slug.trim()) return { ok: false as const, locale, message: '请填写 Slug' };
     if (draft.leadTimeMin > draft.leadTimeMax) {
@@ -318,6 +331,7 @@ export function ProductEditorModal({
       spu: spu.trim(),
       brandId,
       defaultCategoryId,
+      categoryIds,
       purchaseMode,
       paidSampleEnabled,
       featured,
@@ -384,6 +398,7 @@ export function ProductEditorModal({
         spu: spu.trim(),
         brandId,
         defaultCategoryId,
+        categoryIds,
         featured,
         featuredSortOrder,
         purchaseMode,
@@ -449,23 +464,23 @@ export function ProductEditorModal({
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
-          <Form.Item label="所属分类" layout="vertical" style={{ marginBottom: 16 }}>
-            <TreeSelect
-              allowClear
-              showSearch
-              treeDefaultExpandAll
-              treeNodeFilterProp="title"
-              placeholder="选择分类"
-              value={defaultCategoryId ?? undefined}
-              onChange={(value) => setDefaultCategoryId(value ?? null)}
-              treeData={categoryTreeData}
-              style={{ width: '100%' }}
+          <Form.Item label="所属分类" layout="vertical" required style={{ marginBottom: 16 }}>
+            <CategoryPickerField
+              mode="multiple"
+              categoryTree={categoryTree}
+              value={categoryIds}
+              onChange={setCategoryIds}
             />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
-          <Form.Item label="所属品牌" layout="vertical" style={{ marginBottom: 16 }}>
-            <Select allowClear value={brandId ?? undefined} onChange={(value) => setBrandId(value ?? null)} options={brandOptions} />
+          <Form.Item label="所属品牌" layout="vertical" required style={{ marginBottom: 16 }}>
+            <BrandPickerField
+              mode="single"
+              value={brandId ?? ''}
+              onChange={(value) => setBrandId(value || null)}
+              addButtonLabel="选择品牌"
+            />
           </Form.Item>
         </Col>
         <Col xs={24} md={6}>

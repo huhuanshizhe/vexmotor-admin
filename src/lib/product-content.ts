@@ -52,6 +52,7 @@ export type AdminProductListItem = {
   brandId: string | null;
   brandName: string | null;
   defaultCategoryId: string | null;
+  categoryIds: string[];
   categoryName: string | null;
   featured: boolean;
   paidSampleEnabled: boolean;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Checkbox, Input, Modal, Tree, Typography } from 'antd';
+import { Checkbox, Input, Modal, Radio, Tree, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
@@ -52,6 +52,7 @@ export function CategoryPickerModal({
   }, [flatIndex, keyword, disabledIds]);
 
   const isSearchMode = keyword.trim().length > 0;
+  const isSingleMode = mode === 'single';
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +66,7 @@ export function CategoryPickerModal({
   }
 
   function applyPendingKeys(nextKeys: string[]) {
-    if (mode === 'single') {
+    if (isSingleMode) {
       setPendingKeys(nextKeys.length ? [nextKeys[nextKeys.length - 1]!] : []);
       return;
     }
@@ -95,22 +96,41 @@ export function CategoryPickerModal({
         {isSearchMode ? (
           <div className="category-picker-modal__search-list">
             {searchResults.length ? (
-              <Checkbox.Group
-                value={pendingKeys}
-                style={{ display: 'grid', gap: 8, width: '100%' }}
-                onChange={(checked) => {
-                  applyPendingKeys(checked.map(String));
-                }}
-              >
-                {searchResults.map((item) => (
-                  <Checkbox key={item.id} value={item.id}>
-                    <span className="category-picker-modal__search-item">
-                      <span className="category-picker-modal__search-name">{item.name}</span>
-                      <span className="category-picker-modal__search-path">{item.pathLabel}</span>
-                    </span>
-                  </Checkbox>
-                ))}
-              </Checkbox.Group>
+              isSingleMode ? (
+                <Radio.Group
+                  value={pendingKeys[0]}
+                  style={{ display: 'grid', gap: 8, width: '100%' }}
+                  onChange={(event) => {
+                    applyPendingKeys([String(event.target.value)]);
+                  }}
+                >
+                  {searchResults.map((item) => (
+                    <Radio key={item.id} value={item.id}>
+                      <span className="category-picker-modal__search-item">
+                        <span className="category-picker-modal__search-name">{item.name}</span>
+                        <span className="category-picker-modal__search-path">{item.pathLabel}</span>
+                      </span>
+                    </Radio>
+                  ))}
+                </Radio.Group>
+              ) : (
+                <Checkbox.Group
+                  value={pendingKeys}
+                  style={{ display: 'grid', gap: 8, width: '100%' }}
+                  onChange={(checked) => {
+                    applyPendingKeys(checked.map(String));
+                  }}
+                >
+                  {searchResults.map((item) => (
+                    <Checkbox key={item.id} value={item.id}>
+                      <span className="category-picker-modal__search-item">
+                        <span className="category-picker-modal__search-name">{item.name}</span>
+                        <span className="category-picker-modal__search-path">{item.pathLabel}</span>
+                      </span>
+                    </Checkbox>
+                  ))}
+                </Checkbox.Group>
+              )
             ) : (
               <Typography.Text type="secondary">未找到匹配的分类</Typography.Text>
             )}
@@ -119,16 +139,22 @@ export function CategoryPickerModal({
           <div className="category-picker-modal__tree">
             {treeData.length ? (
               <Tree
-                checkable
-                checkStrictly
-                selectable={false}
+                checkable={!isSingleMode}
+                checkStrictly={!isSingleMode}
+                selectable={isSingleMode}
                 showLine
                 height={360}
                 expandedKeys={expandedKeys}
-                checkedKeys={{ checked: pendingKeys, halfChecked: [] }}
+                selectedKeys={isSingleMode ? pendingKeys : undefined}
+                checkedKeys={isSingleMode ? undefined : { checked: pendingKeys, halfChecked: [] }}
                 treeData={treeData}
                 onExpand={(keys) => setExpandedKeys(keys.map(String))}
+                onSelect={(keys) => {
+                  if (!isSingleMode) return;
+                  applyPendingKeys(keys.map(String));
+                }}
                 onCheck={(_checked, info) => {
+                  if (isSingleMode) return;
                   const keys = info.checkedNodes.map((node) => String(node.key));
                   applyPendingKeys(keys);
                 }}
@@ -140,7 +166,7 @@ export function CategoryPickerModal({
         )}
 
         <Typography.Text type="secondary">
-          已勾选 {pendingKeys.length} 项
+          {isSingleMode ? `已选择 ${pendingKeys.length ? 1 : 0} 项` : `已勾选 ${pendingKeys.length} 项`}
           {mode === 'multiple' && disabledIds.size ? `（表单中已有 ${disabledIds.size} 项，不可重复添加）` : null}
         </Typography.Text>
       </div>
