@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { signFrontAccessToken } from '@/lib/auth/jwt';
+import { frontCorsHeaders } from '@/lib/front-cors';
 import { compareMd5 } from '@/lib/auth/password';
 import { getAuthUserByEmail } from '@/server/auth/customer-auth';
 
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { code: 'VALIDATION_ERROR', message: 'Invalid login payload', details: parsed.error.flatten() },
-      { status: 400, headers: corsHeaders() },
+      { status: 400, headers: frontCorsHeaders() },
     );
   }
 
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (!user || user.status === 'disabled' || !compareMd5(parsed.data.password, user.passwordHash)) {
     return NextResponse.json(
       { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' },
-      { status: 401, headers: corsHeaders() },
+      { status: 401, headers: frontCorsHeaders() },
     );
   }
 
@@ -42,18 +43,10 @@ export async function POST(request: NextRequest) {
         status: user.status,
       },
     },
-    { headers: corsHeaders() },
+    { headers: frontCorsHeaders() },
   );
 }
 
-function corsHeaders() {
-  const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cart-Token, x-vex-locale',
-  };
-}
-
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+  return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }

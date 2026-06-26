@@ -16,6 +16,7 @@ import {
 } from '@/server/db/schema';
 
 import { getStorefrontProductFeatures } from '@/server/admin/product-features';
+import { normalizeLocale, type Locale } from '@/lib/i18n';
 import {
   footerContactBlocks,
   footerCopyright,
@@ -49,6 +50,10 @@ import {
   categorySlugSql,
   DEFAULT_CATEGORY_LOCALE,
 } from '@/server/categories/resolve-category-translation';
+
+function catalogLocale(locale?: string | null): Locale {
+  return normalizeLocale(locale);
+}
 
 const defaultHomeData: HomeData = {
   heroBanners: [],
@@ -103,19 +108,19 @@ function emptyProductListResult(page: number, pageSize: number): ProductListResu
   };
 }
 
-function getProductOrderBy(sort: ProductListSort) {
+function getProductOrderBy(sort: ProductListSort, locale: string) {
   switch (sort) {
     case 'name-asc':
-      return [asc(productNameSql(products.id))];
+      return [asc(productNameSql(products.id, locale))];
     case 'price-asc':
-      return [asc(productPriceSql(products.id)), asc(productNameSql(products.id))];
+      return [asc(productPriceSql(products.id, locale)), asc(productNameSql(products.id, locale))];
     case 'price-desc':
-      return [desc(productPriceSql(products.id)), asc(productNameSql(products.id))];
+      return [desc(productPriceSql(products.id, locale)), asc(productNameSql(products.id, locale))];
     case 'newest':
-      return [desc(products.updatedAt), desc(products.createdAt), asc(productNameSql(products.id))];
+      return [desc(products.updatedAt), desc(products.createdAt), asc(productNameSql(products.id, locale))];
     case 'featured':
     default:
-      return [desc(products.featured), desc(products.updatedAt), asc(productNameSql(products.id))];
+      return [desc(products.featured), desc(products.updatedAt), asc(productNameSql(products.id, locale))];
   }
 }
 
@@ -151,30 +156,31 @@ function toImage(row: {
   };
 }
 
-export async function getHomeData(): Promise<HomeData> {
+export async function getHomeData(localeInput?: string | null): Promise<HomeData> {
+  const locale = catalogLocale(localeInput);
   try {
     const [featuredProducts, categoryRows] = await Promise.all([
       db.select({
         id: products.id,
-        name: productNameSql(products.id),
-        slug: productSlugSql(products.id),
+        name: productNameSql(products.id, locale),
+        slug: productSlugSql(products.id, locale),
         spu: products.spu,
-        shortDescription: productShortDescriptionSql(products.id),
+        shortDescription: productShortDescriptionSql(products.id, locale),
         purchaseMode: products.purchaseMode,
-        stockQuantity: productStockQuantitySql(products.id),
-        price: productPriceSql(products.id),
-        compareAtPrice: productCompareAtPriceSql(products.id),
-        currencyCode: productCurrencyCodeSql(products.id),
+        stockQuantity: productStockQuantitySql(products.id, locale),
+        price: productPriceSql(products.id, locale),
+        compareAtPrice: productCompareAtPriceSql(products.id, locale),
+        currencyCode: productCurrencyCodeSql(products.id, locale),
         brandId: products.brandId,
-        brandName: brandNameSql(brands.id),
-        brandSlug: brandSlugSql(brands.id),
+        brandName: brandNameSql(brands.id, locale),
+        brandSlug: brandSlugSql(brands.id, locale),
       })
         .from(products)
         .leftJoin(brands, eq(products.brandId, brands.id))
         .where(and(eq(products.status, 'active'), eq(products.featured, true)))
         .orderBy(desc(products.updatedAt), desc(products.createdAt))
         .limit(6),
-      getCategories(),
+      getCategories(locale),
     ]);
 
     const dbProducts =
@@ -183,18 +189,18 @@ export async function getHomeData(): Promise<HomeData> {
         : await db
             .select({
               id: products.id,
-              name: productNameSql(products.id),
-              slug: productSlugSql(products.id),
+              name: productNameSql(products.id, locale),
+              slug: productSlugSql(products.id, locale),
               spu: products.spu,
-              shortDescription: productShortDescriptionSql(products.id),
+              shortDescription: productShortDescriptionSql(products.id, locale),
               purchaseMode: products.purchaseMode,
-              stockQuantity: productStockQuantitySql(products.id),
-              price: productPriceSql(products.id),
-              compareAtPrice: productCompareAtPriceSql(products.id),
-              currencyCode: productCurrencyCodeSql(products.id),
+              stockQuantity: productStockQuantitySql(products.id, locale),
+              price: productPriceSql(products.id, locale),
+              compareAtPrice: productCompareAtPriceSql(products.id, locale),
+              currencyCode: productCurrencyCodeSql(products.id, locale),
               brandId: products.brandId,
-              brandName: brandNameSql(brands.id),
-              brandSlug: brandSlugSql(brands.id),
+              brandName: brandNameSql(brands.id, locale),
+              brandSlug: brandSlugSql(brands.id, locale),
             })
             .from(products)
             .leftJoin(brands, eq(products.brandId, brands.id))
@@ -308,24 +314,25 @@ export async function getHomeData(): Promise<HomeData> {
   }
 }
 
-export async function getNavigationData(): Promise<NavigationData> {
-  const items = await getCategories();
+export async function getNavigationData(localeInput?: string | null): Promise<NavigationData> {
+  const items = await getCategories(localeInput);
   return {
     ...storefrontNavigationBase,
     categories: items.slice(0, 6),
   };
 }
 
-export async function getCategories(): Promise<StorefrontCategory[]> {
+export async function getCategories(localeInput?: string | null): Promise<StorefrontCategory[]> {
+  const locale = catalogLocale(localeInput);
   try {
     const [rows, countRows] = await Promise.all([
       db
         .select({
           id: categories.id,
           parentId: categories.parentId,
-          name: categoryNameSql(categories.id),
-          slug: categorySlugSql(categories.id),
-          description: categoryDescriptionSql(categories.id),
+          name: categoryNameSql(categories.id, locale),
+          slug: categorySlugSql(categories.id, locale),
+          description: categoryDescriptionSql(categories.id, locale),
           imageUrl: categories.imageUrl,
           isFeatured: categories.isFeatured,
           featuredOrder: categories.featuredOrder,
@@ -369,11 +376,13 @@ export async function getProductList(input: {
   pageSize?: number;
   sort?: ProductListSort;
   inStockOnly?: boolean;
+  locale?: string | null;
 }): Promise<ProductListResult> {
+  const locale = catalogLocale(input.locale);
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 12;
   const offset = (page - 1) * pageSize;
-  const orderBy = getProductOrderBy(input.sort ?? 'featured');
+  const orderBy = getProductOrderBy(input.sort ?? 'featured', locale);
 
   try {
     let categoryId: string | null = null;
@@ -384,7 +393,7 @@ export async function getProductList(input: {
         .innerJoin(categories, eq(categories.id, categoryTranslations.categoryId))
         .where(and(
           eq(categoryTranslations.slug, input.categorySlug),
-          eq(categoryTranslations.locale, DEFAULT_CATEGORY_LOCALE),
+          eq(categoryTranslations.locale, locale),
         ))
         .limit(1);
       if (!category) {
@@ -401,9 +410,9 @@ export async function getProductList(input: {
     const facetFilters = [eq(products.status, 'active')];
     if (input.keyword) {
       const keywordFilter = or(
-        ilike(productNameSql(products.id), `%${input.keyword}%`),
+        ilike(productNameSql(products.id, locale), `%${input.keyword}%`),
         ilike(products.spu, `%${input.keyword}%`),
-        ilike(productShortDescriptionSql(products.id), `%${input.keyword}%`),
+        ilike(productShortDescriptionSql(products.id, locale), `%${input.keyword}%`),
       );
 
       if (keywordFilter) {
@@ -417,8 +426,8 @@ export async function getProductList(input: {
     }
 
     if (input.inStockOnly) {
-      filters.push(drizzleSql`${productStockQuantitySql(products.id)} > 0`);
-      facetFilters.push(drizzleSql`${productStockQuantitySql(products.id)} > 0`);
+      filters.push(drizzleSql`${productStockQuantitySql(products.id, locale)} > 0`);
+      facetFilters.push(drizzleSql`${productStockQuantitySql(products.id, locale)} > 0`);
     }
 
     const baseWhere = and(...filters);
@@ -428,18 +437,18 @@ export async function getProductList(input: {
       ? await db
           .select({
             id: products.id,
-            name: productNameSql(products.id),
-            slug: productSlugSql(products.id),
+            name: productNameSql(products.id, locale),
+            slug: productSlugSql(products.id, locale),
             spu: products.spu,
-            shortDescription: productShortDescriptionSql(products.id),
+            shortDescription: productShortDescriptionSql(products.id, locale),
             purchaseMode: products.purchaseMode,
-            stockQuantity: productStockQuantitySql(products.id),
-            price: productPriceSql(products.id),
-            compareAtPrice: productCompareAtPriceSql(products.id),
-            currencyCode: productCurrencyCodeSql(products.id),
+            stockQuantity: productStockQuantitySql(products.id, locale),
+            price: productPriceSql(products.id, locale),
+            compareAtPrice: productCompareAtPriceSql(products.id, locale),
+            currencyCode: productCurrencyCodeSql(products.id, locale),
             brandId: brands.id,
-            brandName: brandNameSql(brands.id),
-            brandSlug: brandSlugSql(brands.id),
+            brandName: brandNameSql(brands.id, locale),
+            brandSlug: brandSlugSql(brands.id, locale),
           })
           .from(products)
           .innerJoin(productCategories, eq(productCategories.productId, products.id))
@@ -451,18 +460,18 @@ export async function getProductList(input: {
       : await db
           .select({
             id: products.id,
-            name: productNameSql(products.id),
-            slug: productSlugSql(products.id),
+            name: productNameSql(products.id, locale),
+            slug: productSlugSql(products.id, locale),
             spu: products.spu,
-            shortDescription: productShortDescriptionSql(products.id),
+            shortDescription: productShortDescriptionSql(products.id, locale),
             purchaseMode: products.purchaseMode,
-            stockQuantity: productStockQuantitySql(products.id),
-            price: productPriceSql(products.id),
-            compareAtPrice: productCompareAtPriceSql(products.id),
-            currencyCode: productCurrencyCodeSql(products.id),
+            stockQuantity: productStockQuantitySql(products.id, locale),
+            price: productPriceSql(products.id, locale),
+            compareAtPrice: productCompareAtPriceSql(products.id, locale),
+            currencyCode: productCurrencyCodeSql(products.id, locale),
             brandId: brands.id,
-            brandName: brandNameSql(brands.id),
-            brandSlug: brandSlugSql(brands.id),
+            brandName: brandNameSql(brands.id, locale),
+            brandSlug: brandSlugSql(brands.id, locale),
           })
           .from(products)
           .leftJoin(brands, eq(products.brandId, brands.id))
@@ -552,7 +561,8 @@ export async function getProductList(input: {
   }
 }
 
-export async function getProductBySlug(slug: string): Promise<StorefrontProductDetail | null> {
+export async function getProductBySlug(slug: string, localeInput?: string | null): Promise<StorefrontProductDetail | null> {
+  const locale = catalogLocale(localeInput);
   try {
     const [product] = await db
       .select({
@@ -578,8 +588,8 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
         featured: products.featured,
         allowBackorder: products.allowBackorder,
         brandId: brands.id,
-        brandName: brandNameSql(brands.id),
-        brandSlug: brandSlugSql(brands.id),
+        brandName: brandNameSql(brands.id, locale),
+        brandSlug: brandSlugSql(brands.id, locale),
         payload: productTranslations.payload,
       })
       .from(productTranslations)
@@ -587,7 +597,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       .leftJoin(brands, eq(products.brandId, brands.id))
       .where(and(
         eq(productTranslations.slug, slug),
-        eq(productTranslations.locale, DEFAULT_PRODUCT_LOCALE),
+        eq(productTranslations.locale, locale),
         eq(products.status, 'active'),
       ))
       .limit(1);
@@ -601,9 +611,9 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
       db
         .select({
           id: categories.id,
-          name: categoryNameSql(categories.id),
-          slug: categorySlugSql(categories.id),
-          description: categoryDescriptionSql(categories.id),
+          name: categoryNameSql(categories.id, locale),
+          slug: categorySlugSql(categories.id, locale),
+          description: categoryDescriptionSql(categories.id, locale),
           parentId: categories.parentId,
           imageUrl: categories.imageUrl,
         })
@@ -611,12 +621,12 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
         .innerJoin(categories, eq(categories.id, productCategories.categoryId))
         .where(eq(productCategories.productId, product.id)),
       db.select().from(attachments).where(eq(attachments.productId, product.id)).orderBy(asc(attachments.sortOrder)),
-      getStorefrontProductFeatures(product.id, DEFAULT_PRODUCT_LOCALE),
+      getStorefrontProductFeatures(product.id, locale),
       db.select().from(productVariants).where(eq(productVariants.productId, product.id)).orderBy(asc(productVariants.createdAt)),
     ]);
 
-    const related = await getRelatedProducts(slug, categoryRows[0]?.slug ?? null, product.id);
-    const compatibleGroups = await getCompatibleGroups(product.id);
+    const related = await getRelatedProducts(slug, categoryRows[0]?.slug ?? null, product.id, locale);
+    const compatibleGroups = await getCompatibleGroups(product.id, locale);
 
     return {
       id: product.id,
@@ -672,7 +682,13 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProductD
   }
 }
 
-export async function getRelatedProducts(slug: string, categorySlug?: string | null, excludeId?: string): Promise<StorefrontProductCard[]> {
+export async function getRelatedProducts(
+  slug: string,
+  categorySlug?: string | null,
+  excludeId?: string,
+  localeInput?: string | null,
+): Promise<StorefrontProductCard[]> {
+  const locale = catalogLocale(localeInput);
   try {
     let categoryId: string | null = null;
     if (categorySlug) {
@@ -682,7 +698,7 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
         .innerJoin(categories, eq(categories.id, categoryTranslations.categoryId))
         .where(and(
           eq(categoryTranslations.slug, categorySlug),
-          eq(categoryTranslations.locale, DEFAULT_CATEGORY_LOCALE),
+          eq(categoryTranslations.locale, locale),
         ))
         .limit(1);
       categoryId = category?.id ?? null;
@@ -690,22 +706,22 @@ export async function getRelatedProducts(slug: string, categorySlug?: string | n
 
     const cardSelect = {
       id: products.id,
-      name: productNameSql(products.id),
-      slug: productSlugSql(products.id),
+      name: productNameSql(products.id, locale),
+      slug: productSlugSql(products.id, locale),
       spu: products.spu,
-      shortDescription: productShortDescriptionSql(products.id),
+      shortDescription: productShortDescriptionSql(products.id, locale),
       purchaseMode: products.purchaseMode,
-      stockQuantity: productStockQuantitySql(products.id),
-      price: productPriceSql(products.id),
-      compareAtPrice: productCompareAtPriceSql(products.id),
-      currencyCode: productCurrencyCodeSql(products.id),
+      stockQuantity: productStockQuantitySql(products.id, locale),
+      price: productPriceSql(products.id, locale),
+      compareAtPrice: productCompareAtPriceSql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
       coverUrl: productImages.url,
       coverAlt: productImages.alt,
       coverWidth: productImages.width,
       coverHeight: productImages.height,
       brandId: brands.id,
-      brandName: brandNameSql(brands.id),
-      brandSlug: brandSlugSql(brands.id),
+      brandName: brandNameSql(brands.id, locale),
+      brandSlug: brandSlugSql(brands.id, locale),
     };
 
     const rows = categoryId
@@ -752,7 +768,8 @@ const RELATION_TYPE_LABELS: Record<string, string> = {
   custom: 'Compatible',
 };
 
-export async function getCompatibleGroups(productId: string): Promise<StorefrontCompatibleGroup[]> {
+export async function getCompatibleGroups(productId: string, localeInput?: string | null): Promise<StorefrontCompatibleGroup[]> {
+  const locale = catalogLocale(localeInput);
   try {
     const rows = await db
       .select({
@@ -760,22 +777,22 @@ export async function getCompatibleGroups(productId: string): Promise<Storefront
         relationLabel: productRelations.relationLabel,
         sortOrder: productRelations.sortOrder,
         id: products.id,
-        name: productNameSql(products.id),
-        slug: productSlugSql(products.id),
+        name: productNameSql(products.id, locale),
+        slug: productSlugSql(products.id, locale),
         spu: products.spu,
-        shortDescription: productShortDescriptionSql(products.id),
+        shortDescription: productShortDescriptionSql(products.id, locale),
         purchaseMode: products.purchaseMode,
-        stockQuantity: productStockQuantitySql(products.id),
-        price: productPriceSql(products.id),
-        compareAtPrice: productCompareAtPriceSql(products.id),
-        currencyCode: productCurrencyCodeSql(products.id),
+        stockQuantity: productStockQuantitySql(products.id, locale),
+        price: productPriceSql(products.id, locale),
+        compareAtPrice: productCompareAtPriceSql(products.id, locale),
+        currencyCode: productCurrencyCodeSql(products.id, locale),
         coverUrl: productImages.url,
         coverAlt: productImages.alt,
         coverWidth: productImages.width,
         coverHeight: productImages.height,
         brandId: brands.id,
-        brandName: brandNameSql(brands.id),
-        brandSlug: brandSlugSql(brands.id),
+        brandName: brandNameSql(brands.id, locale),
+        brandSlug: brandSlugSql(brands.id, locale),
       })
       .from(productRelations)
       .innerJoin(products, eq(products.id, productRelations.relatedProductId))

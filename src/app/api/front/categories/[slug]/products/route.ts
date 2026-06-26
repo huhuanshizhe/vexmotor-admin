@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { frontCorsHeaders } from '@/lib/front-cors';
+import { resolveFrontRequestLocale } from '@/lib/front-request-locale';
 import { getProductList } from '@/server/storefront';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const locale = resolveFrontRequestLocale(request);
   const searchParams = request.nextUrl.searchParams;
   const page = Number(searchParams.get('page') ?? '1');
   const pageSize = Number(searchParams.get('pageSize') ?? '12');
@@ -12,7 +15,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     categorySlug: slug,
     page: Number.isNaN(page) ? 1 : page,
     pageSize: Number.isNaN(pageSize) ? 12 : pageSize,
+    locale,
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json({ locale, ...result }, { headers: frontCorsHeaders() });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }

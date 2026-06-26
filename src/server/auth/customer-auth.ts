@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { and, eq, gt } from 'drizzle-orm';
 
-import { md5Hash } from '@/lib/auth/password';
+import { md5Hash, compareMd5 } from '@/lib/auth/password';
 import { normalizeCompanyCountryCode } from '@/lib/customer-countries';
 import { normalizeCustomerIndustry } from '@/lib/customer-industries';
 import { grantRegistrationCoupons } from '@/server/admin/coupons';
@@ -203,6 +203,119 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
     ok: true,
     user: created,
   };
+}
+
+export type RegisterEmailAccountInput = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  companyName?: string | null;
+  industry?: string | null;
+  country?: string | null;
+  companySize?: string | null;
+  website?: string | null;
+  taxId?: string | null;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
+};
+
+export async function registerEmailAccount(input: RegisterEmailAccountInput): Promise<RegisterBusinessAccountResult> {
+  const normalizedEmail = normalizeEmail(input.email);
+  const { firstName, lastName } = splitName(input);
+  const existing = await getAuthUserByEmail(normalizedEmail);
+
+  if (existing) {
+    return {
+      ok: false,
+      code: 'EMAIL_EXISTS',
+      message: 'This email is already registered. Sign in to continue.',
+    };
+  }
+
+  const companyName = input.companyName?.trim() ?? '';
+  const hasCompany = companyName.length > 0;
+
+  const [created] = await db
+    .insert(users)
+    .values({
+      email: normalizedEmail,
+      passwordHash: md5Hash(input.password),
+      firstName,
+      lastName,
+      phone: input.phone?.trim() || null,
+      company: companyName || null,
+      industry: normalizeCustomerIndustry(input.industry ?? null),
+      companyCountryCode: normalizeCompanyCountryCode(input.country ?? null),
+      website: input.website?.trim() || null,
+      taxId: input.taxId?.trim() || null,
+      companySize: input.companySize?.trim() || null,
+      role: 'customer',
+      status: hasCompany ? 'pending' : 'active',
+    })
+    .returning({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      company: users.company,
+      status: users.status,
+    });
+
+  if (!created) {
+    return {
+      ok: false,
+      code: 'INVALID_STATE',
+      message: 'Unable to create the account right now.',
+    };
+  }
+
+  grantRegistrationCoupons(created.id).catch((err) => {
+    console.error('[auth] grantRegistrationCoupons error:', err);
+  });
+
+  sendWelcomeEmail({
+    to: normalizedEmail,
+    firstName: created.firstName,
+    companyName: created.company,
+    accountStatus: created.status,
+  }).catch((err) => console.error('[auth] Welcome email error:', err));
+
+  return {
+    ok: true,
+    user: created,
+  };
+}
+
+export async function changeUserPassword(userId: string, currentPassword: string, newPassword: string) {
+  const [user] = await db
+    .select({
+      id: users.id,
+      passwordHash: users.passwordHash,
+      status: users.status,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user || user.status === 'disabled') {
+    return { ok: false as const, code: 'UNAUTHORIZED' as const, message: 'User not found' };
+  }
+
+  if (!compareMd5(currentPassword, user.passwordHash)) {
+    return { ok: false as const, code: 'INVALID_PASSWORD' as const, message: 'Current password is incorrect' };
+  }
+
+  await db
+    .update(users)
+    .set({
+      passwordHash: md5Hash(newPassword),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+
+  return { ok: true as const };
 }
 
 export async function createPasswordResetRequest(email: string): Promise<PasswordResetRequestResult> {

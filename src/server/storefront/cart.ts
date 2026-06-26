@@ -414,6 +414,12 @@ export async function createOrderFromCart(input: {
   if (!ship || !bill || !currentCart || currentCart.userId !== input.userId) {
     return null;
   }
+  if (ship.userId !== input.userId || bill.userId !== input.userId) {
+    return null;
+  }
+  if (ship.addressType !== 'shipping' || bill.addressType !== 'billing') {
+    return null;
+  }
 
   const detail = await getCartDetail(input.cartId);
   if (!detail || !detail.items.length) {

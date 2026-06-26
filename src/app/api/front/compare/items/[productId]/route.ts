@@ -1,10 +1,8 @@
-import { and, eq } from 'drizzle-orm';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { frontCorsHeaders } from '@/lib/front-cors';
 import { getCurrentUserId } from '@/server/auth/session';
-import { db } from '@/server/db';
-import { wishlists } from '@/server/db/schema';
+import { removeCompareItemForUser } from '@/server/storefront/compare';
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ productId: string }> }) {
   const userId = await getCurrentUserId(request);
@@ -13,7 +11,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   const { productId } = await params;
-  await db.delete(wishlists).where(and(eq(wishlists.userId, userId), eq(wishlists.productId, productId)));
+  const deleted = await removeCompareItemForUser(userId, productId);
+  if (!deleted) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Compare item not found' }, { status: 404, headers: frontCorsHeaders() });
+  }
+
   return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }
 

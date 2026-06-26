@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { frontCorsHeaders } from '@/lib/front-cors';
 import { resolveFrontRequestLocale } from '@/lib/front-request-locale';
 import { getCurrentUserId } from '@/server/auth/session';
-import { db } from '@/server/db';
-import { products, wishlists } from '@/server/db/schema';
-import { getWishlistByUser } from '@/server/storefront/account';
+import { addCompareItemForUser, getCompareItemsByUser } from '@/server/storefront/compare';
 
-const wishlistSchema = z.object({
+const addSchema = z.object({
   productId: z.string().uuid(),
 });
 
@@ -20,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const locale = resolveFrontRequestLocale(request);
-  return NextResponse.json({ locale, items: await getWishlistByUser(userId, locale) }, { headers: frontCorsHeaders() });
+  return NextResponse.json(await getCompareItemsByUser(userId, locale), { headers: frontCorsHeaders() });
 }
 
 export async function POST(request: NextRequest) {
@@ -30,22 +27,22 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const parsed = wishlistSchema.safeParse(body);
+  const parsed = addSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { code: 'VALIDATION_ERROR', message: 'Invalid wishlist payload', details: parsed.error.flatten() },
+      { code: 'VALIDATION_ERROR', message: 'Invalid compare item payload', details: parsed.error.flatten() },
       { status: 400, headers: frontCorsHeaders() },
     );
   }
 
-  const [product] = await db.select({ id: products.id }).from(products).where(eq(products.id, parsed.data.productId)).limit(1);
-  if (!product) {
-    return NextResponse.json({ code: 'NOT_FOUND', message: 'Product not found' }, { status: 404, headers: frontCorsHeaders() });
+  const result = await addCompareItemForUser(userId, parsed.data.productId);
+  if (!result.ok) {
+    const status = result.code === 'COMPARE_LIMIT' ? 409 : 404;
+    return NextResponse.json({ code: result.code, message: result.message }, { status, headers: frontCorsHeaders() });
   }
 
-  await db.insert(wishlists).values({ userId, productId: parsed.data.productId }).onConflictDoNothing();
   const locale = resolveFrontRequestLocale(request);
-  return NextResponse.json({ locale, items: await getWishlistByUser(userId, locale) }, { status: 201, headers: frontCorsHeaders() });
+  return NextResponse.json(await getCompareItemsByUser(userId, locale), { status: 201, headers: frontCorsHeaders() });
 }
 
 export async function OPTIONS() {

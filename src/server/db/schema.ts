@@ -63,6 +63,7 @@ export const couponScopeEnum = pgEnum('coupon_scope', ['all', 'category', 'brand
 export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['percent', 'fixed_amount', 'special_price']);
 export const couponGrantSourceEnum = pgEnum('coupon_grant_source', ['admin_send', 'registration', 'self_claim']);
 export const couponDistributionTargetModeEnum = pgEnum('coupon_distribution_target_mode', ['all_customers', 'selected_customers']);
+export const addressTypeEnum = pgEnum('address_type', ['shipping', 'billing']);
 
 export const users = pgTable(
   'users',
@@ -654,23 +655,30 @@ export const cartItems = pgTable(
   }),
 );
 
-export const addresses = pgTable('addresses', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  firstName: varchar('first_name', { length: 100 }).notNull(),
-  lastName: varchar('last_name', { length: 100 }).notNull(),
-  company: varchar('company', { length: 150 }),
-  phone: varchar('phone', { length: 50 }),
-  countryCode: varchar('country_code', { length: 2 }).notNull(),
-  state: varchar('state', { length: 100 }),
-  city: varchar('city', { length: 100 }).notNull(),
-  addressLine1: varchar('address_line_1', { length: 255 }).notNull(),
-  addressLine2: varchar('address_line_2', { length: 255 }),
-  postalCode: varchar('postal_code', { length: 30 }).notNull(),
-  isDefault: boolean('is_default').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const addresses = pgTable(
+  'addresses',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    addressType: addressTypeEnum('address_type').notNull().default('shipping'),
+    firstName: varchar('first_name', { length: 100 }).notNull(),
+    lastName: varchar('last_name', { length: 100 }).notNull(),
+    company: varchar('company', { length: 150 }),
+    phone: varchar('phone', { length: 50 }),
+    countryCode: varchar('country_code', { length: 2 }).notNull(),
+    state: varchar('state', { length: 100 }),
+    city: varchar('city', { length: 100 }).notNull(),
+    addressLine1: varchar('address_line_1', { length: 255 }).notNull(),
+    addressLine2: varchar('address_line_2', { length: 255 }),
+    postalCode: varchar('postal_code', { length: 30 }).notNull(),
+    isDefault: boolean('is_default').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userTypeIdx: index('addresses_user_type_idx').on(table.userId, table.addressType),
+  }),
+);
 
 export const orders = pgTable(
   'orders',
@@ -837,6 +845,20 @@ export const wishlists = pgTable(
   },
   (table) => ({
     uniqueWishlist: uniqueIndex('wishlists_user_product_unique').on(table.userId, table.productId),
+  }),
+);
+
+export const compareItems = pgTable(
+  'compare_items',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueCompareItem: uniqueIndex('compare_items_user_product_unique').on(table.userId, table.productId),
   }),
 );
 

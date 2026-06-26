@@ -1,10 +1,27 @@
-import { count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 
+import { normalizeLocale, type Locale } from '@/lib/i18n';
 import { db } from '@/server/db';
 import { productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
 import { addresses, inquiries, orderItems, orders, products, users, wishlists } from '@/server/db/schema';
 
 import { getStorefrontInquiriesByUser } from './inquiries';
+
+function profileLocale(locale?: string | null): Locale {
+  return normalizeLocale(locale);
+}
+
+function formatWishlistMoney(amount: string | number, currencyCode: string) {
+  const numeric = Number(amount ?? 0);
+  return {
+    currency: currencyCode,
+    amount: numeric,
+    formatted: new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+    }).format(Number.isFinite(numeric) ? numeric : 0),
+  };
+}
 
 export async function getProfile(userId: string) {
   const [user] = await db
@@ -13,9 +30,13 @@ export async function getProfile(userId: string) {
       email: users.email,
       firstName: users.firstName,
       lastName: users.lastName,
-      company: users.company,
       phone: users.phone,
+      jobTitle: users.jobTitle,
       status: users.status,
+      role: users.role,
+      emailVerifiedAt: users.emailVerifiedAt,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -24,13 +45,107 @@ export async function getProfile(userId: string) {
   return user ?? null;
 }
 
-export async function getAddressesByUser(userId: string) {
-  return db.select().from(addresses).where(eq(addresses.userId, userId)).orderBy(desc(addresses.isDefault), desc(addresses.updatedAt));
+export async function updateProfile(
+  userId: string,
+  payload: Partial<{
+    firstName: string;
+    lastName: string;
+    phone: string | null;
+    jobTitle: string | null;
+  }>,
+) {
+  const [updated] = await db
+    .update(users)
+    .set({ ...payload, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phone: users.phone,
+      jobTitle: users.jobTitle,
+      status: users.status,
+      role: users.role,
+      emailVerifiedAt: users.emailVerifiedAt,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    });
+
+  return updated ?? null;
+}
+
+export async function getCompanyProfile(userId: string) {
+  const [user] = await db
+    .select({
+      company: users.company,
+      industry: users.industry,
+      companyCountryCode: users.companyCountryCode,
+      companyState: users.companyState,
+      companyCity: users.companyCity,
+      companyAddressLine1: users.companyAddressLine1,
+      companyAddressLine2: users.companyAddressLine2,
+      companyPostalCode: users.companyPostalCode,
+      website: users.website,
+      taxId: users.taxId,
+      companySize: users.companySize,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return user ?? null;
+}
+
+export async function updateCompanyProfile(
+  userId: string,
+  payload: Partial<{
+    company: string | null;
+    industry: string | null;
+    companyCountryCode: string | null;
+    companyState: string | null;
+    companyCity: string | null;
+    companyAddressLine1: string | null;
+    companyAddressLine2: string | null;
+    companyPostalCode: string | null;
+    website: string | null;
+    taxId: string | null;
+    companySize: string | null;
+  }>,
+) {
+  const [updated] = await db
+    .update(users)
+    .set({ ...payload, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({
+      company: users.company,
+      industry: users.industry,
+      companyCountryCode: users.companyCountryCode,
+      companyState: users.companyState,
+      companyCity: users.companyCity,
+      companyAddressLine1: users.companyAddressLine1,
+      companyAddressLine2: users.companyAddressLine2,
+      companyPostalCode: users.companyPostalCode,
+      website: users.website,
+      taxId: users.taxId,
+      companySize: users.companySize,
+    });
+
+  return updated ?? null;
+}
+
+export async function getAddressesByUser(userId: string, addressType?: 'shipping' | 'billing') {
+  const conditions = addressType
+    ? and(eq(addresses.userId, userId), eq(addresses.addressType, addressType))
+    : eq(addresses.userId, userId);
+
+  return db.select().from(addresses).where(conditions).orderBy(desc(addresses.isDefault), desc(addresses.updatedAt));
 }
 
 export async function createAddressForUser(
   userId: string,
   payload: {
+    addressType: 'shipping' | 'billing';
     firstName: string;
     lastName: string;
     company?: string | null;
@@ -45,13 +160,17 @@ export async function createAddressForUser(
   },
 ) {
   if (payload.isDefault) {
-    await db.update(addresses).set({ isDefault: false, updatedAt: new Date() }).where(eq(addresses.userId, userId));
+    await db
+      .update(addresses)
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where(and(eq(addresses.userId, userId), eq(addresses.addressType, payload.addressType)));
   }
 
   const [created] = await db
     .insert(addresses)
     .values({
       userId,
+      addressType: payload.addressType,
       firstName: payload.firstName,
       lastName: payload.lastName,
       company: payload.company ?? null,
@@ -84,10 +203,20 @@ export async function updateAddressForUser(
     addressLine2: string | null;
     postalCode: string;
     isDefault: boolean;
+    addressType: 'shipping' | 'billing';
   }>,
 ) {
+  const [existing] = await db.select().from(addresses).where(eq(addresses.id, addressId)).limit(1);
+  if (!existing || existing.userId !== userId) {
+    return null;
+  }
+
+  const addressType = payload.addressType ?? existing.addressType;
   if (payload.isDefault) {
-    await db.update(addresses).set({ isDefault: false, updatedAt: new Date() }).where(eq(addresses.userId, userId));
+    await db
+      .update(addresses)
+      .set({ isDefault: false, updatedAt: new Date() })
+      .where(and(eq(addresses.userId, userId), eq(addresses.addressType, addressType)));
   }
 
   const [updated] = await db
@@ -96,11 +225,7 @@ export async function updateAddressForUser(
     .where(eq(addresses.id, addressId))
     .returning();
 
-  if (!updated || updated.userId !== userId) {
-    return null;
-  }
-
-  return updated;
+  return updated ?? null;
 }
 
 export async function deleteAddressForUser(userId: string, addressId: string) {
@@ -157,23 +282,30 @@ export async function getInquiriesByUser(userId: string) {
   return getStorefrontInquiriesByUser(userId);
 }
 
-export async function getWishlistByUser(userId: string) {
-  return db
+export async function getWishlistByUser(userId: string, localeInput?: string | null) {
+  const locale = profileLocale(localeInput);
+  const rows = await db
     .select({
       id: wishlists.id,
       createdAt: wishlists.createdAt,
       productId: products.id,
-      name: productNameSql(products.id),
-      slug: productSlugSql(products.id),
+      name: productNameSql(products.id, locale),
+      slug: productSlugSql(products.id, locale),
       spu: products.spu,
-      shortDescription: productShortDescriptionSql(products.id),
+      shortDescription: productShortDescriptionSql(products.id, locale),
       purchaseMode: products.purchaseMode,
-      price: productPriceSql(products.id),
-      currencyCode: productCurrencyCodeSql(products.id),
-      stockQuantity: productStockQuantitySql(products.id),
+      price: productPriceSql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
+      stockQuantity: productStockQuantitySql(products.id, locale),
     })
     .from(wishlists)
     .innerJoin(products, eq(products.id, wishlists.productId))
     .where(eq(wishlists.userId, userId))
     .orderBy(desc(wishlists.createdAt));
+
+  return rows.map((row) => ({
+    ...row,
+    price: formatWishlistMoney(row.price, row.currencyCode),
+    inStock: row.stockQuantity > 0,
+  }));
 }

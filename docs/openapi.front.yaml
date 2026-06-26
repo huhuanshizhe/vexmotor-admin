@@ -25,6 +25,8 @@ tags:
   - name: Profile
   - name: Inquiries
   - name: Wishlist
+  - name: Languages
+  - name: Compare
 components:
   securitySchemes:
     bearerAuth:
@@ -81,6 +83,34 @@ components:
         type: string
     InquiryIdParam:
       name: inquiryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    LocaleHeader:
+      name: x-vex-locale
+      in: header
+      description: 前台语言代码；与 site_languages 绑定，同时决定价格币种
+      schema:
+        type: string
+        example: en
+    LocaleQueryParam:
+      name: locale
+      in: query
+      description: 可选语言覆盖（优先级低于 x-vex-locale）
+      schema:
+        type: string
+        example: en
+    AddressTypeQueryParam:
+      name: type
+      in: query
+      description: 按地址类型筛选
+      schema:
+        type: string
+        enum: [shipping, billing]
+    ProductIdParam:
+      name: productId
       in: path
       required: true
       schema:
@@ -364,6 +394,9 @@ components:
         id:
           type: string
           format: uuid
+        addressType:
+          type: string
+          enum: [shipping, billing]
         firstName:
           type: string
         lastName:
@@ -386,7 +419,7 @@ components:
           type: string
         isDefault:
           type: boolean
-      required: [id, firstName, lastName, countryCode, city, addressLine1, postalCode, isDefault]
+      required: [id, addressType, firstName, lastName, countryCode, city, addressLine1, postalCode, isDefault]
       additionalProperties: false
     UserProfile:
       type: object
@@ -401,11 +434,141 @@ components:
           type: string
         lastName:
           type: string
-        company:
-          type: string
         phone:
+          type:
+            - string
+            - 'null'
+        jobTitle:
+          type:
+            - string
+            - 'null'
+        status:
           type: string
-      required: [id, email]
+          enum: [active, disabled, pending]
+        role:
+          type: string
+        emailVerifiedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, email, firstName, lastName, status, role, createdAt, updatedAt]
+      additionalProperties: false
+    CompanyProfile:
+      type: object
+      properties:
+        company:
+          type:
+            - string
+            - 'null'
+        industry:
+          type:
+            - string
+            - 'null'
+        companyCountryCode:
+          type:
+            - string
+            - 'null'
+        companyState:
+          type:
+            - string
+            - 'null'
+        companyCity:
+          type:
+            - string
+            - 'null'
+        companyAddressLine1:
+          type:
+            - string
+            - 'null'
+        companyAddressLine2:
+          type:
+            - string
+            - 'null'
+        companyPostalCode:
+          type:
+            - string
+            - 'null'
+        website:
+          type:
+            - string
+            - 'null'
+        taxId:
+          type:
+            - string
+            - 'null'
+        companySize:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    SiteLanguage:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        nativeName:
+          type: string
+        currencyCode:
+          type: string
+        direction:
+          type: string
+          enum: [ltr, rtl]
+        isDefault:
+          type: boolean
+        sortOrder:
+          type: integer
+      required: [code, name, nativeName, currencyCode, direction, isDefault, sortOrder]
+      additionalProperties: false
+    AuthTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            firstName:
+              type: string
+            lastName:
+              type: string
+            company:
+              type:
+                - string
+                - 'null'
+            status:
+              type: string
+              enum: [active, disabled, pending]
+          required: [id, email, firstName, lastName, status]
+        redirectPath:
+          type: string
+        message:
+          type: string
+      required: [token, user]
+      additionalProperties: false
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+      required: [currentPassword, newPassword]
       additionalProperties: false
     OrderItem:
       type: object
@@ -495,12 +658,137 @@ components:
         id:
           type: string
           format: uuid
-        product:
-          $ref: '#/components/schemas/ProductCard'
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        spu:
+          type: string
+        shortDescription:
+          type: string
+        purchaseMode:
+          type: string
+        price:
+          $ref: '#/components/schemas/Money'
+        currencyCode:
+          type: string
+        stockQuantity:
+          type: integer
+        inStock:
+          type: boolean
         createdAt:
           type: string
           format: date-time
-      required: [id, product, createdAt]
+      required: [id, productId, name, slug, spu, price, createdAt]
+      additionalProperties: false
+    WishlistResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WishlistItem'
+      required: [locale, items]
+      additionalProperties: false
+    CompareProductSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        spu:
+          type: string
+        brand:
+          type:
+            - string
+            - 'null'
+        category:
+          type:
+            - string
+            - 'null'
+        price:
+          $ref: '#/components/schemas/Money'
+        stockQuantity:
+          type: integer
+        inStock:
+          type: boolean
+        purchaseMode:
+          type: string
+      required: [id, name, slug, spu, price, stockQuantity, inStock, purchaseMode]
+      additionalProperties: false
+    CompareMatrixRow:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        group:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+        isDifferent:
+          type: boolean
+      required: [key, label, group, values, isDifferent]
+      additionalProperties: false
+    CompareResult:
+      type: object
+      properties:
+        locale:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompareProductSummary'
+        groups:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              rows:
+                type: array
+                items:
+                  type: string
+            required: [name, rows]
+        matrix:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompareMatrixRow'
+        summary:
+          type: object
+          properties:
+            sharedFeatureKeys:
+              type: array
+              items:
+                type: string
+            uniqueByProduct:
+              type: array
+              items:
+                type: object
+                properties:
+                  productId:
+                    type: string
+                    format: uuid
+                  keys:
+                    type: array
+                    items:
+                      type: string
+                required: [productId, keys]
+          required: [sharedFeatureKeys, uniqueByProduct]
+      required: [locale, products, groups, matrix, summary]
       additionalProperties: false
     AuthLoginRequest:
       type: object
@@ -521,13 +809,34 @@ components:
           format: email
         password:
           type: string
-          minLength: 6
+          minLength: 8
         firstName:
           type: string
         lastName:
           type: string
-        company:
+        phone:
           type: string
+        companyName:
+          type: string
+        country:
+          type: string
+        industry:
+          type: string
+        companySize:
+          type: string
+        website:
+          type: string
+        taxId:
+          type: string
+        termsAccepted:
+          type: boolean
+        privacyAccepted:
+          type: boolean
+        exportComplianceAccepted:
+          type: boolean
+        _quick:
+          type: boolean
+          description: 快速结账注册；走轻量注册流程
       required: [email, password, firstName, lastName]
       additionalProperties: false
     AddCartItemRequest:
@@ -660,15 +969,24 @@ paths:
     get:
       tags: [Categories]
       summary: 获取分类树或分类列表
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
       responses:
         '200':
           description: 分类列表
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Category'
+                type: object
+                properties:
+                  locale:
+                    type: string
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+                required: [locale, categories]
   /api/front/categories/{slug}/products:
     get:
       tags: [Categories]
@@ -887,6 +1205,8 @@ paths:
       summary: 获取当前用户地址列表
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AddressTypeQueryParam'
       responses:
         '200':
           description: 地址列表
@@ -906,10 +1226,17 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Address'
+              allOf:
+                - $ref: '#/components/schemas/Address'
+                - type: object
+                  required: [addressType, firstName, lastName, countryCode, city, addressLine1, postalCode]
       responses:
         '201':
           description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
   /api/front/addresses/{id}:
     patch:
       tags: [Addresses]
@@ -950,7 +1277,7 @@ paths:
   /api/front/auth/register:
     post:
       tags: [Auth]
-      summary: 用户注册
+      summary: 用户注册（轻量或 B2B 完整注册）
       requestBody:
         required: true
         content:
@@ -963,7 +1290,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
+                $ref: '#/components/schemas/AuthTokenResponse'
   /api/front/auth/login:
     post:
       tags: [Auth]
@@ -980,9 +1307,38 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
+                $ref: '#/components/schemas/AuthTokenResponse'
         '401':
           description: 登录失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: 登录后修改密码
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+        '400':
+          description: 当前密码错误
           content:
             application/json:
               schema:
@@ -994,12 +1350,20 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '204':
+        '200':
           description: 退出成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
   /api/front/profile:
     get:
       tags: [Profile]
-      summary: 获取当前用户资料
+      summary: 获取当前用户基本资料
       security:
         - bearerAuth: []
       responses:
@@ -1011,7 +1375,7 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
     patch:
       tags: [Profile]
-      summary: 更新当前用户资料
+      summary: 更新当前用户基本资料
       security:
         - bearerAuth: []
       requestBody:
@@ -1019,7 +1383,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserProfile'
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                phone:
+                  type:
+                    - string
+                    - 'null'
+                jobTitle:
+                  type:
+                    - string
+                    - 'null'
       responses:
         '200':
           description: 更新成功
@@ -1027,6 +1404,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+  /api/front/profile/company:
+    get:
+      tags: [Profile]
+      summary: 获取当前用户公司资料
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 公司资料
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfile'
+    patch:
+      tags: [Profile]
+      summary: 更新当前用户公司资料
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyProfile'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfile'
+  /api/front/languages:
+    get:
+      tags: [Languages]
+      summary: 获取可用语言列表（含绑定币种）
+      responses:
+        '200':
+          description: 语言列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SiteLanguage'
+                required: [languages]
   /api/front/inquiries:
     post:
       tags: [Inquiries]
@@ -1076,23 +1501,27 @@ paths:
   /api/front/wishlist:
     get:
       tags: [Wishlist]
-      summary: 获取收藏列表
+      summary: 获取收藏列表（favorites）
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
       responses:
         '200':
           description: 收藏列表
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WishlistItem'
+                $ref: '#/components/schemas/WishlistResponse'
     post:
       tags: [Wishlist]
       summary: 添加商品到收藏
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
       requestBody:
         required: true
         content:
@@ -1107,6 +1536,10 @@ paths:
       responses:
         '201':
           description: 添加成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WishlistResponse'
   /api/front/wishlist/{productId}:
     delete:
       tags: [Wishlist]
@@ -1114,12 +1547,96 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: productId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/ProductIdParam'
       responses:
         '204':
           description: 删除成功
+  /api/front/compare/items:
+    get:
+      tags: [Compare]
+      summary: 获取登录用户对比列表（匿名用户请使用 localStorage）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 对比列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locale:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                required: [locale, items]
+    post:
+      tags: [Compare]
+      summary: 添加商品到对比列表
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+              required: [productId]
+      responses:
+        '201':
+          description: 添加成功
+        '409':
+          description: 对比列表已达上限（4 个）
+  /api/front/compare/items/{productId}:
+    delete:
+      tags: [Compare]
+      summary: 从对比列表移除商品
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductIdParam'
+      responses:
+        '204':
+          description: 删除成功
+  /api/front/compare:
+    post:
+      tags: [Compare]
+      summary: 执行商品对比矩阵（2-4 个商品，无需先加入列表）
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productIds:
+                  type: array
+                  minItems: 2
+                  maxItems: 4
+                  items:
+                    type: string
+                    format: uuid
+              required: [productIds]
+      responses:
+        '200':
+          description: 对比结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompareResult'

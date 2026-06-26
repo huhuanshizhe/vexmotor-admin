@@ -5,8 +5,14 @@ import { normalizeSlug } from '@/lib/slug';
 export { normalizeSlug as normalizeProductSlug };
 export const DEFAULT_PRODUCT_LOCALE = 'en';
 
-function productTranslationColumnSql(productIdColumn: SQLWrapper, column: string): SQL {
+function productTranslationColumnSql(
+  productIdColumn: SQLWrapper,
+  column: string,
+  locale: string = DEFAULT_PRODUCT_LOCALE,
+): SQL {
   return sql`COALESCE(
+    (SELECT pt.${sql.raw(column)} FROM product_translations pt
+      WHERE pt.product_id = ${productIdColumn} AND pt.locale = ${locale} LIMIT 1),
     (SELECT pt.${sql.raw(column)} FROM product_translations pt
       WHERE pt.product_id = ${productIdColumn} AND pt.locale = ${DEFAULT_PRODUCT_LOCALE} LIMIT 1),
     (SELECT pt.${sql.raw(column)} FROM product_translations pt
@@ -14,68 +20,68 @@ function productTranslationColumnSql(productIdColumn: SQLWrapper, column: string
   )`;
 }
 
-export function productNameSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'name') as SQL<string>;
+export function productNameSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'name', locale) as SQL<string>;
 }
 
-export function productSlugSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'slug') as SQL<string>;
+export function productSlugSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'slug', locale) as SQL<string>;
 }
 
-export function productShortDescriptionSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'short_description') as SQL<string | null>;
+export function productShortDescriptionSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'short_description', locale) as SQL<string | null>;
 }
 
-export function productPriceSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'price') as SQL<string>;
+export function productPriceSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'price', locale) as SQL<string>;
 }
 
-export function productCompareAtPriceSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'compare_at_price') as SQL<string | null>;
+export function productCompareAtPriceSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'compare_at_price', locale) as SQL<string | null>;
 }
 
-export function productCurrencyCodeSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'currency_code') as SQL<string>;
+export function productCurrencyCodeSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'currency_code', locale) as SQL<string>;
 }
 
-export function productStockQuantitySql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'stock_quantity') as SQL<number>;
+export function productStockQuantitySql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'stock_quantity', locale) as SQL<number>;
 }
 
-export function productMoqSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'moq') as SQL<number>;
+export function productMoqSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'moq', locale) as SQL<number>;
 }
 
-export function productLeadTimeMinSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'lead_time_min') as SQL<number>;
+export function productLeadTimeMinSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'lead_time_min', locale) as SQL<number>;
 }
 
-export function productLeadTimeMaxSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'lead_time_max') as SQL<number>;
+export function productLeadTimeMaxSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'lead_time_max', locale) as SQL<number>;
 }
 
-export function productLeadTimeUnitSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'lead_time_unit') as SQL<string>;
+export function productLeadTimeUnitSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'lead_time_unit', locale) as SQL<string>;
 }
 
-export function productDescriptionSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'description') as SQL<string | null>;
+export function productDescriptionSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'description', locale) as SQL<string | null>;
 }
 
-export function productDescriptionLongSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'description_long') as SQL<string | null>;
+export function productDescriptionLongSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'description_long', locale) as SQL<string | null>;
 }
 
-export function productSeoTitleSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'seo_title') as SQL<string | null>;
+export function productSeoTitleSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'seo_title', locale) as SQL<string | null>;
 }
 
-export function productSeoDescriptionSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'seo_description') as SQL<string | null>;
+export function productSeoDescriptionSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'seo_description', locale) as SQL<string | null>;
 }
 
-export function productLifecycleStatusSql(productIdColumn: SQLWrapper) {
-  return productTranslationColumnSql(productIdColumn, 'lifecycle_status') as SQL<string>;
+export function productLifecycleStatusSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
+  return productTranslationColumnSql(productIdColumn, 'lifecycle_status', locale) as SQL<string>;
 }
 
 export function pickPrimaryProductLocale(locales: string[], preferredLocales: string[] = [DEFAULT_PRODUCT_LOCALE]) {
