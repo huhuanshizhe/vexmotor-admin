@@ -38,7 +38,13 @@ export const productStatusEnum = pgEnum('product_status', ['draft', 'active', 'i
 export const purchaseModeEnum = pgEnum('purchase_mode', ['buy', 'inquiry']);
 export const simpleStatusEnum = pgEnum('simple_status', ['active', 'inactive']);
 export const cartStatusEnum = pgEnum('cart_status', ['active', 'converted', 'abandoned']);
-export const orderStatusEnum = pgEnum('order_status', ['pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled', 'refunded']);
+export const orderStatusEnum = pgEnum('order_status', ['unpaid', 'pending_processing', 'partially_shipped', 'shipped', 'completed', 'cancelled', 'terminated']);
+export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'paid']);
+export const shippingStatusEnum = pgEnum('shipping_status', ['unshipped', 'shipped', 'delivered']);
+export const refundStatusEnum = pgEnum('refund_status', ['none', 'pending', 'refunded', 'partially_refunded', 'refund_rejected']);
+export const refundTypeEnum = pgEnum('refund_type', ['full_refund', 'partial_refund', 'no_refund']);
+export const returnTypeEnum = pgEnum('return_type', ['return_goods', 'no_return']);
+export const orderActionTypeEnum = pgEnum('order_action_type', ['status_change', 'shipment_added', 'refund_processed', 'terminated', 'note_updated', 'completed']);
 export const inquiryStatusEnum = pgEnum('inquiry_status', ['new', 'contacted', 'quoted', 'closed']);
 export const inquiryQueueKindEnum = pgEnum('inquiry_queue_kind', ['new_inquiry', 'customer_replied']);
 export const inquiryMessageSenderTypeEnum = pgEnum('inquiry_message_sender_type', ['customer', 'admin']);
@@ -673,7 +679,11 @@ export const orders = pgTable(
     orderNumber: varchar('order_number', { length: 50 }).notNull(),
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
     cartId: uuid('cart_id').references(() => carts.id, { onDelete: 'set null' }),
-    status: orderStatusEnum('status').notNull().default('pending'),
+    status: orderStatusEnum('status').notNull().default('unpaid'),
+    paymentStatus: paymentStatusEnum('payment_status').notNull().default('unpaid'),
+    shippingStatus: shippingStatusEnum('shipping_status').notNull().default('unshipped'),
+    refundStatus: refundStatusEnum('refund_status').notNull().default('none'),
+    locale: varchar('locale', { length: 16 }).notNull().default('en'),
     currencyCode: varchar('currency_code', { length: 3 }).notNull().default('USD'),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
     shippingAmount: numeric('shipping_amount', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -685,6 +695,9 @@ export const orders = pgTable(
     customerNote: text('customer_note'),
     shippingAddressSnapshot: jsonb('shipping_address_snapshot').$type<Record<string, unknown>>().notNull().default({}),
     billingAddressSnapshot: jsonb('billing_address_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    internalNote: text('internal_note'),
+    terminatedAt: timestamp('terminated_at', { withTimezone: true }),
+    terminatedBy: uuid('terminated_by').references(() => admins.id, { onDelete: 'set null' }),
     placedAt: timestamp('placed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -707,6 +720,63 @@ export const orderItems = pgTable('order_items', {
   subtotal: numeric('subtotal', { precision: 12, scale: 2 }).notNull().default('0'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const orderShipments = pgTable('order_shipments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  trackingNumber: varchar('tracking_number', { length: 120 }).notNull(),
+  shippedAt: timestamp('shipped_at', { withTimezone: true }).notNull(),
+  note: text('note'),
+  adminId: uuid('admin_id').references(() => admins.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const orderShipmentItems = pgTable(
+  'order_shipment_items',
+  {
+    shipmentId: uuid('shipment_id').notNull().references(() => orderShipments.id, { onDelete: 'cascade' }),
+    orderItemId: uuid('order_item_id').notNull().references(() => orderItems.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.shipmentId, table.orderItemId], name: 'order_shipment_items_pk' }),
+  }),
+);
+
+export const orderCouponRedemptions = pgTable('order_coupon_redemptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  couponId: uuid('coupon_id').references(() => coupons.id, { onDelete: 'set null' }),
+  couponCode: varchar('coupon_code', { length: 64 }).notNull(),
+  couponName: varchar('coupon_name', { length: 255 }),
+  discountType: varchar('discount_type', { length: 32 }).notNull(),
+  discountValue: numeric('discount_value', { precision: 12, scale: 4 }).notNull().default('0'),
+  discountAmount: numeric('discount_amount', { precision: 12, scale: 2 }).notNull().default('0'),
+  scopeSummary: text('scope_summary'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const orderRefundRequests = pgTable('order_refund_requests', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  refundType: refundTypeEnum('refund_type').notNull(),
+  returnType: returnTypeEnum('return_type').notNull(),
+  reason: text('reason'),
+  requestedAmount: numeric('requested_amount', { precision: 12, scale: 2 }),
+  processedAmount: numeric('processed_amount', { precision: 12, scale: 2 }),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+  processedBy: uuid('processed_by').references(() => admins.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const orderActionLogs = pgTable('order_action_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+  actionType: orderActionTypeEnum('action_type').notNull(),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  adminId: uuid('admin_id').references(() => admins.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const inquiries = pgTable(

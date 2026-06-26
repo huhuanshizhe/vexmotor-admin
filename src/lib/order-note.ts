@@ -17,6 +17,7 @@ export function parseOrderNote(note: string | null | undefined) {
         !line.startsWith('Requested Ship Date:') &&
         !line.startsWith('Trade Term:') &&
         !line.startsWith('Contact Email:') &&
+        !line.startsWith('Coupon:') &&
         line !== 'Engineering Updates: Yes' &&
         line !== 'Restricted End Use Confirmed: Yes',
     )

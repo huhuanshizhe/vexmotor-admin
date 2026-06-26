@@ -35,14 +35,54 @@ export const brandStatusLabels = {
   inactive: '停用',
 } as const;
 
+export type { OrderStatus, PaymentStatus, ShippingStatus, RefundStatus, RefundType, ReturnType, OrderListView } from '@/lib/order-status';
+export {
+  orderStatuses,
+  paymentStatuses,
+  shippingStatuses,
+  refundStatuses,
+  refundTypes,
+  returnTypes,
+} from '@/lib/order-status';
+
 export const orderStatusLabels = {
-  pending: '待处理',
-  paid: '已付款',
-  processing: '处理中',
+  unpaid: '未付款',
+  pending_processing: '待处理',
+  partially_shipped: '部分发货',
   shipped: '已发货',
   completed: '已完成',
   cancelled: '已取消',
+  terminated: '已终止',
+} as const;
+
+export const paymentStatusLabels = {
+  unpaid: '未付款',
+  paid: '已付款',
+} as const;
+
+export const shippingStatusLabels = {
+  unshipped: '未发货',
+  shipped: '已发货',
+  delivered: '已签收',
+} as const;
+
+export const refundStatusLabels = {
+  none: '无退款',
+  pending: '未退款',
   refunded: '已退款',
+  partially_refunded: '已部分退款',
+  refund_rejected: '拒绝退款',
+} as const;
+
+export const refundTypeLabels = {
+  full_refund: '退款',
+  partial_refund: '部分退款',
+  no_refund: '不退款',
+} as const;
+
+export const returnTypeLabels = {
+  return_goods: '退货',
+  no_return: '不退货',
 } as const;
 
 export const inquiryStatusLabels = {
@@ -93,6 +133,19 @@ export const productLifecycleListOptions = Object.entries(productLifecycleListLa
 export const categoryStatusOptions = Object.entries(categoryStatusLabels).map(([value, label]) => ({ value, label }));
 export const brandStatusOptions = Object.entries(brandStatusLabels).map(([value, label]) => ({ value, label }));
 export const orderStatusOptions = Object.entries(orderStatusLabels).map(([value, label]) => ({ value, label }));
+
+export const orderEditableStatusOptions = (
+  ['pending_processing', 'partially_shipped', 'shipped', 'completed'] as const
+).map((value) => ({ value, label: orderStatusLabels[value] }));
+
+export const orderActionTypeLabels = {
+  status_change: '状态变更',
+  shipment_added: '添加发货记录',
+  refund_processed: '退款处理',
+  terminated: '标记已终止',
+  note_updated: '更新内部备注',
+  completed: '标记已完成',
+} as const;
 export const inquiryStatusOptions = Object.entries(inquiryStatusLabels).map(([value, label]) => ({ value, label }));
 
 /** 销售跟进下拉：不含「已关闭」，终止操作使用「标记已终止」 */
@@ -197,13 +250,32 @@ export const brandStatusColors = {
 } as const;
 
 export const orderStatusColors = {
-  pending: 'gold',
-  paid: 'blue',
-  processing: 'cyan',
+  unpaid: 'gold',
+  pending_processing: 'blue',
+  partially_shipped: 'cyan',
   shipped: 'purple',
   completed: 'green',
   cancelled: 'red',
-  refunded: 'volcano',
+  terminated: 'volcano',
+} as const;
+
+export const paymentStatusColors = {
+  unpaid: 'gold',
+  paid: 'green',
+} as const;
+
+export const shippingStatusColors = {
+  unshipped: 'default',
+  shipped: 'blue',
+  delivered: 'green',
+} as const;
+
+export const refundStatusColors = {
+  none: 'default',
+  pending: 'orange',
+  refunded: 'red',
+  partially_refunded: 'volcano',
+  refund_rejected: 'default',
 } as const;
 
 export const inquiryStatusColors = {

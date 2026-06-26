@@ -3,11 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gt, inArray } from 'drizzle-orm';
 
 import { calculateOrderPricing } from '@/lib/commerce-config';
+import { normalizeLocale } from '@/lib/i18n';
 import { getVolumePricingForQuantity } from '@/lib/volume-pricing';
 import { getCommerceConfig } from '@/server/commerce/config';
 import { db } from '@/server/db';
 import { productCompareAtPriceSql, productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
-import { addresses, cartItems, carts, orderItems, orders, productImages, products, verificationTokens } from '@/server/db/schema';
+import { addresses, cartItems, carts, orderCouponRedemptions, orderItems, orders, productImages, products, verificationTokens } from '@/server/db/schema';
 
 function formatMoney(amount: string | number, currencyCode = 'USD') {
   const numeric = Number(amount);
@@ -75,7 +76,7 @@ type OrderAddressSnapshot = {
   postalCode: string;
 };
 
-export type OrderStatus = 'pending' | 'paid' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'refunded';
+export type { OrderStatus } from '@/lib/order-status';
 
 function createOrderNumber() {
   return `VM-${Date.now()}-${randomUUID().slice(0, 4).toUpperCase()}`;
@@ -390,6 +391,7 @@ export async function createOrderFromCart(input: {
   shippingMethod: string;
   paymentMethod: string;
   customerNote?: string;
+  locale?: string | null;
 }) {
   if (!input.userId) {
     return null;
@@ -436,7 +438,9 @@ export async function createOrderFromCart(input: {
       orderNumber,
       userId: input.userId,
       cartId: input.cartId,
-      status: 'pending',
+      status: 'unpaid',
+      paymentStatus: 'unpaid',
+      locale: normalizeLocale(input.locale),
       currencyCode: currentCart.currencyCode,
       subtotal: detail.subtotal.amount.toFixed(2),
       shippingAmount: pricing.shippingAmount.toFixed(2),
@@ -467,6 +471,19 @@ export async function createOrderFromCart(input: {
       subtotal: item.subtotal.amount.toFixed(2),
     })),
   );
+
+  if (detail.coupon?.isApplied && detail.coupon.code in CART_COUPONS) {
+    const coupon = CART_COUPONS[detail.coupon.code as keyof typeof CART_COUPONS];
+    await db.insert(orderCouponRedemptions).values({
+      orderId: createdOrder.id,
+      couponCode: detail.coupon.code,
+      couponName: detail.coupon.code,
+      discountType: 'percent',
+      discountValue: String(coupon.discountRate),
+      discountAmount: detail.discount.amount.toFixed(2),
+      scopeSummary: '全场',
+    });
+  }
 
   await db.update(carts).set({ status: 'converted', updatedAt: new Date() }).where(eq(carts.id, input.cartId));
   return createdOrder;

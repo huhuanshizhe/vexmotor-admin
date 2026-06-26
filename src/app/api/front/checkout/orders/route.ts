@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { LOCALE_REQUEST_HEADER, normalizeLocale } from '@/lib/i18n';
 import { getCurrentUserId } from '@/server/auth/session';
 import { sendOrderConfirmationEmail } from '@/server/email';
 import { createOrderFromCart, getOrCreateCart } from '@/server/storefront/cart';
@@ -80,6 +81,8 @@ export async function POST(request: NextRequest) {
     .filter(Boolean)
     .join('\n');
 
+  const locale = normalizeLocale(request.headers.get(LOCALE_REQUEST_HEADER));
+
   const order = userId
     ? await createOrderFromCart({
         userId,
@@ -89,6 +92,7 @@ export async function POST(request: NextRequest) {
         shippingMethod: parsed.data.shippingMethod,
         paymentMethod: parsed.data.paymentMethod,
         customerNote,
+        locale,
       })
     : await createOrderFromCart({
         userId: null,
@@ -98,6 +102,7 @@ export async function POST(request: NextRequest) {
         shippingMethod: parsed.data.shippingMethod,
         paymentMethod: parsed.data.paymentMethod,
         customerNote,
+        locale,
       });
 
   if (!order) {

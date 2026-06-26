@@ -24,7 +24,11 @@ export async function getAdminOverview() {
     db.select({ total: count() }).from(categories),
     db.select({ total: count() }).from(brands),
     db.select({ total: count(), pending: count(sql`case when ${users.status} = 'pending' then 1 end`) }).from(users),
-    db.select({ total: count(), pending: count(sql`case when ${orders.status} in ('pending', 'processing') then 1 end`), paidRevenue: sql<number>`coalesce(sum(case when ${orders.status} in ('paid', 'processing', 'shipped', 'completed') then ${orders.totalAmount} else 0 end), 0)` }).from(orders),
+    db.select({
+      total: count(),
+      pending: count(sql`case when ${orders.status} = 'pending_processing' and ${orders.paymentStatus} = 'paid' then 1 end`),
+      paidRevenue: sql<number>`coalesce(sum(case when ${orders.paymentStatus} = 'paid' then ${orders.totalAmount} else 0 end), 0)`,
+    }).from(orders),
     db.select({ total: count(), open: count(sql`case when ${inquiries.awaitingAdmin} = true then 1 end`) }).from(inquiries),
     db.select({ active: count(sql`case when ${contentBlocks.status} = 'active' then 1 end`) }).from(contentBlocks),
     db.select({ published: count(sql`case when ${cmsPages.status} = 'published' then 1 end`) }).from(cmsPages),

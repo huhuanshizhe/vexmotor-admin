@@ -29,19 +29,19 @@ export const adminNavItems: AdminNavItem[] = [
     ],
   },
   {
-    key: 'warehouse-logistics',
-    title: '仓储物流',
-    children: [
-      { key: '/admin/logistics/shipping', title: '物流方式', href: '/admin/logistics/shipping' },
-    ],
-  },
-  {
     key: 'order-management',
     title: '订单管理',
     children: [
       { key: '/admin/orders', title: '订单管理', href: '/admin/orders' },
       { key: '/admin/inquiries', title: '询盘管理', href: '/admin/inquiries' },
       { key: '/admin/customers', title: '客户管理', href: '/admin/customers' },
+    ],
+  },
+  {
+    key: 'warehouse-logistics',
+    title: '仓储物流',
+    children: [
+      { key: '/admin/logistics/shipping', title: '物流方式', href: '/admin/logistics/shipping' },
     ],
   },
   {

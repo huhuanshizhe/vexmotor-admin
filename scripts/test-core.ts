@@ -129,7 +129,7 @@ async function testOrderFlow() {
 
   const [demoOrder] = await db.select().from(orders).where(eq(orders.orderNumber, 'LC-DEMO-0001')).limit(1);
   assert(!!demoOrder, 'Demo order exists');
-  assert(demoOrder?.status === 'processing', 'Demo order has processing status');
+  assert(demoOrder?.status === 'pending_processing', 'Demo order has pending_processing status');
   assert(Number(demoOrder?.totalAmount ?? 0) > 0, 'Demo order has positive total amount');
 
   // Verify order items

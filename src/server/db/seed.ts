@@ -15,6 +15,7 @@ import {
   contentBlocks,
   inquiries,
   orderItems,
+  orderRefundRequests,
   orders,
   productCategories,
   productImages,
@@ -423,7 +424,10 @@ async function main() {
         orderNumber: demoOrderNumber,
         userId: adminUser.id,
         cartId: demoCart.id,
-        status: 'processing',
+        status: 'pending_processing',
+        paymentStatus: 'paid',
+        shippingStatus: 'unshipped',
+        refundStatus: 'none',
         currencyCode: 'USD',
         subtotal: '47.80',
         shippingAmount: '18.00',
@@ -447,6 +451,70 @@ async function main() {
       quantity: 2,
       unitPrice: '23.90',
       subtotal: '47.80',
+    });
+  }
+
+  const demoRefundOrderNumber = 'LC-DEMO-REFUND-0001';
+  const [existingRefundOrder] = await db.select().from(orders).where(eq(orders.orderNumber, demoRefundOrderNumber)).limit(1);
+  if (!existingRefundOrder) {
+    const [refundCart] = await db
+      .insert(carts)
+      .values({
+        userId: adminUser.id,
+        status: 'converted',
+        currencyCode: 'USD',
+      })
+      .returning();
+
+    await db.insert(cartItems).values({
+      cartId: refundCart.id,
+      productId: p1.id,
+      quantity: 1,
+      unitPrice: '23.90',
+      subtotal: '23.90',
+    });
+
+    const [refundOrder] = await db
+      .insert(orders)
+      .values({
+        orderNumber: demoRefundOrderNumber,
+        userId: adminUser.id,
+        cartId: refundCart.id,
+        status: 'shipped',
+        paymentStatus: 'paid',
+        shippingStatus: 'shipped',
+        refundStatus: 'pending',
+        currencyCode: 'USD',
+        subtotal: '23.90',
+        shippingAmount: '12.00',
+        taxAmount: '1.91',
+        discountAmount: '0.00',
+        totalAmount: '37.81',
+        shippingMethod: 'Standard',
+        paymentMethod: 'Stripe',
+        customerNote: 'Demo refund request for admin review.',
+        shippingAddressSnapshot: address,
+        billingAddressSnapshot: address,
+        placedAt: new Date(),
+      })
+      .returning();
+
+    await db.insert(orderItems).values({
+      orderId: refundOrder.id,
+      productId: p1.id,
+      productName: '17 Single Shaft Bipolar Stepper Motor, 45N·cm Torque',
+      spu: 'VXM-17-45NCM',
+      quantity: 1,
+      unitPrice: '23.90',
+      subtotal: '23.90',
+    });
+
+    await db.insert(orderRefundRequests).values({
+      orderId: refundOrder.id,
+      refundType: 'full_refund',
+      returnType: 'return_goods',
+      reason: 'Demo seeded refund request.',
+      requestedAmount: '37.81',
     });
   }
 

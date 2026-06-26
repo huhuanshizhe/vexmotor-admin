@@ -3,13 +3,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
 import { db } from '@/server/db';
-import { orders } from '@/server/db/schema';
+import { orderActionLogs, orders } from '@/server/db/schema';
 
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
 async function getRawBody(request: NextRequest): Promise<Buffer> {
   const arrayBuffer = await request.arrayBuffer();
   return Buffer.from(arrayBuffer);
+}
+
+async function appendPaymentActionLog(orderId: string, actionType: 'status_change' | 'refund_processed', payload: Record<string, unknown>) {
+  await db.insert(orderActionLogs).values({
+    orderId,
+    actionType,
+    adminId: null,
+    payload,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -41,7 +50,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -49,15 +57,26 @@ export async function POST(request: NextRequest) {
         const orderNumber = session.metadata?.orderNumber;
 
         if (orderNumber) {
-          await db
+          const [updated] = await db
             .update(orders)
             .set({
-              status: 'paid',
+              status: 'pending_processing',
+              paymentStatus: 'paid',
               paymentMethod: `stripe:${session.payment_method_types?.[0] ?? 'card'}`,
               placedAt: new Date(),
               updatedAt: new Date(),
             })
-            .where(eq(orders.orderNumber, orderNumber));
+            .where(eq(orders.orderNumber, orderNumber))
+            .returning({ id: orders.id });
+
+          if (updated) {
+            await appendPaymentActionLog(updated.id, 'status_change', {
+              source: 'stripe',
+              event: event.type,
+              to: 'pending_processing',
+              paymentStatus: 'paid',
+            });
+          }
 
           console.log(`[stripe-webhook] Order ${orderNumber} marked as paid`);
         }
@@ -69,13 +88,24 @@ export async function POST(request: NextRequest) {
         const orderNumber = paymentIntent.metadata?.orderNumber;
 
         if (orderNumber) {
-          await db
+          const [updated] = await db
             .update(orders)
             .set({
-              status: 'paid',
+              status: 'pending_processing',
+              paymentStatus: 'paid',
               updatedAt: new Date(),
             })
-            .where(eq(orders.orderNumber, orderNumber));
+            .where(eq(orders.orderNumber, orderNumber))
+            .returning({ id: orders.id });
+
+          if (updated) {
+            await appendPaymentActionLog(updated.id, 'status_change', {
+              source: 'stripe',
+              event: event.type,
+              to: 'pending_processing',
+              paymentStatus: 'paid',
+            });
+          }
 
           console.log(`[stripe-webhook] Payment intent succeeded for order ${orderNumber}`);
         }
@@ -97,13 +127,22 @@ export async function POST(request: NextRequest) {
         const orderNumber = charge.metadata?.orderNumber;
 
         if (orderNumber) {
-          await db
+          const [updated] = await db
             .update(orders)
             .set({
-              status: 'refunded',
+              refundStatus: 'refunded',
               updatedAt: new Date(),
             })
-            .where(eq(orders.orderNumber, orderNumber));
+            .where(eq(orders.orderNumber, orderNumber))
+            .returning({ id: orders.id });
+
+          if (updated) {
+            await appendPaymentActionLog(updated.id, 'refund_processed', {
+              source: 'stripe',
+              event: event.type,
+              refundStatus: 'refunded',
+            });
+          }
 
           console.log(`[stripe-webhook] Order ${orderNumber} marked as refunded`);
         }

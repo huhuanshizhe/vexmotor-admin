@@ -81,6 +81,15 @@ export function getLocaleLabel(locale: Locale) {
   return localeDefaults[locale].label;
 }
 
+export function formatOrderLocaleDisplay(locale: string | null | undefined) {
+  const normalized = normalizeLocale(locale?.slice(0, 2) ?? locale);
+  return `${getLocaleLabel(normalized)} (${normalized})`;
+}
+
+export function formatOrderCurrencyDisplay(currencyCode: string | null | undefined) {
+  return currencyCode?.trim().toUpperCase() || 'USD';
+}
+
 export function parseLocaleFromPathname(pathname: string) {
   const normalizedPathname = pathname.startsWith('/') ? pathname : `/${pathname}`;
   const [firstSegment, ...restSegments] = normalizedPathname.split('/').filter(Boolean);

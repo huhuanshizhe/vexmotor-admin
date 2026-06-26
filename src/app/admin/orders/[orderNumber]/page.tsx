@@ -1,11 +1,43 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { OrderDetailClient } from '@/components/orders/order-detail-client';
+import { resolveOrderDetailBack } from '@/lib/order-list-query';
 import { getAdminOrderDetail } from '@/server/admin/orders';
-import { OrderDetailClient } from '../order-detail-client';
 
-export default async function AdminOrderDetailPage({ params }: { params: Promise<{ orderNumber: string }> }) {
+function serializeOrder(order: NonNullable<Awaited<ReturnType<typeof getAdminOrderDetail>>>) {
+  return {
+    ...order,
+    placedAt: order.placedAt?.toISOString() ?? null,
+    createdAt: order.createdAt.toISOString(),
+    terminatedAt: order.terminatedAt?.toISOString() ?? null,
+    shipments: order.shipments.map((shipment) => ({
+      ...shipment,
+      shippedAt: shipment.shippedAt.toISOString(),
+      createdAt: shipment.createdAt.toISOString(),
+    })),
+    actionLogs: order.actionLogs.map((log) => ({
+      ...log,
+      createdAt: log.createdAt.toISOString(),
+    })),
+    refundRequest: order.refundRequest
+      ? {
+          ...order.refundRequest,
+          processedAt: order.refundRequest.processedAt?.toISOString() ?? null,
+          createdAt: order.refundRequest.createdAt.toISOString(),
+        }
+      : null,
+  };
+}
+
+export default async function AdminOrderDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orderNumber: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { orderNumber } = await params;
+  const resolvedSearchParams = await searchParams;
   const order = await getAdminOrderDetail(orderNumber);
 
   if (!order) {
@@ -14,13 +46,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
 
   return (
     <OrderDetailClient
-      initialOrder={{
-        ...order,
-        shippingAddressSnapshot: order.shippingAddressSnapshot as Record<string, string | null>,
-        billingAddressSnapshot: order.billingAddressSnapshot as Record<string, string | null>,
-        placedAt: order.placedAt?.toISOString() ?? null,
-        createdAt: order.createdAt.toISOString(),
-      }}
+      initialOrder={serializeOrder(order)}
+      backTarget={resolveOrderDetailBack(resolvedSearchParams)}
     />
   );
 }
