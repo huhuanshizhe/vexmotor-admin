@@ -321,7 +321,8 @@ export function FeatureDefinitionEditorModal({
       setFeatureKey(sharedValidation.key);
       loadDraft(activeLocale, nextDrafts);
       for (const saved of savedEntries) onSaved(saved);
-      void messageApi.success(`已保存 ${savedEntries.length} 个语言版本`);
+      void messageApi.success('保存成功');
+      onClose();
     });
   }
 

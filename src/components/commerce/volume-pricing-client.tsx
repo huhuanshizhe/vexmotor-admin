@@ -30,7 +30,7 @@ type VolumeRuleFormValues = {
 };
 
 export function VolumePricingClient({ initialConfig }: { initialConfig: CommerceConfig }) {
-  const { config, statusMessage, isPending, updateAndPersist } = useCommerceConfig(initialConfig);
+  const { config, isPending, updateAndPersist } = useCommerceConfig(initialConfig);
   const [volumeRuleModalOpen, setVolumeRuleModalOpen] = useState(false);
   const [editingVolumeRuleId, setEditingVolumeRuleId] = useState<string | null>(null);
   const [pendingRuleId, setPendingRuleId] = useState<string | null>(null);
@@ -128,7 +128,7 @@ export function VolumePricingClient({ initialConfig }: { initialConfig: Commerce
       <CommercePageHeader
         title="阶梯定价"
         description="维护官网批发阶梯价规则（起订数量须大于 1）。单件购买使用产品原价，不套用阶梯优惠。"
-        statusMessage={statusMessage}
+        statusMessage={null}
         isPending={isPending}
         showSave={false}
       />

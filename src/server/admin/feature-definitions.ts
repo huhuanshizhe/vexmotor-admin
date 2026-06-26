@@ -18,7 +18,7 @@ import {
   normalizeFeatureKeyForSave,
 } from '@/lib/feature-definition-content';
 import { db } from '@/server/db';
-import { featureDefinitionTranslations, featureDefinitions } from '@/server/db/schema';
+import { featureDefinitionTranslations, featureDefinitions, productFeatureAssignments } from '@/server/db/schema';
 
 export const DEFAULT_FEATURE_DEFINITION_LOCALE = 'en';
 
@@ -620,7 +620,20 @@ export async function updateAdminFeatureDefinition(definitionId: string, input: 
 }
 
 export async function deleteAdminFeatureDefinition(definitionId: string) {
-  const [deleted] = await db.delete(featureDefinitions).where(eq(featureDefinitions.id, definitionId)).returning({ id: featureDefinitions.id });
+  const [usage] = await db
+    .select({ value: count() })
+    .from(productFeatureAssignments)
+    .where(eq(productFeatureAssignments.definitionId, definitionId));
+
+  if (Number(usage?.value ?? 0) > 0) {
+    throw new Error('FEATURE_IN_USE');
+  }
+
+  const [deleted] = await db
+    .delete(featureDefinitions)
+    .where(eq(featureDefinitions.id, definitionId))
+    .returning({ id: featureDefinitions.id });
+
   return Boolean(deleted);
 }
 

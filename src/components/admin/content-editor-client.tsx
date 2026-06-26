@@ -27,7 +27,9 @@ export function ContentEditorClient({
   const [rows, setRows] = useState<ContentRow[]>(initialRows);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isModalPending, startModalTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm();
   const label = contentTypeLabels[contentType];
 
@@ -51,21 +53,39 @@ export function ContentEditorClient({
   }
 
   function handleSubmit(values: Record<string, string>) {
-    startTransition(async () => {
+    startModalTransition(async () => {
       const res = await fetch(`/api/admin/content/${contentType}${editingId ? `?id=${editingId}` : ''}`, {
         method: editingId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
-      if (res.ok) { form.resetFields(); setOpen(false); setEditingId(null); await reloadRows(); }
+      if (!res.ok) {
+        void messageApi.error('保存失败');
+        return;
+      }
+      form.resetFields();
+      setOpen(false);
+      setEditingId(null);
+      await reloadRows();
+      void messageApi.success('保存成功');
     });
   }
 
   function handleDelete(id: string) {
-    startTransition(async () => {
-      await fetch(`/api/admin/content/${contentType}?id=${id}`, { method: 'DELETE' });
-      await reloadRows();
-    });
+    setPendingEntryId(id);
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/content/${contentType}?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          void messageApi.error('删除失败');
+          return;
+        }
+        await reloadRows();
+        void messageApi.success('已删除');
+      } finally {
+        setPendingEntryId(null);
+      }
+    })();
   }
 
   async function handleAiTranslate() {
@@ -99,6 +119,7 @@ export function ContentEditorClient({
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+      {contextHolder}
       <Space style={{ width: '100%', justifyContent: 'space-between' }}>
         <div>
           <Typography.Title level={2}>{label} 管理</Typography.Title>
@@ -110,7 +131,6 @@ export function ContentEditorClient({
       <Card>
         <Table
           rowKey="id"
-          loading={isPending}
           dataSource={rows}
           pagination={false}
           columns={[
@@ -124,7 +144,9 @@ export function ContentEditorClient({
               render: (_: unknown, row: ContentRow) => (
                 <Space>
                   <Button icon={<EditOutlined />} onClick={() => openEdit(row)} />
-                  <Popconfirm title="确定删除？" onConfirm={() => handleDelete(row.id)}><Button danger icon={<DeleteOutlined />} /></Popconfirm>
+                  <Popconfirm title="确定删除？" onConfirm={() => handleDelete(row.id)}>
+                    <Button danger icon={<DeleteOutlined />} loading={pendingEntryId === row.id} />
+                  </Popconfirm>
                 </Space>
               ),
             },
@@ -136,7 +158,7 @@ export function ContentEditorClient({
         open={open}
         onCancel={() => { setOpen(false); setEditingId(null); }}
         onOk={() => form.submit()}
-        confirmLoading={isPending}
+        confirmLoading={isModalPending}
         title={editingId ? `编辑${label}` : `新建${label}`}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>

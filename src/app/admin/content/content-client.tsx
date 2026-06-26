@@ -1,7 +1,7 @@
 'use client';
 
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import { useState, useTransition } from 'react';
 
 import {
@@ -86,7 +86,10 @@ export function AdminContentClient({
   const [editingPageId, setEditingPageId] = useState<string | null>(null);
   const [blockSearch, setBlockSearch] = useState('');
   const [pageSearch, setPageSearch] = useState('');
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [isModalPending, startModalTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
   const [blockForm] = Form.useForm<ContentBlockFormValues>();
   const [pageForm] = Form.useForm<CmsPageFormValues>();
 
@@ -166,7 +169,7 @@ export function AdminContentClient({
   }
 
   function submitBlock(values: ContentBlockFormValues) {
-    startTransition(async () => {
+    startModalTransition(async () => {
       let content: Record<string, unknown>;
       try {
         content = values.contentText.trim() ? (JSON.parse(values.contentText) as Record<string, unknown>) : {};
@@ -189,15 +192,19 @@ export function AdminContentClient({
         }),
       });
 
-      if (response.ok) {
-        closeBlockModal();
-        await reloadBlocks();
+      if (!response.ok) {
+        void messageApi.error('保存失败');
+        return;
       }
+
+      closeBlockModal();
+      await reloadBlocks();
+      void messageApi.success('保存成功');
     });
   }
 
   function submitPage(values: CmsPageFormValues) {
-    startTransition(async () => {
+    startModalTransition(async () => {
       const response = await fetch(editingPageId ? `/api/admin/content/pages/${editingPageId}` : '/api/admin/content/pages', {
         method: editingPageId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,33 +220,54 @@ export function AdminContentClient({
         }),
       });
 
-      if (response.ok) {
-        closePageModal();
-        await reloadPages();
+      if (!response.ok) {
+        void messageApi.error('保存失败');
+        return;
       }
+
+      closePageModal();
+      await reloadPages();
+      void messageApi.success('保存成功');
     });
   }
 
   function deleteBlock(id: string) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/content/blocks/${id}`, { method: 'DELETE' });
-      if (response.ok) {
+    setPendingEntryId(id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/content/blocks/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          void messageApi.error('内容区块删除失败');
+          return;
+        }
         await reloadBlocks();
+        void messageApi.success('内容区块已删除');
+      } finally {
+        setPendingEntryId(null);
       }
-    });
+    })();
   }
 
   function deletePage(id: string) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/content/pages/${id}`, { method: 'DELETE' });
-      if (response.ok) {
+    setPendingEntryId(id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/content/pages/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          void messageApi.error('页面删除失败');
+          return;
+        }
         await reloadPages();
+        void messageApi.success('页面已删除');
+      } finally {
+        setPendingEntryId(null);
       }
-    });
+    })();
   }
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+      {contextHolder}
       <div>
         <Typography.Title level={2}>内容管理</Typography.Title>
         <Typography.Paragraph type="secondary">统一管理首页内容区块与 CMS 页面，满足工业品商城的内容运营与 SEO 维护需要。</Typography.Paragraph>
@@ -261,7 +289,7 @@ export function AdminContentClient({
                       onChange={(event) => setBlockSearch(event.target.value)}
                       onSearch={(value) => {
                         setBlockSearch(value);
-                        startTransition(async () => {
+                        startListTransition(async () => {
                           await reloadBlocks(value);
                         });
                       }}
@@ -273,7 +301,6 @@ export function AdminContentClient({
                 </Space>
                 <Table
                   rowKey="id"
-                  loading={isPending}
                   dataSource={blocks}
                   pagination={false}
                   scroll={{ x: 980 }}
@@ -301,7 +328,7 @@ export function AdminContentClient({
                         <Space>
                           <Button icon={<EditOutlined />} onClick={() => openEditBlock(row)} />
                           <Popconfirm title="确定删除该内容区块吗？" onConfirm={() => deleteBlock(row.id)}>
-                            <Button danger icon={<DeleteOutlined />} />
+                            <Button danger icon={<DeleteOutlined />} loading={pendingEntryId === row.id} />
                           </Popconfirm>
                         </Space>
                       ),
@@ -325,7 +352,7 @@ export function AdminContentClient({
                       onChange={(event) => setPageSearch(event.target.value)}
                       onSearch={(value) => {
                         setPageSearch(value);
-                        startTransition(async () => {
+                        startListTransition(async () => {
                           await reloadPages(value);
                         });
                       }}
@@ -337,7 +364,6 @@ export function AdminContentClient({
                 </Space>
                 <Table
                   rowKey="id"
-                  loading={isPending}
                   dataSource={pages}
                   pagination={false}
                   scroll={{ x: 980 }}
@@ -368,7 +394,7 @@ export function AdminContentClient({
                         <Space>
                           <Button icon={<EditOutlined />} onClick={() => openEditPage(row)} />
                           <Popconfirm title="确定删除该页面吗？" onConfirm={() => deletePage(row.id)}>
-                            <Button danger icon={<DeleteOutlined />} />
+                            <Button danger icon={<DeleteOutlined />} loading={pendingEntryId === row.id} />
                           </Popconfirm>
                         </Space>
                       ),
@@ -386,7 +412,7 @@ export function AdminContentClient({
         title={editingBlockId ? '编辑内容区块' : '新建内容区块'}
         onCancel={closeBlockModal}
         onOk={() => blockForm.submit()}
-        confirmLoading={isPending}
+        confirmLoading={isModalPending}
         width={720}
         destroyOnHidden
       >
@@ -422,7 +448,7 @@ export function AdminContentClient({
         title={editingPageId ? '编辑 CMS 页面' : '新建 CMS 页面'}
         onCancel={closePageModal}
         onOk={() => pageForm.submit()}
-        confirmLoading={isPending}
+        confirmLoading={isModalPending}
         width={760}
         destroyOnHidden
       >

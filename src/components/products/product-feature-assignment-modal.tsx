@@ -2,7 +2,7 @@
 
 import { FormOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Input, Modal, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ADMIN_ACTION_TOOLTIP_PROPS, AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { adminTableNowrapHeader } from '@/components/admin/admin-table';
@@ -44,7 +44,8 @@ export function ProductFeatureAssignmentModal({
   const [editingAssignment, setEditingAssignment] = useState<AdminProductFeatureAssignmentListItem | null>(null);
   const [initialValueId, setInitialValueId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
   const loadAssignments = useCallback(async () => {
@@ -94,56 +95,71 @@ export function ProductFeatureAssignmentModal({
       void messageApi.warning('请选择要添加的特性');
       return;
     }
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/products/${product.id}/feature-assignments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ definitionId: selectedDefinitionId }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { message?: string } | null;
-        void messageApi.error(payload?.message ?? '添加特性失败');
-        return;
+    setIsAdding(true);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/products/${product.id}/feature-assignments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definitionId: selectedDefinitionId }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '添加特性失败');
+          return;
+        }
+        setSelectedDefinitionId(undefined);
+        await loadAssignments();
+        onChanged();
+        void messageApi.success('特性已添加');
+      } finally {
+        setIsAdding(false);
       }
-      setSelectedDefinitionId(undefined);
-      await loadAssignments();
-      onChanged();
-      void messageApi.success('特性已添加');
-    });
+    })();
   }
 
   function patchAssignmentStatus(row: AdminProductFeatureAssignmentListItem, nextStatus: 'active' | 'inactive') {
     if (!product) return;
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/products/${product.id}/feature-assignments/${row.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/products/${product.id}/feature-assignments/${row.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        if (!response.ok) {
+          void messageApi.error('状态更新失败');
+          return;
+        }
+        await loadAssignments();
+        onChanged();
+        void messageApi.success(`特性已${brandStatusLabels[nextStatus]}`);
+      } finally {
+        setPendingEntryId(null);
       }
-      await loadAssignments();
-      onChanged();
-      void messageApi.success(`特性已${brandStatusLabels[nextStatus]}`);
-    });
+    })();
   }
 
   function deleteAssignment(row: AdminProductFeatureAssignmentListItem) {
     if (!product) return;
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/products/${product.id}/feature-assignments/${row.id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        void messageApi.error('删除失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/products/${product.id}/feature-assignments/${row.id}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          void messageApi.error('删除失败');
+          return;
+        }
+        await loadAssignments();
+        onChanged();
+        void messageApi.success('特性已删除');
+      } finally {
+        setPendingEntryId(null);
       }
-      await loadAssignments();
-      onChanged();
-      void messageApi.success('特性已删除');
-    });
+    })();
   }
 
   function openValueEditor(row: AdminProductFeatureAssignmentListItem, valueId?: string) {
@@ -199,7 +215,7 @@ export function ProductFeatureAssignmentModal({
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                loading={isPending}
+                loading={isAdding}
                 disabled={!available.length}
                 onClick={() => addAssignment()}
               >
@@ -210,7 +226,7 @@ export function ProductFeatureAssignmentModal({
 
           <Table
             rowKey="id"
-            loading={loading || isPending}
+            loading={loading}
             pagination={false}
             dataSource={filteredItems}
             columns={[
@@ -303,7 +319,7 @@ export function ProductFeatureAssignmentModal({
                 width: 100,
                 render: (_: unknown, row: AdminProductFeatureAssignmentListItem) => (
                   <AdminEntityRowActions
-                    loading={isPending}
+                    loading={pendingEntryId === row.id}
                     isActive={row.status === 'active'}
                     entityName="特性"
                     showEdit={false}

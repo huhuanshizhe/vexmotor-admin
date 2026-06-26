@@ -85,7 +85,8 @@ export function BrandListClient({
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<AdminBrandListItem | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const replaceUrl = useCallback((nextQuery: AdminListQuery) => {
@@ -102,7 +103,7 @@ export function BrandListClient({
   }, [searchParams, initialQuery, replaceUrl]);
 
   const reloadList = useCallback((nextQuery: AdminListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       try {
         const result = await fetchBrandList({
           keyword: nextQuery.keyword,
@@ -178,33 +179,43 @@ export function BrandListClient({
   }
 
   function patchBrandStatus(entry: AdminBrandListItem, nextStatus: 'active' | 'inactive') {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/brands/${entry.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/brands/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
 
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+        if (!response.ok) {
+          void messageApi.error('状态更新失败');
+          return;
+        }
+
+        void messageApi.success(`品牌已${brandStatusLabels[nextStatus]}`);
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-
-      void messageApi.success(`品牌已${brandStatusLabels[nextStatus]}`);
-      reloadList(query);
-    });
+    })();
   }
 
   function deleteBrand(entry: AdminBrandListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/brands/${entry.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        void messageApi.error('品牌删除失败');
-        return;
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/brands/${entry.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          void messageApi.error('品牌删除失败');
+          return;
+        }
+        void messageApi.success('品牌已删除');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success('品牌已删除');
-      reloadList(query);
-    });
+    })();
   }
 
   const columns = [
@@ -295,7 +306,7 @@ export function BrandListClient({
       key: 'actions',
       render: (_: unknown, row: AdminBrandListItem) => (
         <AdminEntityRowActions
-          loading={isPending}
+          loading={pendingEntryId === row.id}
           isActive={row.status === 'active'}
           entityName="品牌"
           onEdit={() => openEditor(row)}
@@ -334,7 +345,6 @@ export function BrandListClient({
             />
             <Table
               rowKey="id"
-              loading={isPending}
               pagination={false}
               tableLayout="fixed"
               style={{ width: '100%' }}
@@ -347,7 +357,7 @@ export function BrandListClient({
               page={listState.page}
               pageSize={listState.pageSize}
               total={listState.total}
-              disabled={isPending}
+              disabled={isListLoading}
               onChange={({ page, pageSize }) => applyQueryChange({ page, pageSize })}
             />
           </Space>

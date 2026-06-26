@@ -94,7 +94,8 @@ export function FeatureDefinitionListClient({
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<AdminFeatureDefinitionListItem | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const summaryStats = useMemo(() => [
@@ -117,7 +118,7 @@ export function FeatureDefinitionListClient({
   }, [searchParams, initialQuery, replaceUrl]);
 
   const reloadList = useCallback((nextQuery: AdminListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       try {
         const result = await fetchFeatureDefinitionList({
           keyword: nextQuery.keyword,
@@ -193,33 +194,45 @@ export function FeatureDefinitionListClient({
   }
 
   function patchStatus(entry: AdminFeatureDefinitionListItem, nextStatus: 'active' | 'inactive') {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/feature-definitions/${entry.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/feature-definitions/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
 
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '状态更新失败');
+          return;
+        }
+
+        void messageApi.success(`特性已${brandStatusLabels[nextStatus]}`);
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-
-      void messageApi.success(`特性已${brandStatusLabels[nextStatus]}`);
-      reloadList(query);
-    });
+    })();
   }
 
   function deleteEntry(entry: AdminFeatureDefinitionListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/feature-definitions/${entry.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        void messageApi.error('特性删除失败');
-        return;
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/feature-definitions/${entry.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '特性删除失败');
+          return;
+        }
+        void messageApi.success('特性已删除');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success('特性已删除');
-      reloadList(query);
-    });
+    })();
   }
 
   const columns = [
@@ -288,7 +301,7 @@ export function FeatureDefinitionListClient({
       key: 'actions',
       render: (_: unknown, row: AdminFeatureDefinitionListItem) => (
         <AdminEntityRowActions
-          loading={isPending}
+          loading={pendingEntryId === row.id}
           isActive={row.status === 'active'}
           entityName="特性"
           onEdit={() => openEditor(row)}
@@ -328,7 +341,6 @@ export function FeatureDefinitionListClient({
             />
             <Table
               rowKey="id"
-              loading={isPending}
               pagination={false}
               tableLayout="fixed"
               style={{ width: '100%' }}
@@ -341,7 +353,7 @@ export function FeatureDefinitionListClient({
               page={listState.page}
               pageSize={listState.pageSize}
               total={listState.total}
-              disabled={isPending}
+              disabled={isListLoading}
               onChange={({ page, pageSize }) => applyQueryChange({ page, pageSize })}
             />
           </Space>

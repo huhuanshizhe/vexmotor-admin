@@ -56,13 +56,14 @@ export function CustomerDetailModal({ open, customerId, onClose, onSaved }: Cust
           body: JSON.stringify({ internalNote: values.internalNote.trim() || null }),
         });
         if (!response.ok) {
-          messageApi.error('保存内部备注失败');
+          messageApi.error('保存失败');
           return;
         }
         const nextDetail = (await response.json()) as AdminCustomerDetail;
         setDetail(nextDetail);
         onSaved?.(nextDetail);
-        messageApi.success('内部备注已保存');
+        messageApi.success('保存成功');
+        onClose();
       });
     });
   }

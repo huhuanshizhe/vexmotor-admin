@@ -84,14 +84,14 @@ export function InquiryHistoryListClient({ initialList, initialQuery }: InquiryH
   const [listState, setListState] = useState(initialList);
   const [query, setQuery] = useState(initialQuery);
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
 
   const replaceUrl = useCallback((nextQuery: InquiryHistoryListQuery) => {
     router.replace(buildInquiryHistoryListUrl('/admin/inquiries/history', nextQuery), { scroll: false });
   }, [router]);
 
   const reloadList = useCallback((nextQuery: InquiryHistoryListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       const result = await fetchHistoryInquiries(nextQuery);
       setListState(result);
       setQuery(nextQuery);
@@ -248,7 +248,6 @@ export function InquiryHistoryListClient({ initialList, initialQuery }: InquiryH
 
         <Table
           rowKey="id"
-          loading={isPending}
           dataSource={listState.items}
           columns={columns}
           pagination={false}
@@ -259,6 +258,7 @@ export function InquiryHistoryListClient({ initialList, initialQuery }: InquiryH
           total={listState.total}
           page={listState.page}
           pageSize={listState.pageSize}
+          disabled={isListLoading}
           onChange={({ page, pageSize }) => applyQueryChange({ page, pageSize })}
         />
       </Card>

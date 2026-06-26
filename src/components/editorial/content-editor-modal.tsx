@@ -493,11 +493,10 @@ export function ContentEditorModal({
       for (const saved of savedEntries) onSaved(saved);
 
       const statusLabel = mode === 'publish' || mode === 'schedule'
-        ? (options?.publishedAt && Date.parse(options.publishedAt) > Date.now() ? '设置定时发布' : '发布')
-        : isEditing
-          ? '保存'
-          : '保存为草稿';
-      void messageApi.success(`已${statusLabel} ${savedEntries.length} 个语言版本`);
+        ? (options?.publishedAt && Date.parse(options.publishedAt) > Date.now() ? '定时发布' : '发布')
+        : '保存';
+      void messageApi.success(mode === 'save' ? '保存成功' : `${statusLabel}成功`);
+      onClose();
     });
   }
 

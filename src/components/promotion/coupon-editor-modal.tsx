@@ -71,6 +71,7 @@ export function CouponEditorModal({
 }: CouponEditorModalProps) {
   const [form] = Form.useForm<CouponFormValues>();
   const [sectionTab, setSectionTab] = useState<CouponSectionTabKey>('content');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const pricingPanelRef = useRef<CouponPricingLocalePanelRef>(null);
   const scope = Form.useWatch('scope', form);
   const discountType = Form.useWatch('discountType', form);
@@ -126,6 +127,8 @@ export function CouponEditorModal({
   }, [scope, discountType, form]);
 
   async function handleSubmit() {
+    setIsSubmitting(true);
+    try {
     let values: CouponFormValues;
     try {
       values = await form.validateFields();
@@ -184,7 +187,11 @@ export function CouponEditorModal({
     }
 
     onSaved();
+    void message.success('保存成功');
     onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const contentTab = (
@@ -307,9 +314,11 @@ export function CouponEditorModal({
         void handleSubmit().catch((error: unknown) => {
           if (error && typeof error === 'object' && 'errorFields' in error) return;
           const errorMessage = error instanceof Error ? error.message : '保存失败';
-          Modal.error({ title: '保存失败', content: errorMessage });
+          void message.error(errorMessage);
         });
       }}
+      okText="保存"
+      confirmLoading={isSubmitting}
       destroyOnHidden
     >
       <Form form={form} layout="vertical">

@@ -172,6 +172,7 @@ export function ShippingCountryRatesModal({
       setFormModalOpen(false);
       setEditingRateId(null);
       form.resetFields();
+      void message.success('保存成功');
     });
   }
 

@@ -55,13 +55,28 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ code: 'INVALID_BODY', message: '请求体无效或为空' }, { status: 400 });
+  }
+
   const parsed = commerceConfigSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json({
+      code: 'VALIDATION_ERROR',
+      message: '配置校验失败，请检查阶梯规则、物流方式与运费配置',
+      details: parsed.error.flatten(),
+    }, { status: 400 });
   }
 
-  const updated = await updateAdminCommerceConfig(parsed.data as CommerceConfig);
-  return NextResponse.json(updated);
+  try {
+    const updated = await updateAdminCommerceConfig(parsed.data as CommerceConfig);
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error('[commerce] update failed', error);
+    return NextResponse.json({ code: 'UPDATE_FAILED', message: '保存失败，请稍后重试' }, { status: 500 });
+  }
 }

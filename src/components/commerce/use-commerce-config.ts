@@ -1,10 +1,18 @@
 'use client';
 
-import { useCallback, useState, useTransition } from 'react';
+import { message } from 'antd';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import type { CommerceConfig } from '@/lib/commerce-config';
 
 async function saveCommerceConfig(snapshot: CommerceConfig) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return {
+      ok: false as const,
+      message: '配置数据无效，请刷新页面后重试。',
+    };
+  }
+
   const response = await fetch('/api/admin/commerce', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -12,10 +20,13 @@ async function saveCommerceConfig(snapshot: CommerceConfig) {
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    const payload = (await response.json().catch(() => null)) as { message?: string; details?: unknown } | null;
+    const validationHint = payload?.details && typeof payload.details === 'object'
+      ? '请检查阶梯规则、物流方式与运费配置是否完整。'
+      : null;
     return {
       ok: false as const,
-      message: payload?.message ?? '保存失败，请检查配置后重试。',
+      message: payload?.message ?? validationHint ?? '保存失败，请检查配置后重试。',
     };
   }
 
@@ -25,16 +36,28 @@ async function saveCommerceConfig(snapshot: CommerceConfig) {
 
 export function useCommerceConfig(initialConfig: CommerceConfig) {
   const [config, setConfig] = useState<CommerceConfig>(initialConfig);
+  const configRef = useRef(initialConfig);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const updateConfig = useCallback((updater: (current: CommerceConfig) => CommerceConfig) => {
-    setConfig((current) => updater(current));
-    setStatusMessage('配置已修改，待保存');
+  useEffect(() => {
+    configRef.current = initialConfig;
+    setConfig(initialConfig);
+  }, [initialConfig]);
+
+  const applyConfig = useCallback((next: CommerceConfig) => {
+    configRef.current = next;
+    setConfig(next);
   }, []);
 
+  const updateConfig = useCallback((updater: (current: CommerceConfig) => CommerceConfig) => {
+    const next = updater(configRef.current);
+    applyConfig(next);
+    setStatusMessage(null);
+  }, [applyConfig]);
+
   const persistConfig = useCallback((snapshot?: CommerceConfig) => {
-    const payload = snapshot ?? config;
+    const payload = snapshot ?? configRef.current;
 
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
@@ -42,24 +65,21 @@ export function useCommerceConfig(initialConfig: CommerceConfig) {
         const result = await saveCommerceConfig(payload);
 
         if (!result.ok) {
-          setStatusMessage(result.message);
+          void message.error(result.message);
           resolve(false);
           return;
         }
 
-        setConfig(result.config);
-        setStatusMessage('配置已保存');
+        applyConfig(result.config);
+        void message.success('保存成功');
         resolve(true);
       });
     });
-  }, [config]);
+  }, [applyConfig]);
 
   const updateAndPersist = useCallback((updater: (current: CommerceConfig) => CommerceConfig) => {
-    let nextConfig!: CommerceConfig;
-    setConfig((current) => {
-      nextConfig = updater(current);
-      return nextConfig;
-    });
+    const nextConfig = updater(configRef.current);
+    applyConfig(nextConfig);
 
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
@@ -67,21 +87,21 @@ export function useCommerceConfig(initialConfig: CommerceConfig) {
         const result = await saveCommerceConfig(nextConfig);
 
         if (!result.ok) {
-          setStatusMessage(result.message);
+          void message.error(result.message);
           resolve(false);
           return;
         }
 
-        setConfig(result.config);
-        setStatusMessage('已保存');
+        applyConfig(result.config);
+        void message.success('保存成功');
         resolve(true);
       });
     });
-  }, []);
+  }, [applyConfig]);
 
   return {
     config,
-    setConfig,
+    setConfig: applyConfig,
     statusMessage,
     isPending,
     updateConfig,

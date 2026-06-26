@@ -142,7 +142,8 @@ export function BoardContentListClient({
   const [activeBoardKey, setActiveBoardKey] = useState(initialQuery.board || boards[0]?.key || UNASSIGNED_BOARD_KEY);
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<AdminEditorialContentListItem | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const hasBoards = boards.length > 0;
@@ -162,7 +163,7 @@ export function BoardContentListClient({
   }, [searchParams, initialQuery, replaceUrl]);
 
   const reloadList = useCallback((nextQuery: AdminListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       try {
         const result = await fetchBoardContentList({
           contentModule,
@@ -268,33 +269,43 @@ export function BoardContentListClient({
   }
 
   function patchEntryStatus(entry: AdminEditorialContentListItem, status: EditorialEntryStatus) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/editorial/content/${entry.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/editorial/content/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
 
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+        if (!response.ok) {
+          void messageApi.error('状态更新失败');
+          return;
+        }
+
+        void messageApi.success(`内容已${entryStatusLabels[status]}`);
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-
-      void messageApi.success(`内容已${entryStatusLabels[status]}`);
-      reloadList(query);
-    });
+    })();
   }
 
   function deleteContent(entry: AdminEditorialContentListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/editorial/content/${entry.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        void messageApi.error('内容删除失败');
-        return;
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/editorial/content/${entry.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          void messageApi.error('内容删除失败');
+          return;
+        }
+        void messageApi.success('内容已删除');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success('内容已删除');
-      reloadList(query);
-    });
+    })();
   }
 
   const contentColumns = [
@@ -349,7 +360,7 @@ export function BoardContentListClient({
       width: ADMIN_TABLE_EDITORIAL_ACTIONS_WIDTH,
       render: (_: unknown, row: AdminEditorialContentListItem) => (
         <AdminEditorialRowActions
-          loading={isPending}
+          loading={pendingEntryId === row.id}
           status={row.status}
           onEdit={() => openContentModal(row)}
           onPublish={() => patchEntryStatus(row, 'published')}
@@ -376,7 +387,6 @@ export function BoardContentListClient({
         ) : null}
         <Table
           rowKey="id"
-          loading={isPending}
           pagination={false}
           tableLayout="fixed"
           style={{ width: '100%' }}
@@ -409,7 +419,7 @@ export function BoardContentListClient({
           page={listState.page}
           pageSize={listState.pageSize}
           total={listState.total}
-          disabled={isPending}
+          disabled={isListLoading}
           onChange={({ page, pageSize }) => applyQueryChange({ board: boardKey, page, pageSize })}
         />
       </Space>

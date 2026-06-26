@@ -95,7 +95,9 @@ export function CouponListClient({
   const [listState, setListState] = useState(initialList);
   const [query, setQuery] = useState(initialQuery);
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [messageApi, contextHolder] = message.useMessage();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingDetail, setEditingDetail] = useState<AdminCouponDetail | null>(null);
   const [sendCoupon, setSendCoupon] = useState<AdminCouponListItem | null>(null);
@@ -105,12 +107,16 @@ export function CouponListClient({
   }, [router]);
 
   const reloadList = useCallback((nextQuery: CouponListQuery) => {
-    startTransition(async () => {
-      const result = await fetchCouponList(nextQuery);
-      setListState(result);
-      setQuery(nextQuery);
+    startListTransition(async () => {
+      try {
+        const result = await fetchCouponList(nextQuery);
+        setListState(result);
+        setQuery(nextQuery);
+      } catch {
+        void messageApi.error('加载优惠券列表失败');
+      }
     });
-  }, []);
+  }, [messageApi]);
 
   useEffect(() => {
     if (hydratedPageSizeRef.current) return;
@@ -158,7 +164,7 @@ export function CouponListClient({
 
     const response = await fetch(`/api/admin/coupons/${row.id}`);
     if (!response.ok) {
-      void message.error('加载优惠券详情失败');
+      void messageApi.error('加载优惠券详情失败');
       return;
     }
     const detail = (await response.json()) as AdminCouponDetail;
@@ -172,27 +178,37 @@ export function CouponListClient({
   }
 
   function toggleCoupon(row: AdminCouponListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/coupons/${row.id}/toggle-status`, { method: 'POST' });
-      if (!response.ok) {
-        void message.error('状态更新失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/coupons/${row.id}/toggle-status`, { method: 'POST' });
+        if (!response.ok) {
+          void messageApi.error('状态更新失败');
+          return;
+        }
+        void messageApi.success(`优惠券已${row.status === 'active' ? '停用' : '启用'}`);
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void message.success(`优惠券已${row.status === 'active' ? '停用' : '启用'}`);
-      reloadList(query);
-    });
+    })();
   }
 
   function deleteCoupon(row: AdminCouponListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/coupons/${row.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        void message.error('删除失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/coupons/${row.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          void messageApi.error('删除失败');
+          return;
+        }
+        void messageApi.success('优惠券已删除');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void message.success('优惠券已删除');
-      reloadList(query);
-    });
+    })();
   }
 
   const columns: ColumnsType<AdminCouponListItem> = [
@@ -267,6 +283,7 @@ export function CouponListClient({
             onClick={() => setSendCoupon(row)}
           />
           <AdminEntityRowActions
+            loading={pendingEntryId === row.id}
             entityName="优惠券"
             isActive={row.status === 'active'}
             onEdit={() => {
@@ -282,6 +299,7 @@ export function CouponListClient({
 
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+      {contextHolder}
       <CommercePageHeader
         title="优惠券"
         description="管理促销优惠券规则、使用限制与发放记录。前台注册与结账核销将在后续版本接入。"
@@ -342,12 +360,12 @@ export function CouponListClient({
           dataSource={listState.items}
           pagination={false}
           scroll={adminTableScroll(1280)}
-          loading={isPending}
         />
         <AdminListPagination
           page={listState.page}
           pageSize={listState.pageSize}
           total={listState.total}
+          disabled={isListLoading}
           onChange={({ page, pageSize }) => {
             writeStoredPageSize(pageSize);
             applyQueryChange({ page, pageSize });
@@ -362,7 +380,6 @@ export function CouponListClient({
         categoryTree={categoryTree}
         onClose={() => setEditorOpen(false)}
         onSaved={() => {
-          void message.success('优惠券已保存');
           reloadList(query);
         }}
       />

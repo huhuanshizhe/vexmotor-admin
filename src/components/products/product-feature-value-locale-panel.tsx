@@ -22,6 +22,7 @@ type ProductFeatureValueLocalePanelProps = {
   detail: AdminProductFeatureValueDetail;
   activeLanguages: AdminSiteLanguageRow[];
   onSaved: (detail: AdminProductFeatureValueDetail) => void;
+  onCloseAfterSave?: () => void;
 };
 
 function createEmptyDraft(): LocaleFormValues {
@@ -54,6 +55,7 @@ export function ProductFeatureValueLocalePanel({
   detail,
   activeLanguages,
   onSaved,
+  onCloseAfterSave,
 }: ProductFeatureValueLocalePanelProps) {
   const [activeLocale, setActiveLocale] = useState(activeLanguages[0]?.code ?? '');
   const [drafts, setDrafts] = useState<Record<string, LocaleFormValues>>({});
@@ -125,7 +127,7 @@ export function ProductFeatureValueLocalePanel({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { message?: string } | null;
-        void messageApi.error(payload?.message ?? '保存特性值失败');
+        void messageApi.error(payload?.message ?? '保存失败');
         return;
       }
 
@@ -135,8 +137,9 @@ export function ProductFeatureValueLocalePanel({
       );
       setDrafts(nextDrafts);
       form.setFieldsValue(nextDrafts[activeLocale] ?? createEmptyDraft());
+      void messageApi.success('保存成功');
       onSaved(saved);
-      void messageApi.success('特性值已保存');
+      onCloseAfterSave?.();
     });
   }
 

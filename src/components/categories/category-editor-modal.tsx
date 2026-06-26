@@ -299,7 +299,7 @@ export function CategoryEditorModal({
     loadDraft(activeLocale, merged);
   }
 
-  function persistAllLocales(closeAfterSave = false) {
+  function persistAllLocales() {
     if (!hasLanguages) {
       void messageApi.warning('请先在「多语言管理」中添加并启用语言');
       return;
@@ -403,8 +403,8 @@ export function CategoryEditorModal({
       setCategoryId(nextCategoryId);
       loadDraft(activeLocale, nextDrafts);
       for (const saved of savedEntries) onSaved(saved);
-      void messageApi.success(`已保存 ${savedEntries.length} 个语言版本`);
-      if (closeAfterSave) onClose();
+      void messageApi.success('保存成功');
+      onClose();
     });
   }
 
@@ -568,14 +568,9 @@ export function CategoryEditorModal({
         ) : (
           <Space orientation="vertical" size="large" style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Space wrap>
-                <Button loading={isPending} onClick={() => persistAllLocales(false)}>
-                  {isEditing ? '保存' : '保存分类'}
-                </Button>
-                <Button type="primary" loading={isPending} onClick={() => persistAllLocales(true)}>
-                  保存并关闭
-                </Button>
-              </Space>
+              <Button type="primary" loading={isPending} onClick={() => persistAllLocales()}>
+                {isEditing ? '保存' : '保存分类'}
+              </Button>
             </div>
 
             {sharedFieldsPanel}

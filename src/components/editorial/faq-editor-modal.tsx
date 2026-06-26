@@ -359,8 +359,9 @@ export function FaqEditorModal({
       loadDraft(activeLocale, nextDrafts);
       for (const saved of savedEntries) onSaved(saved);
 
-      const statusLabel = mode === 'publish' ? '发布' : isEditing ? '保存' : '保存为草稿';
-      void messageApi.success(`已${statusLabel} ${savedEntries.length} 个语言版本`);
+      const statusLabel = mode === 'publish' ? '发布' : '保存';
+      void messageApi.success(mode === 'publish' ? '发布成功' : '保存成功');
+      onClose();
     });
   }
 

@@ -137,7 +137,8 @@ export function CategoriesClient({
   const [editorLoading, setEditorLoading] = useState(false);
   const [editingEntry, setEditingEntry] = useState<AdminCategoryListItem | null>(null);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const replaceUrl = useCallback((nextQuery: AdminListQuery) => {
@@ -157,7 +158,7 @@ export function CategoriesClient({
   }, [messageApi]);
 
   const reloadList = useCallback((nextQuery: AdminListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       try {
         const result = await fetchCategoryList({
           parentId: nextQuery.parentId === ROOT_CATEGORY_PARENT_KEY ? '' : nextQuery.parentId,
@@ -300,34 +301,43 @@ export function CategoriesClient({
   }
 
   function patchCategoryStatus(entry: AdminCategoryListItem, nextStatus: CategoryStatus) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/categories/${entry.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/categories/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '状态更新失败');
+          return;
+        }
+        void messageApi.success(`分类已${categoryStatusLabels[nextStatus]}`);
+        await refreshTree();
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success(`分类已${categoryStatusLabels[nextStatus]}`);
-      await refreshTree();
-      reloadList(query);
-    });
+    })();
   }
 
-  function performDeleteCategory(entry: Pick<AdminCategoryListItem, 'id'>) {
-    startTransition(async () => {
+  async function performDeleteCategory(entry: Pick<AdminCategoryListItem, 'id'>) {
+    setPendingEntryId(entry.id);
+    try {
       const response = await fetch(`/api/admin/categories/${entry.id}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { message?: string } | null;
         void messageApi.error(payload?.message ?? '分类删除失败');
-        return;
+        throw new Error(payload?.message ?? '分类删除失败');
       }
       void messageApi.success('分类已删除');
       await refreshTree();
       reloadList(query);
-    });
+    } finally {
+      setPendingEntryId(null);
+    }
   }
 
   function promptDeleteCategory(entry: Pick<AdminCategoryListItem, 'id' | 'hasChildren' | 'productCount'>) {
@@ -420,7 +430,7 @@ export function CategoriesClient({
       key: 'actions',
       render: (_: unknown, row: AdminCategoryListItem) => (
         <AdminEntityRowActions
-          loading={isPending}
+          loading={pendingEntryId === row.id}
           isActive={row.status === 'active'}
           entityName="分类"
           onEdit={() => openEditor(row)}
@@ -443,6 +453,7 @@ export function CategoriesClient({
             roots={treeRoots}
             rootsVersion={treeRootsVersion}
             selectedId={selectedParentId}
+            pendingNodeId={pendingEntryId}
             onSelect={handleSelectTreeNode}
             onReload={() => { void refreshTree(); }}
             onEdit={openEditorById}
@@ -495,7 +506,6 @@ export function CategoriesClient({
 
             <Table
               rowKey="id"
-              loading={isPending}
               pagination={false}
               tableLayout="fixed"
               style={{ width: '100%' }}
@@ -509,7 +519,7 @@ export function CategoriesClient({
               page={listState.page}
               pageSize={listState.pageSize}
               total={listState.total}
-              disabled={isPending}
+              disabled={isListLoading}
               onChange={({ page, pageSize }) => applyQueryChange({ page, pageSize })}
             />
           </Space>

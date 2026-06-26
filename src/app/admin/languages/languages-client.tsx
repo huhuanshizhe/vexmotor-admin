@@ -50,7 +50,9 @@ export function AdminLanguagesClient({
   const [selectedCurrency, setSelectedCurrency] = useState<string | undefined>();
   const [editingRow, setEditingRow] = useState<AdminSiteLanguageRow | null>(null);
   const [editingCurrency, setEditingCurrency] = useState<string | undefined>();
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [isModalPending, startModalTransition] = useTransition();
+  const [pendingEntryCode, setPendingEntryCode] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const languageOptions = useMemo(() => groupLanguageOptions(availableLanguages), [availableLanguages]);
@@ -106,7 +108,7 @@ export function AdminLanguagesClient({
       return;
     }
 
-    startTransition(async () => {
+    startModalTransition(async () => {
       const response = await fetch('/api/admin/languages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,13 +116,13 @@ export function AdminLanguagesClient({
       });
 
       if (!response.ok) {
-        void messageApi.error('语言添加失败');
+        void messageApi.error('保存失败');
         return;
       }
 
       resetAddModal();
       await reloadRows();
-      void messageApi.success('语言已添加');
+      void messageApi.success('保存成功');
     });
   }
 
@@ -134,7 +136,7 @@ export function AdminLanguagesClient({
       return;
     }
 
-    startTransition(async () => {
+    startModalTransition(async () => {
       const response = await fetch(`/api/admin/languages/${encodeURIComponent(editingRow.code)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -142,32 +144,37 @@ export function AdminLanguagesClient({
       });
 
       if (!response.ok) {
-        void messageApi.error('币种更新失败');
+        void messageApi.error('保存失败');
         return;
       }
 
       resetEditModal();
       await reloadRows();
-      void messageApi.success('币种已更新');
+      void messageApi.success('保存成功');
     });
   }
 
   function updateLanguage(code: string, input: { status?: SiteLanguageStatus; isDefault?: boolean; sortOrder?: number }) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/languages/${encodeURIComponent(code)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
+    setPendingEntryCode(code);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/languages/${encodeURIComponent(code)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
 
-      if (!response.ok) {
-        void messageApi.error('语言更新失败，请确认默认语言不可停用');
-        return;
+        if (!response.ok) {
+          void messageApi.error('语言更新失败，请确认默认语言不可停用');
+          return;
+        }
+
+        await reloadRows();
+        void messageApi.success('语言已更新');
+      } finally {
+        setPendingEntryCode(null);
       }
-
-      await reloadRows();
-      void messageApi.success('语言已更新');
-    });
+    })();
   }
 
   return (
@@ -194,7 +201,7 @@ export function AdminLanguagesClient({
             onChange={(event) => setSearch(event.target.value)}
             onSearch={(value) => {
               setSearch(value);
-              startTransition(async () => {
+              startListTransition(async () => {
                 await reloadRows(value);
               });
             }}
@@ -207,7 +214,6 @@ export function AdminLanguagesClient({
 
         <Table
           rowKey="code"
-          loading={isPending}
           dataSource={rows}
           pagination={false}
           tableLayout="fixed"
@@ -277,7 +283,8 @@ export function AdminLanguagesClient({
               render: (value: SiteLanguageStatus, row: AdminSiteLanguageRow) => (
                 <Switch
                   checked={value === 'active'}
-                  disabled={row.isDefault}
+                  disabled={row.isDefault || pendingEntryCode === row.code}
+                  loading={pendingEntryCode === row.code}
                   checkedChildren="启用"
                   unCheckedChildren="停用"
                   onChange={(checked) => updateLanguage(row.code, { status: checked ? 'active' : 'inactive' })}
@@ -296,7 +303,7 @@ export function AdminLanguagesClient({
                   </Tag>
                 ) : (
                   <Popconfirm title="设为默认语言？" onConfirm={() => updateLanguage(row.code, { isDefault: true })}>
-                    <Button size="small" icon={<StarOutlined />}>
+                    <Button size="small" icon={<StarOutlined />} loading={pendingEntryCode === row.code}>
                       设为默认
                     </Button>
                   </Popconfirm>
@@ -308,7 +315,12 @@ export function AdminLanguagesClient({
               width: 96,
               onHeaderCell: adminTableNowrapHeader,
               render: (value: number, row: AdminSiteLanguageRow) => (
-                <InputNumber min={0} value={value} onChange={(next) => updateLanguage(row.code, { sortOrder: Number(next ?? 0) })} />
+                <InputNumber
+                  min={0}
+                  value={value}
+                  disabled={pendingEntryCode === row.code}
+                  onChange={(next) => updateLanguage(row.code, { sortOrder: Number(next ?? 0) })}
+                />
               ),
             },
             {
@@ -332,7 +344,7 @@ export function AdminLanguagesClient({
         title="添加站点语言"
         onCancel={resetAddModal}
         onOk={addLanguage}
-        confirmLoading={isPending}
+        confirmLoading={isModalPending}
         okText="添加"
         okButtonProps={{ disabled: !selectedCode || !selectedCurrency }}
         destroyOnHidden
@@ -373,7 +385,7 @@ export function AdminLanguagesClient({
         title="编辑币种"
         onCancel={resetEditModal}
         onOk={saveCurrency}
-        confirmLoading={isPending}
+        confirmLoading={isModalPending}
         okText="保存"
         okButtonProps={{ disabled: !editingCurrency }}
         destroyOnHidden

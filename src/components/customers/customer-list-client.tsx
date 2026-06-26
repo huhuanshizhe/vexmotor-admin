@@ -114,7 +114,9 @@ export function CustomerListClient({
   const [listState, setListState] = useState<CustomerListState>(initialList);
   const [query, setQuery] = useState<CustomerListQuery>(initialQuery);
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [isCreatePending, startCreateTransition] = useTransition();
   const [messageApi, contextHolder] = message.useMessage();
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -137,7 +139,7 @@ export function CustomerListClient({
   }, [router]);
 
   const reloadList = useCallback((nextQuery: CustomerListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       try {
         const result = await fetchCustomerList(nextQuery);
         setListState(result);
@@ -201,54 +203,70 @@ export function CustomerListClient({
   }
 
   function reviewCustomer(row: AdminCustomerListItem, action: 'approve' | 'reject') {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/customers/${row.id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      if (!response.ok) {
-        void messageApi.error(action === 'approve' ? '审核通过失败' : '审核不通过失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/customers/${row.id}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        });
+        if (!response.ok) {
+          void messageApi.error(action === 'approve' ? '审核通过失败' : '审核不通过失败');
+          return;
+        }
+        void messageApi.success(action === 'approve' ? '客户已审核通过' : '客户已审核不通过');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success(action === 'approve' ? '客户已审核通过' : '客户已审核不通过');
-      reloadList(query);
-    });
+    })();
   }
 
   function toggleCustomerStatus(row: AdminCustomerListItem) {
     const nextStatus = row.status === 'active' ? 'disabled' : 'active';
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/customers/${row.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/customers/${row.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        if (!response.ok) {
+          void messageApi.error('状态更新失败');
+          return;
+        }
+        void messageApi.success(nextStatus === 'active' ? '客户已启用' : '客户已停用');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success(nextStatus === 'active' ? '客户已启用' : '客户已停用');
-      reloadList(query);
-    });
+    })();
   }
 
   function resetPasswordForCustomer(row: AdminCustomerListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/customers/${row.id}/reset-password`, { method: 'POST' });
-      if (!response.ok) {
-        void messageApi.error('重置密码失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/customers/${row.id}/reset-password`, { method: 'POST' });
+        if (!response.ok) {
+          void messageApi.error('重置密码失败');
+          return;
+        }
+        const payload = (await response.json()) as { temporaryPassword: string };
+        setResetPassword(payload.temporaryPassword);
+        setResetCustomerEmail(row.email);
+        setResetOpen(true);
+        void messageApi.success('密码已重置');
+      } finally {
+        setPendingEntryId(null);
       }
-      const payload = (await response.json()) as { temporaryPassword: string };
-      setResetPassword(payload.temporaryPassword);
-      setResetCustomerEmail(row.email);
-      setResetOpen(true);
-    });
+    })();
   }
 
   function createCustomer(values: CreateCustomerFormValues) {
-    startTransition(async () => {
+    startCreateTransition(async () => {
       const response = await fetch('/api/admin/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -263,10 +281,10 @@ export function CustomerListClient({
         }),
       });
       if (!response.ok) {
-        void messageApi.error('创建账户失败');
+        void messageApi.error('保存失败');
         return;
       }
-      void messageApi.success('账户已创建，状态为待审核');
+      void messageApi.success('保存成功');
       setCreateOpen(false);
       reloadList({ ...query, page: 1 });
     });
@@ -423,7 +441,7 @@ export function CustomerListClient({
               >
                 <span className="admin-row-action-trigger" onClick={(event) => event.stopPropagation()}>
                   <Tooltip title="审核通过" {...ADMIN_ACTION_TOOLTIP_PROPS}>
-                    <Button type="text" size="small" icon={<CheckOutlined />} loading={isPending} />
+                    <Button type="text" size="small" icon={<CheckOutlined />} loading={pendingEntryId === row.id} />
                   </Tooltip>
                 </span>
               </Popconfirm>
@@ -437,14 +455,14 @@ export function CustomerListClient({
               >
                 <span className="admin-row-action-trigger" onClick={(event) => event.stopPropagation()}>
                   <Tooltip title="审核不通过" {...ADMIN_ACTION_TOOLTIP_PROPS}>
-                    <Button type="text" size="small" danger icon={<CloseOutlined />} loading={isPending} />
+                    <Button type="text" size="small" danger icon={<CloseOutlined />} loading={pendingEntryId === row.id} />
                   </Tooltip>
                 </span>
               </Popconfirm>
             </>
           ) : (
             <AdminEntityRowActions
-              loading={isPending}
+              loading={pendingEntryId === row.id}
               isActive={row.status === 'active'}
               entityName="客户"
               showEdit={false}
@@ -469,7 +487,7 @@ export function CustomerListClient({
           >
             <span className="admin-row-action-trigger" onClick={(event) => event.stopPropagation()}>
               <Tooltip title="重置密码" {...ADMIN_ACTION_TOOLTIP_PROPS}>
-                <Button type="text" size="small" icon={<KeyOutlined />} loading={isPending} />
+                <Button type="text" size="small" icon={<KeyOutlined />} loading={pendingEntryId === row.id} />
               </Tooltip>
             </span>
           </Popconfirm>
@@ -542,7 +560,6 @@ export function CustomerListClient({
 
         <Table
           rowKey="id"
-          loading={isPending}
           dataSource={listState.items}
           columns={columns}
           pagination={false}
@@ -553,6 +570,7 @@ export function CustomerListClient({
           total={listState.total}
           page={listState.page}
           pageSize={listState.pageSize}
+          disabled={isListLoading}
           onChange={({ page, pageSize }) => applyQueryChange({ page, pageSize })}
         />
       </Card>
@@ -601,7 +619,7 @@ export function CustomerListClient({
 
       <CustomerCreateModal
         open={createOpen}
-        loading={isPending}
+        loading={isCreatePending}
         onClose={() => setCreateOpen(false)}
         onSubmit={createCustomer}
       />

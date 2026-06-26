@@ -34,7 +34,8 @@ export function AdminEditorialBoardsClient({
   const [entries] = useState(initialEntries);
   const [boardModalOpen, setBoardModalOpen] = useState(false);
   const [editingBoardKey, setEditingBoardKey] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isModalPending, startModalTransition] = useTransition();
+  const [pendingBoardKey, setPendingBoardKey] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
   const [boardForm] = Form.useForm<BoardFormValues>();
 
@@ -83,7 +84,7 @@ export function AdminEditorialBoardsClient({
 
   function saveBoard() {
     void boardForm.validateFields().then((values) => {
-      startTransition(async () => {
+      startModalTransition(async () => {
         try {
           const boardKey = editingBoardKey ?? normalizeEntityKeyForSave(values.key);
           if (!boardKey) {
@@ -114,9 +115,9 @@ export function AdminEditorialBoardsClient({
             ],
           });
           closeBoardModal();
-          void messageApi.success(editingBoardKey ? '看板已更新' : '看板已新增');
+          void messageApi.success(editingBoardKey ? '保存成功' : '保存成功');
         } catch (error) {
-          void messageApi.error(error instanceof Error ? error.message : '看板保存失败');
+          void messageApi.error('保存失败');
         }
       });
     });
@@ -132,7 +133,8 @@ export function AdminEditorialBoardsClient({
       return;
     }
 
-    startTransition(async () => {
+    setPendingBoardKey(board.key);
+    void (async () => {
       try {
         await saveEditorialConfig({
           ...dashboard.config,
@@ -141,12 +143,15 @@ export function AdminEditorialBoardsClient({
         void messageApi.success('看板已删除');
       } catch (error) {
         void messageApi.error(error instanceof Error ? error.message : '看板删除失败');
+      } finally {
+        setPendingBoardKey(null);
       }
-    });
+    })();
   }
 
   function toggleBoardEnabled(board: EditorialCoverageMetric, enabled: boolean) {
-    startTransition(async () => {
+    setPendingBoardKey(board.key);
+    void (async () => {
       try {
         await saveEditorialConfig({
           ...dashboard.config,
@@ -157,8 +162,10 @@ export function AdminEditorialBoardsClient({
         void messageApi.success(enabled ? '看板已启用' : '看板已停用');
       } catch (error) {
         void messageApi.error(error instanceof Error ? error.message : '看板状态更新失败');
+      } finally {
+        setPendingBoardKey(null);
       }
-    });
+    })();
   }
 
   return (
@@ -221,7 +228,7 @@ export function AdminEditorialBoardsClient({
               key: 'actions',
               render: (_: unknown, row: EditorialCoverageMetric) => (
                 <AdminEntityRowActions
-                  loading={isPending}
+                  loading={pendingBoardKey === row.key}
                   isActive={row.enabled}
                   entityName="看板"
                   onEdit={() => openBoardModal(row)}
@@ -241,7 +248,7 @@ export function AdminEditorialBoardsClient({
         title={editingBoardKey ? '编辑看板' : '新增看板'}
         onCancel={closeBoardModal}
         onOk={saveBoard}
-        confirmLoading={isPending}
+        confirmLoading={isModalPending}
         okText="保存"
       >
         <Form<BoardFormValues> form={boardForm} layout="vertical">

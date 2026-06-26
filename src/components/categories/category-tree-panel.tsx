@@ -59,6 +59,7 @@ type CategoryTreePanelProps = {
   roots: AdminCategoryTreeNode[];
   rootsVersion: number;
   selectedId: string;
+  pendingNodeId?: string | null;
   onSelect: (id: string, name: string) => void;
   onReload: () => void;
   onEdit: (nodeId: string) => void;
@@ -263,7 +264,7 @@ const CategoryTreeName = memo(function CategoryTreeName({
 
 type CategoryTreeTitleProps = {
   node: CategoryTreeDataNode;
-  isPending: boolean;
+  isActionPending: boolean;
   isDragging: boolean;
   isDropChildTarget: boolean;
   onSelectNode: (nodeId: string, name: string) => void;
@@ -274,7 +275,7 @@ type CategoryTreeTitleProps = {
 
 const CategoryTreeTitle = memo(function CategoryTreeTitle({
   node,
-  isPending,
+  isActionPending,
   isDragging,
   isDropChildTarget,
   onSelectNode,
@@ -325,7 +326,7 @@ const CategoryTreeTitle = memo(function CategoryTreeTitle({
             type="text"
             size="small"
             icon={<MoreOutlined />}
-            loading={isPending}
+            loading={isActionPending}
             className="category-tree-title__more"
           />
         </Dropdown>
@@ -338,6 +339,7 @@ export function CategoryTreePanel({
   roots,
   rootsVersion,
   selectedId,
+  pendingNodeId = null,
   onSelect,
   onReload,
   onEdit,
@@ -451,7 +453,7 @@ export function CategoryTreePanel({
   const titleRender = useCallback((node: CategoryTreeDataNode) => (
     <CategoryTreeTitle
       node={node}
-      isPending={isPending}
+      isActionPending={pendingNodeId === node.key}
       isDragging={isDragging}
       isDropChildTarget={dropChildTargetKey === node.key}
       onSelectNode={onSelect}
@@ -459,7 +461,7 @@ export function CategoryTreePanel({
       onDelete={handleDeleteNode}
       onToggleStatus={onToggleStatus}
     />
-  ), [dropChildTargetKey, handleDeleteNode, isDragging, isPending, onEdit, onSelect, onToggleStatus]);
+  ), [dropChildTargetKey, handleDeleteNode, isDragging, onEdit, onSelect, onToggleStatus, pendingNodeId]);
 
   const allowDrop = useCallback<NonNullable<TreeProps['allowDrop']>>(({ dragNode, dropNode, dropPosition }) => {
     if (dropPosition === 0) {

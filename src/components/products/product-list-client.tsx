@@ -113,7 +113,8 @@ export function ProductListClient({
   const [editingEntry, setEditingEntry] = useState<AdminProductListItem | null>(null);
   const [featureModalOpen, setFeatureModalOpen] = useState(false);
   const [featureProduct, setFeatureProduct] = useState<AdminProductListItem | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isListLoading, startListTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   const categoryOptions = useMemo(
@@ -142,7 +143,7 @@ export function ProductListClient({
   }, [searchParams, initialQuery, replaceUrl]);
 
   const reloadList = useCallback((nextQuery: ProductListQuery) => {
-    startTransition(async () => {
+    startListTransition(async () => {
       try {
         const result = await fetchProductList(nextQuery);
         setListState(result);
@@ -203,31 +204,43 @@ export function ProductListClient({
   }
 
   function patchProductStatus(entry: AdminProductListItem, nextStatus: 'active' | 'inactive') {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/products/${entry.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/products/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '状态更新失败');
+          return;
+        }
+        void messageApi.success(`产品已${productStatusLabels[nextStatus]}`);
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success(`产品已${productStatusLabels[nextStatus]}`);
-      reloadList(query);
-    });
+    })();
   }
 
   function deleteProduct(entry: AdminProductListItem) {
-    startTransition(async () => {
-      const response = await fetch(`/api/admin/products/${entry.id}`, { method: 'DELETE' });
-      if (!response.ok) {
-        void messageApi.error('删除失败');
-        return;
+    setPendingEntryId(entry.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/products/${entry.id}`, { method: 'DELETE' });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '删除失败');
+          return;
+        }
+        void messageApi.success('产品已删除');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
       }
-      void messageApi.success('产品已删除');
-      reloadList(query);
-    });
+    })();
   }
 
   const columns: ColumnsType<AdminProductListItem> = [
@@ -308,6 +321,7 @@ export function ProductListClient({
       width: 180,
       render: (_: unknown, row: AdminProductListItem) => (
         <AdminEntityRowActions
+          loading={pendingEntryId === row.id}
           entityName="产品"
           isActive={row.status === 'active'}
           toggleUsePopconfirm={false}
@@ -433,7 +447,6 @@ export function ProductListClient({
 
         <Table
           rowKey="id"
-          loading={isPending}
           columns={columns}
           dataSource={listState.items}
           pagination={false}
@@ -445,6 +458,7 @@ export function ProductListClient({
           page={query.page}
           pageSize={query.pageSize}
           total={listState.total}
+          disabled={isListLoading}
           onChange={(next) => applyQueryChange(next)}
         />
       </Card>

@@ -2,7 +2,7 @@
 
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Input, Modal, Space, Table, Tag, Typography, message } from 'antd';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { adminTableNowrapHeader } from '@/components/admin/admin-table';
@@ -40,7 +40,8 @@ export function ProductFeatureValueModal({
   const [selectedValueId, setSelectedValueId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminProductFeatureValueDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
   const loadValues = useCallback(async () => {
@@ -112,63 +113,78 @@ export function ProductFeatureValueModal({
 
   function createValue() {
     if (!assignment) return;
-    startTransition(async () => {
-      const response = await fetch(
-        `/api/admin/products/${productId}/feature-assignments/${assignment.id}/values`,
-        { method: 'POST' },
-      );
-      if (!response.ok) {
-        void messageApi.error('新建特性值失败');
-        return;
+    setIsCreating(true);
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/products/${productId}/feature-assignments/${assignment.id}/values`,
+          { method: 'POST' },
+        );
+        if (!response.ok) {
+          void messageApi.error('新建特性值失败');
+          return;
+        }
+        const created = (await response.json()) as AdminProductFeatureValueListItem;
+        await loadValues();
+        setSelectedValueId(created.id);
+        onChanged();
+        void messageApi.success('已新建特性值');
+      } finally {
+        setIsCreating(false);
       }
-      const created = (await response.json()) as AdminProductFeatureValueListItem;
-      await loadValues();
-      setSelectedValueId(created.id);
-      onChanged();
-      void messageApi.success('已新建特性值');
-    });
+    })();
   }
 
   function patchValueStatus(row: AdminProductFeatureValueListItem, nextStatus: 'active' | 'inactive') {
     if (!assignment) return;
-    startTransition(async () => {
-      const response = await fetch(
-        `/api/admin/products/${productId}/feature-assignments/${assignment.id}/values/${row.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: nextStatus }),
-        },
-      );
-      if (!response.ok) {
-        void messageApi.error('状态更新失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/products/${productId}/feature-assignments/${assignment.id}/values/${row.id}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: nextStatus }),
+          },
+        );
+        if (!response.ok) {
+          void messageApi.error('状态更新失败');
+          return;
+        }
+        await loadValues();
+        onChanged();
+        void messageApi.success(`特性值已${brandStatusLabels[nextStatus]}`);
+      } finally {
+        setPendingEntryId(null);
       }
-      await loadValues();
-      onChanged();
-      void messageApi.success(`特性值已${brandStatusLabels[nextStatus]}`);
-    });
+    })();
   }
 
   function deleteValue(row: AdminProductFeatureValueListItem) {
     if (!assignment) return;
-    startTransition(async () => {
-      const response = await fetch(
-        `/api/admin/products/${productId}/feature-assignments/${assignment.id}/values/${row.id}`,
-        { method: 'DELETE' },
-      );
-      if (!response.ok) {
-        void messageApi.error('删除失败');
-        return;
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/products/${productId}/feature-assignments/${assignment.id}/values/${row.id}`,
+          { method: 'DELETE' },
+        );
+        if (!response.ok) {
+          void messageApi.error('删除失败');
+          return;
+        }
+        if (selectedValueId === row.id) {
+          setSelectedValueId(null);
+          setDetail(null);
+        }
+        await loadValues();
+        onChanged();
+        void messageApi.success('特性值已删除');
+      } finally {
+        setPendingEntryId(null);
       }
-      if (selectedValueId === row.id) {
-        setSelectedValueId(null);
-        setDetail(null);
-      }
-      await loadValues();
-      onChanged();
-      void messageApi.success('特性值已删除');
-    });
+    })();
   }
 
   return (
@@ -195,14 +211,14 @@ export function ProductFeatureValueModal({
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
             />
-            <Button type="primary" icon={<PlusOutlined />} loading={isPending} onClick={() => createValue()}>
+            <Button type="primary" icon={<PlusOutlined />} loading={isCreating} onClick={() => createValue()}>
               新建值
             </Button>
           </Space>
 
           <Table
             rowKey="id"
-            loading={loading || isPending}
+            loading={loading}
             pagination={false}
             dataSource={filteredItems}
             onRow={(row) => ({
@@ -247,7 +263,7 @@ export function ProductFeatureValueModal({
                 render: (_: unknown, row: AdminProductFeatureValueListItem) => (
                   <div onClick={(event) => event.stopPropagation()}>
                     <AdminEntityRowActions
-                      loading={isPending}
+                      loading={pendingEntryId === row.id}
                       isActive={row.status === 'active'}
                       entityName="特性值"
                       showEdit={false}
@@ -274,6 +290,7 @@ export function ProductFeatureValueModal({
                 void loadValues();
                 onChanged();
               }}
+              onCloseAfterSave={onClose}
             />
           ) : (
             <Typography.Text type="secondary">点击列表行以编辑该特性值的多语言内容</Typography.Text>

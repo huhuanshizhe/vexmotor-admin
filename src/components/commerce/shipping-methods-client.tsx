@@ -60,7 +60,7 @@ type ShippingMethodFormValues = {
 };
 
 export function ShippingMethodsClient({ initialConfig }: { initialConfig: CommerceConfig }) {
-  const { config, statusMessage, isPending, updateConfig, persistConfig } = useCommerceConfig(initialConfig);
+  const { config, isPending, updateConfig, persistConfig } = useCommerceConfig(initialConfig);
   const [shippingMethodModalOpen, setShippingMethodModalOpen] = useState(false);
   const [ratesModalOpen, setRatesModalOpen] = useState(false);
   const [editingShippingMethodId, setEditingShippingMethodId] = useState<string | null>(null);
@@ -178,6 +178,7 @@ export function ShippingMethodsClient({ initialConfig }: { initialConfig: Commer
         setShippingMethodModalOpen(false);
         setEditingShippingMethodId(null);
         shippingMethodForm.resetFields();
+        void message.success('保存成功');
       });
     });
   }
@@ -209,7 +210,7 @@ export function ShippingMethodsClient({ initialConfig }: { initialConfig: Commer
       <CommercePageHeader
         title="物流方式"
         description="维护国际物流方式及各国运费与税率估算。购物车、Checkout 和支持页都会读取这里的配置。"
-        statusMessage={statusMessage}
+        statusMessage={null}
         isPending={isPending}
         onSave={persistConfig}
       />
@@ -302,7 +303,6 @@ export function ShippingMethodsClient({ initialConfig }: { initialConfig: Commer
               key: 'actions',
               render: (_: unknown, row: ShippingMethodConfig) => (
                 <AdminEntityRowActions
-                  loading={isPending}
                   isActive={row.enabled}
                   entityName="物流方式"
                   toggleDisableDescription="停用后前台将不再展示该物流方式。"
