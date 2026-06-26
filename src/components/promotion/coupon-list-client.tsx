@@ -12,8 +12,6 @@ import { adminTableFixedActionsColumn, adminTableNowrapHeader, adminTableScroll 
 import { CommercePageHeader } from '@/components/commerce/commerce-page-header';
 import { CouponEditorModal } from '@/components/promotion/coupon-editor-modal';
 import { CouponSendModal } from '@/components/promotion/coupon-send-modal';
-import { PromotionSettingsForm } from '@/components/promotion/promotion-settings-form';
-import { usePromotionSettings } from '@/components/promotion/use-promotion-settings';
 import {
   couponDiscountTypeColors,
   couponDiscountTypeLabels,
@@ -37,7 +35,7 @@ import {
   getCouponQuotaSummary,
   parseCouponListQuery,
 } from '@/lib/coupon-list-query';
-import type { PromotionSettings } from '@/lib/promotion-settings';
+import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type CouponListState = {
   items: AdminCouponListItem[];
@@ -47,11 +45,10 @@ type CouponListState = {
 };
 
 type CouponListClientProps = {
-  initialSettings: PromotionSettings;
   initialList: CouponListState;
   initialQuery: CouponListQuery;
   categoryTree: AdminCategoryTreeNode[];
-  brandOptions: Array<{ value: string; label: string }>;
+  activeLanguages: AdminSiteLanguageRow[];
 };
 
 async function fetchCouponList(query: CouponListQuery): Promise<CouponListState> {
@@ -85,18 +82,16 @@ async function fetchCouponList(query: CouponListQuery): Promise<CouponListState>
 }
 
 export function CouponListClient({
-  initialSettings,
   initialList,
   initialQuery,
   categoryTree,
-  brandOptions,
+  activeLanguages,
 }: CouponListClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialMountRef = useRef(true);
   const hydratedPageSizeRef = useRef(false);
 
-  const { settings, statusMessage, isPending: settingsPending, updateSettings, persistSettings } = usePromotionSettings(initialSettings);
   const [listState, setListState] = useState(initialList);
   const [query, setQuery] = useState(initialQuery);
   const [searchInput, setSearchInput] = useState(initialQuery.keyword);
@@ -152,13 +147,6 @@ export function CouponListClient({
     };
     setSearchInput(nextQuery.keyword);
     replaceUrl(nextQuery);
-  }
-
-  function handleSettingsChange(changed: Partial<{ defaultCurrencyCode: string }>) {
-    updateSettings((current) => ({
-      ...current,
-      defaultCurrencyCode: changed.defaultCurrencyCode ?? current.defaultCurrencyCode,
-    }));
   }
 
   async function openEditor(row?: AdminCouponListItem) {
@@ -230,7 +218,7 @@ export function CouponListClient({
             {formatCouponDiscountSummary({
               discountType: row.discountType,
               discountValue: row.discountValue,
-              defaultCurrencyCode: settings.defaultCurrencyCode,
+              defaultCurrencyCode: row.displayCurrencyCode,
             })}
           </Typography.Text>
         </Space>
@@ -297,14 +285,10 @@ export function CouponListClient({
       <CommercePageHeader
         title="优惠券"
         description="管理促销优惠券规则、使用限制与发放记录。前台注册与结账核销将在后续版本接入。"
-        statusMessage={statusMessage}
-        isPending={settingsPending}
-        onSave={() => {
-          void persistSettings();
-        }}
+        statusMessage={null}
+        isPending={false}
+        showSave={false}
       />
-
-      <PromotionSettingsForm settings={settings} onChange={handleSettingsChange} />
 
       <Card
         title="优惠券列表"
@@ -374,9 +358,8 @@ export function CouponListClient({
       <CouponEditorModal
         open={editorOpen}
         editing={editingDetail}
-        defaultCurrencyCode={settings.defaultCurrencyCode}
+        activeLanguages={activeLanguages}
         categoryTree={categoryTree}
-        brandOptions={brandOptions}
         onClose={() => setEditorOpen(false)}
         onSaved={() => {
           void message.success('优惠券已保存');

@@ -20,6 +20,20 @@ export type CouponGrantSource = (typeof couponGrantSources)[number];
 export const couponDistributionTargetModes = ['all_customers', 'selected_customers'] as const;
 export type CouponDistributionTargetMode = (typeof couponDistributionTargetModes)[number];
 
+export type CouponLocalePricing = {
+  locale: string;
+  thresholdAmount: string | null;
+  discountValue: string;
+  maxDiscountAmount: string | null;
+};
+
+export type CouponLocalePricingInput = {
+  locale: string;
+  thresholdAmount?: number | null;
+  discountValue: number;
+  maxDiscountAmount?: number | null;
+};
+
 export type CouponListQuery = {
   page: number;
   pageSize: AdminListPageSize;
@@ -48,6 +62,7 @@ export type AdminCouponListItem = {
   scope: CouponScope;
   discountType: CouponDiscountType;
   discountValue: string;
+  displayCurrencyCode: string;
   status: CouponStatus;
   startsAt: Date | null;
   endsAt: Date | null;
@@ -59,10 +74,9 @@ export type AdminCouponListItem = {
   createdAt: Date;
 };
 
-export type AdminCouponDetail = AdminCouponListItem & {
-  thresholdAmount: string | null;
-  maxDiscountAmount: string | null;
+export type AdminCouponDetail = Omit<AdminCouponListItem, 'displayCurrencyCode'> & {
   note: string | null;
+  localePricing: CouponLocalePricing[];
   categoryIds: string[];
   brandIds: string[];
   productIds: string[];
@@ -74,9 +88,7 @@ export type AdminCouponPayload = {
   scope: CouponScope;
   stackable?: boolean;
   discountType: CouponDiscountType;
-  thresholdAmount?: number | null;
-  discountValue: number;
-  maxDiscountAmount?: number | null;
+  localePricing: CouponLocalePricingInput[];
   startsAt?: string | null;
   endsAt?: string | null;
   status?: CouponStatus;

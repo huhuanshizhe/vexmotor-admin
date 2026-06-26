@@ -353,13 +353,6 @@ export const commerceSettings = pgTable('commerce_settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const promotionSettings = pgTable('promotion_settings', {
-  id: varchar('id', { length: 32 }).primaryKey(),
-  defaultCurrencyCode: varchar('default_currency_code', { length: 3 }).notNull().default('USD'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
-
 export const coupons = pgTable(
   'coupons',
   {
@@ -369,9 +362,6 @@ export const coupons = pgTable(
     scope: couponScopeEnum('scope').notNull(),
     stackable: boolean('stackable').notNull().default(false),
     discountType: couponDiscountTypeEnum('discount_type').notNull(),
-    thresholdAmount: numeric('threshold_amount', { precision: 12, scale: 2 }),
-    discountValue: numeric('discount_value', { precision: 12, scale: 4 }).notNull(),
-    maxDiscountAmount: numeric('max_discount_amount', { precision: 12, scale: 2 }),
     startsAt: timestamp('starts_at', { withTimezone: true }),
     endsAt: timestamp('ends_at', { withTimezone: true }),
     status: couponStatusEnum('status').notNull().default('inactive'),
@@ -386,6 +376,21 @@ export const coupons = pgTable(
   (table) => ({
     couponKeyUnique: uniqueIndex('coupons_coupon_key_unique').on(table.couponKey),
     statusDatesIdx: index('coupons_status_dates_idx').on(table.status, table.startsAt, table.endsAt),
+  }),
+);
+
+export const couponLocalePricing = pgTable(
+  'coupon_locale_pricing',
+  {
+    couponId: uuid('coupon_id').notNull().references(() => coupons.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    thresholdAmount: numeric('threshold_amount', { precision: 12, scale: 2 }),
+    discountValue: numeric('discount_value', { precision: 12, scale: 4 }).notNull(),
+    maxDiscountAmount: numeric('max_discount_amount', { precision: 12, scale: 2 }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.couponId, table.locale] }),
+    couponIdIdx: index('coupon_locale_pricing_coupon_id_idx').on(table.couponId),
   }),
 );
 

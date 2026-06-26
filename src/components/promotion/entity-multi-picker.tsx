@@ -10,7 +10,7 @@ export type EntityOption = {
 };
 
 type EntityMultiPickerProps = {
-  label: string;
+  label?: string;
   placeholder: string;
   value?: string[];
   options: EntityOption[];
@@ -55,7 +55,7 @@ export function EntityMultiPicker({
 
   return (
     <div style={{ display: 'grid', gap: 8 }}>
-      <span>{label}</span>
+      {label ? <span>{label}</span> : null}
       <Space.Compact style={{ width: '100%' }}>
         <Select
           showSearch

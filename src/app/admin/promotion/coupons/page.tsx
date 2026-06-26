@@ -1,11 +1,12 @@
-import { getAdminBrandOptions } from '@/server/admin/brands';
 import { getAdminCategoryTree } from '@/server/admin/categories';
+import { getAdminSiteLanguages } from '@/server/admin/languages';
 import { listAdminCoupons } from '@/server/admin/coupons';
-import { getPromotionSettings } from '@/server/admin/promotion-settings';
 
 import { parseCouponListQuery } from '@/lib/coupon-list-query';
 
 import { CouponListClient } from '@/components/promotion/coupon-list-client';
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminCouponsPage({
   searchParams,
@@ -15,16 +16,14 @@ export default async function AdminCouponsPage({
   const params = await searchParams;
   const query = parseCouponListQuery(params);
 
-  const [settings, listResult, categoryTree, brandOptions] = await Promise.all([
-    getPromotionSettings(),
+  const [listResult, categoryTree, activeLanguages] = await Promise.all([
     listAdminCoupons(query),
     getAdminCategoryTree(),
-    getAdminBrandOptions(),
+    getAdminSiteLanguages(),
   ]);
 
   return (
     <CouponListClient
-      initialSettings={settings}
       initialList={{
         items: listResult.items,
         total: listResult.total,
@@ -33,7 +32,7 @@ export default async function AdminCouponsPage({
       }}
       initialQuery={query}
       categoryTree={categoryTree}
-      brandOptions={brandOptions}
+      activeLanguages={activeLanguages}
     />
   );
 }

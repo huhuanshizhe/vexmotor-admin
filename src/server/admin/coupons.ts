@@ -24,10 +24,13 @@ import {
   type CouponDiscountType,
   type CouponGrantListQuery,
   type CouponListQuery,
+  type CouponLocalePricing,
+  type CouponLocalePricingInput,
   couponDiscountTypes,
   couponScopes,
   couponStatuses,
 } from '@/lib/coupon-list-query';
+import { getAdminSiteLanguages } from '@/server/admin/languages';
 import { db } from '@/server/db';
 import {
   admins,
@@ -35,6 +38,7 @@ import {
   couponCategories,
   couponDistributionBatches,
   couponGrants,
+  couponLocalePricing,
   couponProducts,
   coupons,
   users,
@@ -42,15 +46,20 @@ import {
 
 const BATCH_SIZE = 200;
 
+const localePricingItemSchema = z.object({
+  locale: z.string().trim().min(1),
+  thresholdAmount: z.coerce.number().min(0).nullable().optional(),
+  discountValue: z.coerce.number().positive(),
+  maxDiscountAmount: z.coerce.number().min(0).nullable().optional(),
+});
+
 export const adminCouponPayloadSchema = z.object({
   name: z.string().trim().min(1),
   couponKey: z.string().trim().optional(),
   scope: z.enum(couponScopes),
   stackable: z.boolean().optional(),
   discountType: z.enum(couponDiscountTypes),
-  thresholdAmount: z.coerce.number().min(0).nullable().optional(),
-  discountValue: z.coerce.number().positive(),
-  maxDiscountAmount: z.coerce.number().min(0).nullable().optional(),
+  localePricing: z.array(localePricingItemSchema).min(1),
   startsAt: z.string().datetime().nullable().optional(),
   endsAt: z.string().datetime().nullable().optional(),
   status: z.enum(couponStatuses).optional(),
@@ -71,15 +80,24 @@ export const adminCouponPayloadSchema = z.object({
   if (value.scope === 'product' && !(value.productIds?.length)) {
     ctx.addIssue({ code: 'custom', message: '请选择至少一个商品', path: ['productIds'] });
   }
-  if (value.discountType === 'fixed_amount' && value.thresholdAmount === undefined) {
-    ctx.addIssue({ code: 'custom', message: '满减券需填写优惠门槛', path: ['thresholdAmount'] });
-  }
   if (value.discountType === 'special_price' && value.scope !== 'product') {
     ctx.addIssue({ code: 'custom', message: '特价券仅适用于指定商品', path: ['discountType'] });
   }
-  if (value.discountType === 'percent' && (value.discountValue <= 0 || value.discountValue > 100)) {
-    ctx.addIssue({ code: 'custom', message: '折扣幅度需在 0-100 之间', path: ['discountValue'] });
+
+  const hasValidPricing = value.localePricing.some((item) => item.discountValue > 0);
+  if (!hasValidPricing) {
+    ctx.addIssue({ code: 'custom', message: '请至少为一个语言填写优惠幅度', path: ['localePricing'] });
   }
+
+  for (const [index, item] of value.localePricing.entries()) {
+    if (value.discountType === 'fixed_amount' && item.thresholdAmount === undefined) {
+      ctx.addIssue({ code: 'custom', message: '满减券需填写优惠门槛', path: ['localePricing', index, 'thresholdAmount'] });
+    }
+    if (value.discountType === 'percent' && (item.discountValue <= 0 || item.discountValue > 100)) {
+      ctx.addIssue({ code: 'custom', message: '折扣幅度需在 0-100 之间', path: ['localePricing', index, 'discountValue'] });
+    }
+  }
+
   if (value.startsAt && value.endsAt && new Date(value.endsAt) < new Date(value.startsAt)) {
     ctx.addIssue({ code: 'custom', message: '结束时间不能早于开始时间', path: ['endsAt'] });
   }
@@ -92,14 +110,64 @@ export type AdminCouponListPage = {
   pageSize: AdminListPageSize;
 };
 
-function mapListRow(row: typeof coupons.$inferSelect): AdminCouponListItem {
+async function getPrimaryDisplayLocale() {
+  const languages = await getAdminSiteLanguages();
+  const active = languages.filter((language) => language.status === 'active');
+  return active[0]?.code ?? 'en';
+}
+
+async function getLocaleCurrencyMap() {
+  const languages = await getAdminSiteLanguages();
+  return new Map(languages.map((language) => [language.code, language.currencyCode]));
+}
+
+function mapLocalePricingRow(row: typeof couponLocalePricing.$inferSelect): CouponLocalePricing {
+  return {
+    locale: row.locale,
+    thresholdAmount: row.thresholdAmount,
+    discountValue: row.discountValue,
+    maxDiscountAmount: row.maxDiscountAmount,
+  };
+}
+
+async function loadLocalePricingMap(couponIds: string[]) {
+  if (!couponIds.length) return new Map<string, CouponLocalePricing[]>();
+
+  const rows = await db
+    .select()
+    .from(couponLocalePricing)
+    .where(inArray(couponLocalePricing.couponId, couponIds));
+
+  const map = new Map<string, CouponLocalePricing[]>();
+  for (const row of rows) {
+    const list = map.get(row.couponId) ?? [];
+    list.push(mapLocalePricingRow(row));
+    map.set(row.couponId, list);
+  }
+  return map;
+}
+
+function pickDisplayPricing(
+  pricingRows: CouponLocalePricing[],
+  primaryLocale: string,
+): CouponLocalePricing | null {
+  if (!pricingRows.length) return null;
+  return pricingRows.find((row) => row.locale === primaryLocale) ?? pricingRows[0] ?? null;
+}
+
+function mapListRow(
+  row: typeof coupons.$inferSelect,
+  pricing: CouponLocalePricing | null,
+  currencyCode: string,
+): AdminCouponListItem {
   return {
     id: row.id,
     name: row.name,
     couponKey: row.couponKey,
     scope: row.scope,
     discountType: row.discountType,
-    discountValue: row.discountValue,
+    discountValue: pricing?.discountValue ?? '0',
+    displayCurrencyCode: currencyCode,
     status: row.status,
     startsAt: row.startsAt,
     endsAt: row.endsAt,
@@ -167,6 +235,30 @@ async function syncCouponRelations(couponId: string, input: AdminCouponPayload) 
   }
 }
 
+function buildLocalePricingValues(
+  discountType: CouponDiscountType,
+  items: CouponLocalePricingInput[],
+) {
+  return items.map((item) => ({
+    locale: item.locale,
+    thresholdAmount: discountType === 'fixed_amount' ? String(item.thresholdAmount ?? 0) : null,
+    discountValue: String(item.discountValue),
+    maxDiscountAmount: discountType === 'percent' && item.maxDiscountAmount != null
+      ? String(item.maxDiscountAmount)
+      : null,
+  }));
+}
+
+async function syncCouponLocalePricing(couponId: string, discountType: CouponDiscountType, items: CouponLocalePricingInput[]) {
+  await db.delete(couponLocalePricing).where(eq(couponLocalePricing.couponId, couponId));
+  const values = buildLocalePricingValues(discountType, items);
+  if (!values.length) return;
+  await db.insert(couponLocalePricing).values(values.map((value) => ({
+    couponId,
+    ...value,
+  })));
+}
+
 function buildCouponValues(input: AdminCouponPayload, couponKey: string) {
   return {
     name: input.name.trim(),
@@ -174,9 +266,6 @@ function buildCouponValues(input: AdminCouponPayload, couponKey: string) {
     scope: input.scope,
     stackable: input.stackable ?? false,
     discountType: input.discountType,
-    thresholdAmount: input.discountType === 'fixed_amount' ? String(input.thresholdAmount ?? 0) : null,
-    discountValue: String(input.discountValue),
-    maxDiscountAmount: input.maxDiscountAmount != null ? String(input.maxDiscountAmount) : null,
     startsAt: input.startsAt ? new Date(input.startsAt) : null,
     endsAt: input.endsAt ? new Date(input.endsAt) : null,
     status: input.status ?? 'inactive',
@@ -205,13 +294,22 @@ export async function listAdminCoupons(query: CouponListQuery): Promise<AdminCou
 
   const whereClause = filters.length ? and(...filters) : undefined;
 
-  const [rows, totalRow] = await Promise.all([
+  const [rows, totalRow, primaryLocale, currencyMap] = await Promise.all([
     db.select().from(coupons).where(whereClause).orderBy(desc(coupons.createdAt)).limit(pageSize).offset(offset),
     db.select({ total: count() }).from(coupons).where(whereClause),
+    getPrimaryDisplayLocale(),
+    getLocaleCurrencyMap(),
   ]);
 
+  const pricingMap = await loadLocalePricingMap(rows.map((row) => row.id));
+  const primaryCurrency = currencyMap.get(primaryLocale) ?? 'USD';
+
   return {
-    items: rows.map(mapListRow),
+    items: rows.map((row) => {
+      const pricing = pickDisplayPricing(pricingMap.get(row.id) ?? [], primaryLocale);
+      const currencyCode = pricing ? (currencyMap.get(pricing.locale) ?? primaryCurrency) : primaryCurrency;
+      return mapListRow(row, pricing, currencyCode);
+    }),
     total: Number(totalRow[0]?.total ?? 0),
     page,
     pageSize,
@@ -222,12 +320,25 @@ export async function getAdminCouponDetail(id: string): Promise<AdminCouponDetai
   const [row] = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
   if (!row) return null;
 
-  const relations = await loadRelationIds(id);
+  const [relations, pricingMap, primaryLocale, currencyMap] = await Promise.all([
+    loadRelationIds(id),
+    loadLocalePricingMap([id]),
+    getPrimaryDisplayLocale(),
+    getLocaleCurrencyMap(),
+  ]);
+
+  const localePricing = pricingMap.get(id) ?? [];
+  const displayPricing = pickDisplayPricing(localePricing, primaryLocale);
+  const currencyCode = displayPricing
+    ? (currencyMap.get(displayPricing.locale) ?? 'USD')
+    : (currencyMap.get(primaryLocale) ?? 'USD');
+
+  const listItem = mapListRow(row, displayPricing, currencyCode);
+
   return {
-    ...mapListRow(row),
-    thresholdAmount: row.thresholdAmount,
-    maxDiscountAmount: row.maxDiscountAmount,
+    ...listItem,
     note: row.note,
+    localePricing,
     ...relations,
   };
 }
@@ -249,7 +360,10 @@ export async function createAdminCoupon(input: AdminCouponPayload) {
 
   if (!created) throw new Error('创建优惠券失败');
 
-  await syncCouponRelations(created.id, input);
+  await Promise.all([
+    syncCouponRelations(created.id, input),
+    syncCouponLocalePricing(created.id, input.discountType, input.localePricing),
+  ]);
   return getAdminCouponDetail(created.id);
 }
 
@@ -271,7 +385,10 @@ export async function updateAdminCoupon(id: string, input: AdminCouponPayload) {
   }
 
   await db.update(coupons).set(buildCouponValues(input, couponKey)).where(eq(coupons.id, id));
-  await syncCouponRelations(id, input);
+  await Promise.all([
+    syncCouponRelations(id, input),
+    syncCouponLocalePricing(id, input.discountType, input.localePricing),
+  ]);
   return getAdminCouponDetail(id);
 }
 
@@ -286,14 +403,6 @@ export async function toggleAdminCouponStatus(id: string) {
   const nextStatus = row.status === 'active' ? 'inactive' : 'active';
   await db.update(coupons).set({ status: nextStatus, updatedAt: new Date() }).where(eq(coupons.id, id));
   return getAdminCouponDetail(id);
-}
-
-async function getUserGrantedQuantity(couponId: string, userId: string) {
-  const [row] = await db
-    .select({ total: sum(couponGrants.quantity) })
-    .from(couponGrants)
-    .where(and(eq(couponGrants.couponId, couponId), eq(couponGrants.userId, userId)));
-  return Number(row?.total ?? 0);
 }
 
 type GrantRecipient = { userId: string; quantity: number };
