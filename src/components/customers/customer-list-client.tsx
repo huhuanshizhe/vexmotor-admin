@@ -3,6 +3,7 @@
 import {
   CheckOutlined,
   CloseOutlined,
+  DeleteOutlined,
   EnvironmentOutlined,
   EyeOutlined,
   KeyOutlined,
@@ -34,6 +35,7 @@ import { CustomerAddressesModal } from '@/components/customers/customer-addresse
 import { CustomerDetailModal } from '@/components/customers/customer-detail-modal';
 import { CustomerMessagesModal } from '@/components/customers/customer-messages-modal';
 import { CustomerResetPasswordModal } from '@/components/customers/customer-reset-password-modal';
+import { useAdminDebugMode } from '@/components/providers/admin-debug-mode-provider';
 import {
   formatAdminDate,
   formatAdminMoney,
@@ -44,6 +46,7 @@ import {
   userStatusLabels,
   userStatusOptions,
 } from '@/lib/admin-display';
+import { adminDebugModeHeaders } from '@/lib/admin-debug-mode';
 import {
   type AdminListPageSize,
   buildAdminListRowIndexColumn,
@@ -133,6 +136,8 @@ export function CustomerListClient({
   const [resetCustomerEmail, setResetCustomerEmail] = useState<string | undefined>();
 
   const [createOpen, setCreateOpen] = useState(false);
+
+  const { debugMode } = useAdminDebugMode();
 
   const replaceUrl = useCallback((nextQuery: CustomerListQuery) => {
     router.replace(buildCustomerListUrl('/admin/customers', nextQuery), { scroll: false });
@@ -290,6 +295,27 @@ export function CustomerListClient({
     });
   }
 
+  function deleteCustomer(row: AdminCustomerListItem) {
+    setPendingEntryId(row.id);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/customers/${row.id}`, {
+          method: 'DELETE',
+          headers: adminDebugModeHeaders(),
+        });
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '删除客户失败');
+          return;
+        }
+        void messageApi.success('客户已删除');
+        reloadList(query);
+      } finally {
+        setPendingEntryId(null);
+      }
+    })();
+  }
+
   const columns: ColumnsType<AdminCustomerListItem> = [
     buildAdminListRowIndexColumn(listState.page, listState.pageSize),
     {
@@ -426,7 +452,7 @@ export function CustomerListClient({
     adminTableFixedActionsColumn<AdminCustomerListItem>({
       title: '操作',
       key: 'actions',
-      width: 200,
+      width: debugMode ? 232 : 200,
       render: (_: unknown, row: AdminCustomerListItem) => (
         <Space size={0} className="admin-row-actions">
           <AdminActionIconButton title="查看详情" icon={<EyeOutlined />} onClick={() => openDetail(row)} />
@@ -459,6 +485,22 @@ export function CustomerListClient({
                   </Tooltip>
                 </span>
               </Popconfirm>
+              {debugMode ? (
+                <Popconfirm
+                  title="确定删除该客户吗？"
+                  description="将永久删除客户及其关联订单，此操作不可恢复。"
+                  okText="删除"
+                  cancelText="取消"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => deleteCustomer(row)}
+                >
+                  <span className="admin-row-action-trigger" onClick={(event) => event.stopPropagation()}>
+                    <Tooltip title="删除" {...ADMIN_ACTION_TOOLTIP_PROPS}>
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />} loading={pendingEntryId === row.id} />
+                    </Tooltip>
+                  </span>
+                </Popconfirm>
+              ) : null}
             </>
           ) : (
             <AdminEntityRowActions
@@ -466,10 +508,10 @@ export function CustomerListClient({
               isActive={row.status === 'active'}
               entityName="客户"
               showEdit={false}
-              showDelete={false}
+              showDelete={debugMode}
               onEdit={() => openDetail(row)}
               onToggleActive={() => toggleCustomerStatus(row)}
-              onDelete={() => undefined}
+              onDelete={() => deleteCustomer(row)}
               toggleActiveActionTitle="停用"
               toggleInactiveActionTitle="启用"
               toggleDisableDescription="停用后客户将无法登录前台。"

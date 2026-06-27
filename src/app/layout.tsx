@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import type { PropsWithChildren } from 'react';
 
+import { AdminDebugModeProvider } from '@/components/providers/admin-debug-mode-provider';
 import { AntdProvider } from '@/components/providers/antd-provider';
 import { AdminSessionProvider } from '@/components/providers/session-provider';
 
@@ -25,7 +26,9 @@ export default function RootLayout({ children }: PropsWithChildren) {
     <html lang="en" className={inter.variable}>
       <body>
         <AdminSessionProvider>
-          <AntdProvider>{children}</AntdProvider>
+          <AdminDebugModeProvider>
+            <AntdProvider>{children}</AntdProvider>
+          </AdminDebugModeProvider>
         </AdminSessionProvider>
       </body>
     </html>

@@ -541,6 +541,18 @@ export async function createAdminCustomer(input: AdminCustomerCreateInput) {
   return getAdminCustomerDetail(created.id);
 }
 
+export async function deleteAdminCustomer(id: string) {
+  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.id, id)).limit(1);
+  if (!existing) return null;
+
+  await db.transaction(async (tx) => {
+    await tx.delete(orders).where(eq(orders.userId, id));
+    await tx.delete(users).where(eq(users.id, id));
+  });
+
+  return { ok: true as const };
+}
+
 /** @deprecated Use listAdminCustomers */
 export async function getAdminCustomers() {
   const result = await listAdminCustomers({

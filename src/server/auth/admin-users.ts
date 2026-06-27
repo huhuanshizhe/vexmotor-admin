@@ -22,6 +22,24 @@ const LOCAL_DEV_ADMIN: AdminAuthRecord = {
   status: 'active',
 };
 
+export async function getAdminById(id: string): Promise<AdminAuthRecord | null> {
+  if (process.env.NODE_ENV !== 'production' && id === LOCAL_DEV_ADMIN.id) {
+    return LOCAL_DEV_ADMIN;
+  }
+
+  const [row] = await db.select().from(admins).where(eq(admins.id, id)).limit(1);
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.passwordHash,
+    name: row.name,
+    role: row.role,
+    status: row.status,
+  };
+}
+
 export async function getAdminByEmail(email: string): Promise<AdminAuthRecord | null> {
   const normalized = email.trim().toLowerCase();
   const [row] = await db.select().from(admins).where(eq(admins.email, normalized)).limit(1);

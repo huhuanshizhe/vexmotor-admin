@@ -1,19 +1,22 @@
 'use client';
 
-import { DownOutlined, KeyOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Dropdown, Space, Typography, message } from 'antd';
+import { BugOutlined, DownOutlined, KeyOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Dropdown, Space, Switch, Typography, message } from 'antd';
 import type { MenuProps } from 'antd';
 import { signOut, useSession } from 'next-auth/react';
 import { useState } from 'react';
 
 import { AdminResetPasswordModal } from '@/components/layout/admin-reset-password-modal';
+import { useAdminDebugMode } from '@/components/providers/admin-debug-mode-provider';
 
 export function AdminProfileMenu() {
   const { data: session } = useSession();
+  const { debugMode, setDebugMode } = useAdminDebugMode();
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   const displayName = session?.user?.name?.trim() || session?.user?.email || '管理员';
+  const isSuperAdmin = session?.user?.role === 'super_admin';
 
   async function handleResetPassword(password: string) {
     setResetting(true);
@@ -40,6 +43,29 @@ export function AdminProfileMenu() {
   }
 
   const menuItems: MenuProps['items'] = [
+    ...(isSuperAdmin
+      ? [{
+          key: 'debug-mode',
+          icon: <BugOutlined />,
+          label: (
+            <div
+              onClick={(event) => event.stopPropagation()}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, minWidth: 168 }}
+            >
+              <span>调试模式</span>
+              <Switch
+                size="small"
+                checked={debugMode}
+                onChange={(checked) => {
+                  setDebugMode(checked);
+                  message.success(checked ? '调试模式已开启' : '调试模式已关闭');
+                }}
+              />
+            </div>
+          ),
+        },
+        { type: 'divider' as const }]
+      : []),
     {
       key: 'reset-password',
       icon: <KeyOutlined />,

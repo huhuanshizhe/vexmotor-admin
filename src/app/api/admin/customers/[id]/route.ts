@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getAdminCustomerDetail, patchAdminCustomer } from '@/server/admin/customers';
+import { deleteAdminCustomer, getAdminCustomerDetail, patchAdminCustomer } from '@/server/admin/customers';
+import { assertAdminDebugDeleteAllowed } from '@/server/auth/debug-mode';
+import { requireAdminUserId } from '@/server/auth/bearer';
 
 const patchSchema = z.object({
   status: z.enum(['active', 'disabled']).optional(),
@@ -33,4 +35,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   return NextResponse.json(updated);
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const adminId = await requireAdminUserId();
+  if (!adminId) {
+    return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Unauthorized' }, { status: 401 });
+  }
+
+  const allowed = await assertAdminDebugDeleteAllowed(request, adminId);
+  if (!allowed.ok) {
+    return NextResponse.json({ code: 'FORBIDDEN', message: allowed.message }, { status: allowed.status });
+  }
+
+  const { id } = await params;
+  const deleted = await deleteAdminCustomer(id);
+  if (!deleted) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Customer not found' }, { status: 404 });
+  }
+
+  return new NextResponse(null, { status: 204 });
 }

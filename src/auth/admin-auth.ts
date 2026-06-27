@@ -2,7 +2,7 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
 
-import { getAdminByEmail, verifyAdminPassword } from '@/server/auth/admin-users';
+import { getAdminByEmail, getAdminById, verifyAdminPassword } from '@/server/auth/admin-users';
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -38,6 +38,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
           id: admin.id,
           email: admin.email,
           name: admin.name,
+          role: admin.role,
         };
       },
     }),
@@ -46,12 +47,19 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
+        token.role = user.role;
+      } else if (token.sub && !token.role) {
+        const admin = await getAdminById(token.sub);
+        if (admin) {
+          token.role = admin.role;
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
+        session.user.role = token.role;
       }
       return session;
     },
