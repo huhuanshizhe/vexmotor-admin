@@ -57,6 +57,7 @@ export type AdminCustomerDetail = AdminCustomerListItem & {
   website: string | null;
   taxId: string | null;
   companySize: string | null;
+  annualVolumeEstimate: string | null;
   internalNote: string | null;
   verificationDocuments: VerificationDocument[];
   emailVerifiedAt: Date | null;
@@ -275,6 +276,7 @@ function toDetailItem(
     website: row.website,
     taxId: row.taxId,
     companySize: row.companySize,
+    annualVolumeEstimate: row.annualVolumeEstimate,
     internalNote: row.internalNote,
     verificationDocuments: row.verificationDocuments ?? [],
     emailVerifiedAt: row.emailVerifiedAt,

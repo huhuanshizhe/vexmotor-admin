@@ -37,6 +37,7 @@ export type RegisterBusinessAccountInput = {
   companySize: string;
   website: string;
   taxId: string;
+  annualVolumeEstimate?: string | null;
   documents: RegistrationDocumentInput[];
   termsAccepted: boolean;
   privacyAccepted: boolean;
@@ -145,6 +146,7 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
       website: input.website.trim() || null,
       taxId: input.taxId.trim() || null,
       companySize: input.companySize.trim() || null,
+      annualVolumeEstimate: input.annualVolumeEstimate?.trim() || null,
       verificationDocuments: normalizeRegistrationDocuments(input.documents),
       role: 'customer',
       status: 'active',

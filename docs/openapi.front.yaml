@@ -810,6 +810,11 @@ components:
           type:
             - string
             - 'null'
+        annualVolumeEstimate:
+          type:
+            - string
+            - 'null'
+          description: 年采购量/需求量预估
         verificationDocuments:
           type: array
           description: B2B 注册时上传的资质文件（只读，注册后由服务端写入）
@@ -865,6 +870,12 @@ components:
           type:
             - string
             - 'null'
+        annualVolumeEstimate:
+          type:
+            - string
+            - 'null'
+          maxLength: 255
+          description: 年采购量/需求量预估
       additionalProperties: false
     VerificationDocument:
       type: object
@@ -1300,6 +1311,10 @@ components:
           type: string
         taxId:
           type: string
+        annualVolumeEstimate:
+          type: string
+          maxLength: 255
+          description: 年采购量/需求量预估（可选，自由文本）
         documents:
           type: array
           maxItems: 5

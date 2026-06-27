@@ -88,6 +88,7 @@ export const users = pgTable(
     website: varchar('website', { length: 255 }),
     taxId: varchar('tax_id', { length: 100 }),
     companySize: varchar('company_size', { length: 50 }),
+    annualVolumeEstimate: varchar('annual_volume_estimate', { length: 255 }),
     internalNote: text('internal_note'),
     verificationDocuments: jsonb('verification_documents').$type<VerificationDocument[]>().notNull().default([]),
     role: userRoleEnum('role').notNull().default('customer'),

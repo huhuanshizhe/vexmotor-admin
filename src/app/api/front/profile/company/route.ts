@@ -17,6 +17,7 @@ const patchSchema = z.object({
   website: z.string().nullable().optional(),
   taxId: z.string().nullable().optional(),
   companySize: z.string().nullable().optional(),
+  annualVolumeEstimate: z.string().max(255).nullable().optional(),
 });
 
 export async function GET(request: NextRequest) {

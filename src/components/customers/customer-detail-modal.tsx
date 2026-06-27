@@ -118,6 +118,7 @@ export function CustomerDetailModal({ open, customerId, onClose, onSaved }: Cust
               <Descriptions.Item label="职位">{detail.jobTitle ?? '未填写'}</Descriptions.Item>
               <Descriptions.Item label="行业">{formatCustomerIndustryLabel(detail.industry)}</Descriptions.Item>
               <Descriptions.Item label="规模">{detail.companySize ?? '未填写'}</Descriptions.Item>
+              <Descriptions.Item label="年采购量预估">{detail.annualVolumeEstimate ?? '未填写'}</Descriptions.Item>
               <Descriptions.Item label="网站">{detail.website ?? '未填写'}</Descriptions.Item>
               <Descriptions.Item label="税号">{detail.taxId ?? '未填写'}</Descriptions.Item>
               <Descriptions.Item label="公司地址" span={2}>

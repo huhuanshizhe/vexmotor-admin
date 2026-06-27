@@ -89,6 +89,7 @@ export async function getCompanyProfile(userId: string) {
       website: users.website,
       taxId: users.taxId,
       companySize: users.companySize,
+      annualVolumeEstimate: users.annualVolumeEstimate,
       verificationDocuments: users.verificationDocuments,
     })
     .from(users)
@@ -112,6 +113,7 @@ export async function updateCompanyProfile(
     website: string | null;
     taxId: string | null;
     companySize: string | null;
+    annualVolumeEstimate: string | null;
   }>,
 ) {
   const [updated] = await db
@@ -130,6 +132,7 @@ export async function updateCompanyProfile(
       website: users.website,
       taxId: users.taxId,
       companySize: users.companySize,
+      annualVolumeEstimate: users.annualVolumeEstimate,
       verificationDocuments: users.verificationDocuments,
     });
 
