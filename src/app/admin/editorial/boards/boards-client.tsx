@@ -9,6 +9,7 @@ import { AdminEntityRowActions } from '@/components/admin/admin-row-actions';
 import { adminTableFixedActionsColumn, adminTableNowrapHeader, adminTableScroll } from '@/components/admin/admin-table';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
 import { normalizeEntityKeyForSave, normalizeEntityKeyInput } from '@/lib/admin-entity-key';
+import { upsertCoverageBoard } from '@/lib/editorial-boards';
 import type { AdminEditorialContentListItem } from '@/lib/editorial-content';
 import type {
   AdminEditorialDashboard,
@@ -105,14 +106,14 @@ export function AdminEditorialBoardsClient({
             note: values.note.trim(),
             sourceMode: existing?.sourceMode ?? 'admin-managed',
             enabled: existing?.enabled !== false,
+            createdAt: existing?.createdAt ?? new Date().toISOString(),
           };
 
           await saveEditorialConfig({
             ...dashboard.config,
-            coverageBoards: [
-              ...dashboard.config.coverageBoards.filter((item) => item.key !== boardKey),
-              nextBoard,
-            ],
+            coverageBoards: editingBoardKey
+              ? upsertCoverageBoard(dashboard.config.coverageBoards, boardKey, nextBoard)
+              : [...dashboard.config.coverageBoards, nextBoard],
           });
           closeBoardModal();
           void messageApi.success(editingBoardKey ? '保存成功' : '保存成功');
@@ -182,21 +183,33 @@ export function AdminEditorialBoardsClient({
           pagination={false}
           tableLayout="fixed"
           style={{ width: '100%' }}
-          scroll={adminTableScroll(920)}
+          scroll={adminTableScroll(1000)}
           dataSource={boards}
           columns={[
             buildAdminListRowIndexColumn(1, Math.max(boards.length, 1)),
             {
               title: '看板',
               dataIndex: 'title',
-              width: 180,
+              width: 160,
               ellipsis: true,
               onHeaderCell: adminTableNowrapHeader,
             },
             {
+              title: '类型',
+              dataIndex: 'custom',
+              width: 96,
+              align: 'center' as const,
+              onHeaderCell: adminTableNowrapHeader,
+              render: (_: boolean | undefined, row: EditorialCoverageMetric) => (
+                row.custom
+                  ? <Tag>自定义</Tag>
+                  : <Tag color="blue">系统内置</Tag>
+              ),
+            },
+            {
               title: 'Key',
               dataIndex: 'key',
-              width: 140,
+              width: 130,
               onHeaderCell: adminTableNowrapHeader,
               render: (value: string) => <Tag>{value}</Tag>,
             },
@@ -234,6 +247,7 @@ export function AdminEditorialBoardsClient({
                   onEdit={() => openBoardModal(row)}
                   onToggleActive={() => toggleBoardEnabled(row, !row.enabled)}
                   onDelete={() => confirmDeleteBoard(row)}
+                  showDelete={Boolean(row.custom)}
                   toggleDisableDescription="停用后内容管理页将不再显示该看板。"
                   toggleEnableDescription="启用后该看板将恢复在内容管理页展示。"
                 />

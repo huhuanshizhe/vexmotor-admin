@@ -10,7 +10,7 @@ ALTER TABLE "editorial_content_translations" ADD COLUMN IF NOT EXISTS "content_m
 --> statement-breakpoint
 UPDATE "editorial_contents"
 SET "content_module" = 'faq'
-WHERE "board_key" IN ('faq', 'tech-faq');
+WHERE "board_key" IN ('faq', 'tech-faq', 'glossary');
 --> statement-breakpoint
 UPDATE "editorial_content_translations" AS t
 SET "content_module" = c."content_module"

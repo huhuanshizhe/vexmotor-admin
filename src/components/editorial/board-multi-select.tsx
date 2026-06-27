@@ -2,11 +2,6 @@
 
 import { Select } from 'antd';
 
-import {
-  filterCoverageByModule,
-  type EditorialContentModule,
-} from '@/lib/editorial-content';
-
 export type EditorialBoardOption = {
   key: string;
   title: string;
@@ -14,7 +9,6 @@ export type EditorialBoardOption = {
 
 type BoardMultiSelectProps = {
   boards: EditorialBoardOption[];
-  contentModule: EditorialContentModule;
   lockedBoardKey: string;
   value: string[];
   onChange: (next: string[]) => void;
@@ -23,14 +17,12 @@ type BoardMultiSelectProps = {
 
 export function BoardMultiSelect({
   boards,
-  contentModule,
   lockedBoardKey,
   value,
   onChange,
   disabled,
 }: BoardMultiSelectProps) {
-  const eligibleBoards = filterCoverageByModule(boards, contentModule);
-  const options = eligibleBoards.map((board) => ({
+  const options = boards.map((board) => ({
     value: board.key,
     label: board.title || board.key,
     disabled: board.key === lockedBoardKey,

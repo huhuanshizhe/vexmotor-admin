@@ -3,7 +3,6 @@ import { Suspense } from 'react';
 import { AdminFaqClient } from './faq-client';
 
 import { parseAdminListQuery } from '@/lib/admin-list-query';
-import { filterCoverageByModule } from '@/lib/editorial-content';
 import { getAdminEditorialContentListPaginated } from '@/server/admin/editorial-content';
 import { getAdminEditorialDashboard } from '@/server/admin/editorial';
 import { getAdminSiteLanguages } from '@/server/admin/languages';
@@ -19,10 +18,8 @@ async function FaqPageContent({ searchParams }: PageProps) {
     searchParams,
   ]);
 
-  const faqBoards = filterCoverageByModule(dashboard.coverage, 'faq');
-  const filteredDashboard = { ...dashboard, coverage: faqBoards };
-  const boardKeys = new Set(faqBoards.map((board) => board.key));
-  const defaultBoard = faqBoards[0]?.key ?? '';
+  const boardKeys = new Set(dashboard.coverage.map((board) => board.key));
+  const defaultBoard = dashboard.coverage[0]?.key ?? '';
   const initialQuery = parseAdminListQuery(params, { defaultBoard });
   const boardKey = initialQuery.board && boardKeys.has(initialQuery.board) ? initialQuery.board : defaultBoard;
   const initialList = await getAdminEditorialContentListPaginated({
@@ -31,14 +28,14 @@ async function FaqPageContent({ searchParams }: PageProps) {
     keyword: initialQuery.keyword || undefined,
     page: initialQuery.page,
     pageSize: initialQuery.pageSize,
-    knownBoardKeys: faqBoards.map((board) => board.key),
+    knownBoardKeys: dashboard.coverage.map((board) => board.key),
   });
 
   const activeLanguages = siteLanguages.filter((language) => language.status === 'active');
 
   return (
     <AdminFaqClient
-      initialDashboard={filteredDashboard}
+      initialDashboard={dashboard}
       initialList={initialList}
       initialQuery={{ ...initialQuery, board: boardKey || defaultBoard }}
       activeLanguages={activeLanguages}

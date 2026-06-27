@@ -147,14 +147,6 @@ async function syncContentBoards(
     return { ok: false, code: 'BOARD_KEYS_REQUIRED' };
   }
 
-  if (options?.contentModule) {
-    for (const key of boardKeys) {
-      if (resolveContentModuleByBoard(key) !== options.contentModule) {
-        return { ok: false, code: 'MODULE_BOARD_MISMATCH' };
-      }
-    }
-  }
-
   const primaryBoardKey = lockedBoardKey ?? boardKeys[0]!;
 
   await db.transaction(async (tx) => {

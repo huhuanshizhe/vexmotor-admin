@@ -4,7 +4,6 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 
 import {
   type EditorialContentPayload,
-  resolveContentModuleByBoard,
 } from '@/lib/editorial-content';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
 import { db } from '@/server/db';
@@ -49,7 +48,7 @@ async function loadBoardKeys(contentId: string) {
 export async function getStorefrontBoardFaqs(boardKeyInput: string, localeInput?: string | null) {
   const locale = normalizeLocale(localeInput);
   const boardKey = boardKeyInput.trim();
-  if (!boardKey || resolveContentModuleByBoard(boardKey) !== 'faq') {
+  if (!boardKey.trim()) {
     return { locale, boardKey, items: [] as { id: string; title: string; body: string }[] };
   }
 
@@ -91,7 +90,7 @@ export async function getStorefrontBoardFaqs(boardKeyInput: string, localeInput?
 export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput?: string | null) {
   const locale = normalizeLocale(localeInput);
   const boardKey = boardKeyInput.trim();
-  if (!boardKey || resolveContentModuleByBoard(boardKey) !== 'editorial') {
+  if (!boardKey.trim()) {
     return {
       locale,
       boardKey,

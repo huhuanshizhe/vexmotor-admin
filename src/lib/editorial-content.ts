@@ -7,7 +7,7 @@ export type EditorialContentModule = (typeof editorialContentModules)[number];
 
 import { normalizeEntityKeyForSave } from '@/lib/admin-entity-key';
 
-export const FAQ_BOARD_KEYS = ['faq', 'tech-faq'] as const;
+export const FAQ_BOARD_KEYS = ['faq', 'tech-faq', 'glossary'] as const;
 
 export function normalizeBoardKeyForModule(value: string | null | undefined) {
   return normalizeEntityKeyForSave(value ?? '') ?? 'content';

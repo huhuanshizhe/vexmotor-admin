@@ -89,6 +89,8 @@ export type EditorialCoverageBoard = {
   note: string;
   sourceMode: 'code-seeded' | 'admin-managed';
   enabled?: boolean;
+  /** 自定义看板创建时间，用于排序 */
+  createdAt?: string;
 };
 
 export type EditorialAutomationConfig = {
@@ -118,6 +120,7 @@ export type EditorialCoverageMetric = {
   note: string;
   enabled: boolean;
   custom?: boolean;
+  createdAt?: string;
 };
 
 export type AdminEditorialDashboard = {

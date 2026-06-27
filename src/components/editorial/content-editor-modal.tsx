@@ -555,7 +555,6 @@ export function ContentEditorModal({
               <Form.Item label="所属看板" required>
                 <BoardMultiSelect
                   boards={availableBoards}
-                  contentModule="editorial"
                   lockedBoardKey={boardKey}
                   value={boardKeys}
                   onChange={setBoardKeys}

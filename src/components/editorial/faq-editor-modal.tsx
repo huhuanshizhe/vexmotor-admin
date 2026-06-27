@@ -383,7 +383,6 @@ export function FaqEditorModal({
             <Form.Item label="所属看板" required>
               <BoardMultiSelect
                 boards={availableBoards}
-                contentModule="faq"
                 lockedBoardKey={boardKey}
                 value={boardKeys}
                 onChange={setBoardKeys}

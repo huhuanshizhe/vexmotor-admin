@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
 import { normalizeEntityKeyForSave } from '@/lib/admin-entity-key';
+import { isSystemBoardKey, sortCoverageBoards, SYSTEM_BOARD_KEY_ORDER } from '@/lib/editorial-boards';
 import {
   type AdminEditorialDashboard,
   cloneEditorialAutomationConfig,
@@ -47,6 +48,7 @@ function sanitizeCoverageBoard(board: EditorialCoverageBoard, index: number): Ed
     note: sanitizeText(board.note) ?? '自定义内容看板。',
     sourceMode: board.sourceMode === 'admin-managed' ? 'admin-managed' : 'code-seeded',
     enabled: board.enabled !== false,
+    createdAt: sanitizeText(board.createdAt) ?? undefined,
   };
 }
 
@@ -163,7 +165,9 @@ function sanitizeEditorialAutomationConfig(config: EditorialAutomationConfig): E
 
   return {
     workflowSettings: sanitizeWorkflowSettings(config.workflowSettings ?? base.workflowSettings),
-    coverageBoards: (config.coverageBoards?.length ? config.coverageBoards : base.coverageBoards).map(sanitizeCoverageBoard),
+    coverageBoards: sortCoverageBoards(
+      (config.coverageBoards?.length ? config.coverageBoards : base.coverageBoards).map(sanitizeCoverageBoard),
+    ),
     templates: (config.templates?.length ? config.templates : base.templates).map(sanitizeTemplate),
     rules: (config.rules?.length ? config.rules : base.rules).map(sanitizeRule),
     briefs: (config.briefs ?? base.briefs).map(sanitizeBrief),
@@ -171,42 +175,51 @@ function sanitizeEditorialAutomationConfig(config: EditorialAutomationConfig): E
   };
 }
 
+function incrementBoardContentCounts(
+  contentCounts: Map<string, number>,
+  entry: { boardKey: string; boardKeys?: string[] },
+) {
+  const keys = entry.boardKeys?.length ? entry.boardKeys : [entry.boardKey];
+  for (const key of keys) {
+    contentCounts.set(key, (contentCounts.get(key) ?? 0) + 1);
+  }
+}
+
 async function buildCoverageMetrics(): Promise<EditorialCoverageMetric[]> {
   const entries = await getAdminEditorialContentList();
 
-  return defaultEditorialAutomationConfig.coverageBoards.map((board) => ({
+  return sortCoverageBoards(defaultEditorialAutomationConfig.coverageBoards.map((board) => ({
     ...board,
-    count: entries.filter((entry) => entry.boardKey === board.key).length,
+    count: entries.filter((entry) => (entry.boardKeys?.length ? entry.boardKeys : [entry.boardKey]).includes(board.key)).length,
     enabled: board.enabled !== false,
-  }));
+  })));
 }
 
 async function buildDashboard(config: EditorialAutomationConfig): Promise<AdminEditorialDashboard> {
   const entries = await getAdminEditorialContentList();
-  const defaultCoverage = await buildCoverageMetrics();
-  const defaultBoardKeys = new Set(defaultCoverage.map((board) => board.key));
   const contentCounts = new Map<string, number>();
   for (const entry of entries) {
-    contentCounts.set(entry.boardKey, (contentCounts.get(entry.boardKey) ?? 0) + 1);
+    incrementBoardContentCounts(contentCounts, entry);
   }
-  const coverage = config.coverageBoards.map((board) => ({
+  const sortedConfig = sanitizeEditorialAutomationConfig(config);
+  const coverage = sortCoverageBoards(sortedConfig.coverageBoards.map((board) => ({
     ...board,
     count: contentCounts.get(board.key) ?? 0,
     enabled: board.enabled !== false,
-    custom: !defaultBoardKeys.has(board.key),
-  }));
+    custom: !isSystemBoardKey(board.key),
+  })));
 
   return {
     coverage,
     summary: {
       liveContentTypes: coverage.length,
       liveDocumentCount: coverage.reduce((sum, item) => sum + item.count, 0),
-      activeTemplates: config.templates.filter((item) => item.enabled).length,
-      enabledRules: config.rules.filter((item) => item.enabled).length,
-      briefsInPipeline: config.briefs.filter((item) => item.status !== 'published').length,
-      recentCompletedRuns: config.runs.filter((item) => item.status === 'completed' || item.status === 'reviewed').length,
+      activeTemplates: sortedConfig.templates.filter((item) => item.enabled).length,
+      enabledRules: sortedConfig.rules.filter((item) => item.enabled).length,
+      briefsInPipeline: sortedConfig.briefs.filter((item) => item.status !== 'published').length,
+      recentCompletedRuns: sortedConfig.runs.filter((item) => item.status === 'completed' || item.status === 'reviewed').length,
     },
-    config,
+    config: sortedConfig,
   };
 }
 
