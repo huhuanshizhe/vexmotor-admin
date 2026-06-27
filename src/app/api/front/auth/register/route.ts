@@ -5,21 +5,27 @@ import { signFrontAccessToken } from '@/lib/auth/jwt';
 import { frontCorsHeaders } from '@/lib/front-cors';
 import { registerBusinessAccount, registerEmailAccount } from '@/server/auth/customer-auth';
 
+const registrationDocumentSchema = z.object({
+  url: z.string().url(),
+  key: z.string().min(1),
+  filename: z.string().min(1),
+  contentType: z.string().min(1),
+});
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   phone: z.string().optional().nullable(),
-  role: z.string().min(1).optional(),
+  jobTitle: z.string().max(100).optional().nullable(),
   companyName: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   industry: z.string().optional().nullable(),
   companySize: z.string().optional().nullable(),
   website: z.string().optional().nullable(),
   taxId: z.string().optional().nullable(),
-  annualVolumeEstimate: z.string().optional().default(''),
-  documents: z.array(z.string()).optional().default([]),
+  documents: z.array(registrationDocumentSchema).max(5).optional().default([]),
   termsAccepted: z.literal(true).optional(),
   privacyAccepted: z.literal(true).optional(),
   exportComplianceAccepted: z.literal(true).optional(),
@@ -51,19 +57,17 @@ export async function POST(request: NextRequest) {
         password: parsed.data.password,
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
-        role: parsed.data.role ?? 'Customer',
+        jobTitle: parsed.data.jobTitle,
         companyName: parsed.data.companyName?.trim() ?? '',
         country: parsed.data.country ?? '',
         industry: parsed.data.industry ?? '',
         companySize: parsed.data.companySize ?? '',
         website: parsed.data.website ?? '',
         taxId: parsed.data.taxId ?? '',
-        annualVolumeEstimate: parsed.data.annualVolumeEstimate ?? '',
         documents: parsed.data.documents ?? [],
         termsAccepted: parsed.data.termsAccepted ?? true,
         privacyAccepted: parsed.data.privacyAccepted ?? true,
         exportComplianceAccepted: parsed.data.exportComplianceAccepted ?? true,
-        sourcePageUrl: request.headers.get('referer') ?? '/register',
       })
     : await registerEmailAccount({
         email: parsed.data.email,
@@ -89,18 +93,13 @@ export async function POST(request: NextRequest) {
   }
 
   const token = await signFrontAccessToken(created.user.id, created.user.email);
-  const isPendingBusiness = isBusinessRegistration(parsed.data);
 
   return NextResponse.json(
     {
       token,
       user: created.user,
-      redirectPath: isQuick ? '/checkout' : isPendingBusiness ? '/account?pendingReview=1' : '/account',
-      message: isQuick
-        ? 'Account created successfully.'
-        : isPendingBusiness
-          ? 'Business account created and queued for review.'
-          : 'Account created successfully.',
+      redirectPath: isQuick ? '/checkout' : '/account',
+      message: 'Account created successfully.',
     },
     { status: 201, headers: frontCorsHeaders() },
   );

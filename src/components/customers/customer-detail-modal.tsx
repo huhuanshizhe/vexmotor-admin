@@ -1,6 +1,6 @@
 'use client';
 
-import { Descriptions, Form, Input, Modal, Space, Tag, Typography, message } from 'antd';
+import { Descriptions, Form, Input, Modal, Space, Tag, Tooltip, Typography, message } from 'antd';
 import { useEffect, useState, useTransition } from 'react';
 
 import {
@@ -101,7 +101,9 @@ export function CustomerDetailModal({ open, customerId, onClose, onSaved }: Cust
               <Descriptions.Item label="姓名">{detail.firstName} {detail.lastName}</Descriptions.Item>
               <Descriptions.Item label="电话">{detail.phone ?? '未填写'}</Descriptions.Item>
               <Descriptions.Item label="角色">
-                <Tag color={userRoleColors[detail.role]}>{userRoleLabels[detail.role]}</Tag>
+                <Tooltip title="系统账户类型，非注册职位">
+                  <Tag color={userRoleColors[detail.role]}>{userRoleLabels[detail.role]}</Tag>
+                </Tooltip>
               </Descriptions.Item>
               <Descriptions.Item label="状态">
                 <Tag color={userStatusColors[detail.status]}>{userStatusLabels[detail.status]}</Tag>
@@ -121,6 +123,20 @@ export function CustomerDetailModal({ open, customerId, onClose, onSaved }: Cust
               <Descriptions.Item label="公司地址" span={2}>
                 <Typography.Text style={{ whiteSpace: 'pre-wrap' }}>{companyAddress}</Typography.Text>
               </Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="资质文件" column={1} size="small" bordered>
+              {detail.verificationDocuments.length === 0 ? (
+                <Descriptions.Item label="文件">未上传</Descriptions.Item>
+              ) : (
+                detail.verificationDocuments.map((document) => (
+                  <Descriptions.Item key={document.key} label={document.filename}>
+                    <Typography.Link href={document.url} target="_blank" rel="noopener noreferrer">
+                      {document.filename}
+                    </Typography.Link>
+                  </Descriptions.Item>
+                ))
+              )}
             </Descriptions>
 
             <Descriptions title="交易摘要" column={3} size="small" bordered>

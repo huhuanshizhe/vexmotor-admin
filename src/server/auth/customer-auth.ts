@@ -3,13 +3,17 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
 
 import { md5Hash, compareMd5 } from '@/lib/auth/password';
+import type { RegistrationDocumentInput } from '@/lib/customer-profile';
 import { normalizeCompanyCountryCode } from '@/lib/customer-countries';
 import { normalizeCustomerIndustry } from '@/lib/customer-industries';
+import {
+  isValidRegistrationDocumentInput,
+  normalizeRegistrationDocuments,
+} from '@/lib/registration-documents';
 import { grantRegistrationCoupons } from '@/server/admin/coupons';
 import { db } from '@/server/db';
-import { products, users, verificationTokens } from '@/server/db/schema';
+import { users, verificationTokens } from '@/server/db/schema';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '@/server/email';
-import { createStorefrontInquiry } from '@/server/storefront/inquiries';
 
 type AuthUserRecord = {
   id: string;
@@ -26,19 +30,17 @@ export type RegisterBusinessAccountInput = {
   password: string;
   firstName: string;
   lastName: string;
-  role: string;
+  jobTitle?: string | null;
   companyName: string;
   country: string;
   industry: string;
   companySize: string;
   website: string;
   taxId: string;
-  annualVolumeEstimate?: string;
-  documents: string[];
+  documents: RegistrationDocumentInput[];
   termsAccepted: boolean;
   privacyAccepted: boolean;
   exportComplianceAccepted: boolean;
-  sourcePageUrl?: string | null;
 };
 
 type RegisterBusinessAccountResult =
@@ -72,45 +74,13 @@ function splitName(input: { firstName: string; lastName: string }) {
   };
 }
 
-async function resolveAuthIntakeProductId() {
-  const fallbackId = 'legacy-registration-intake';
-  const [product] = await db.select({ id: products.id }).from(products).limit(1);
-  return product?.id ?? fallbackId;
-}
-
-function buildRegistrationReviewMessage(input: RegisterBusinessAccountInput) {
-  return [
-    'BUSINESS REGISTRATION REVIEW',
-    `Role: ${input.role || 'Not specified'}`,
-    `Country: ${input.country || 'Not specified'}`,
-    `Industry: ${input.industry || 'Not specified'}`,
-    `Company size: ${input.companySize || 'Not specified'}`,
-    `Website: ${input.website || 'Not specified'}`,
-    `VAT / Tax ID / EORI: ${input.taxId || 'Not specified'}`,
-    `Annual volume estimate: ${input.annualVolumeEstimate?.trim() || 'Not specified'}`,
-    `Documents: ${input.documents.length ? input.documents.join(', ') : 'None uploaded'}`,
-    '',
-    'COMPLIANCE',
-    `Terms accepted: ${input.termsAccepted ? 'yes' : 'no'}`,
-    `Privacy accepted: ${input.privacyAccepted ? 'yes' : 'no'}`,
-    `Export compliance accepted: ${input.exportComplianceAccepted ? 'yes' : 'no'}`,
-  ].join('\n');
-}
-
-async function createRegistrationReview(input: RegisterBusinessAccountInput, userId: string | null) {
-  const intakeProductId = await resolveAuthIntakeProductId();
-  const { firstName, lastName } = splitName(input);
-
-  await createStorefrontInquiry({
-    productId: intakeProductId,
-    userId,
-    fullName: `${firstName} ${lastName}`.trim(),
-    email: normalizeEmail(input.email),
-    company: input.companyName.trim() || null,
-    country: input.country.trim() || null,
-    message: buildRegistrationReviewMessage(input),
-    sourcePageUrl: input.sourcePageUrl ?? '/register',
-  });
+function validateRegistrationDocuments(documents: RegistrationDocumentInput[]) {
+  for (const document of documents) {
+    if (!isValidRegistrationDocumentInput(document)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export async function getAuthUserByEmail(email: string): Promise<AuthUserRecord | null> {
@@ -141,6 +111,14 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
     };
   }
 
+  if (!validateRegistrationDocuments(input.documents)) {
+    return {
+      ok: false,
+      code: 'INVALID_STATE',
+      message: 'One or more verification documents are invalid.',
+    };
+  }
+
   const normalizedEmail = normalizeEmail(input.email);
   const { firstName, lastName } = splitName(input);
   const existing = await getAuthUserByEmail(normalizedEmail);
@@ -160,14 +138,16 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
       passwordHash: md5Hash(input.password),
       firstName,
       lastName,
+      jobTitle: input.jobTitle?.trim() || null,
       company: input.companyName.trim() || null,
       industry: normalizeCustomerIndustry(input.industry),
       companyCountryCode: normalizeCompanyCountryCode(input.country),
       website: input.website.trim() || null,
       taxId: input.taxId.trim() || null,
       companySize: input.companySize.trim() || null,
+      verificationDocuments: normalizeRegistrationDocuments(input.documents),
       role: 'customer',
-      status: 'pending',
+      status: 'active',
     })
     .returning({
       id: users.id,
@@ -185,8 +165,6 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
       message: 'Unable to create the business account right now.',
     };
   }
-
-  await createRegistrationReview(input, created.id);
 
   grantRegistrationCoupons(created.id).catch((err) => {
     console.error('[auth] grantRegistrationCoupons error:', err);
@@ -235,7 +213,6 @@ export async function registerEmailAccount(input: RegisterEmailAccountInput): Pr
   }
 
   const companyName = input.companyName?.trim() ?? '';
-  const hasCompany = companyName.length > 0;
 
   const [created] = await db
     .insert(users)
@@ -252,7 +229,7 @@ export async function registerEmailAccount(input: RegisterEmailAccountInput): Pr
       taxId: input.taxId?.trim() || null,
       companySize: input.companySize?.trim() || null,
       role: 'customer',
-      status: hasCompany ? 'pending' : 'active',
+      status: 'active',
     })
     .returning({
       id: users.id,
@@ -331,7 +308,6 @@ export async function createPasswordResetRequest(email: string): Promise<Passwor
   const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:4000';
   const fullResetUrl = `${appUrl}/password-reset?token=${encodeURIComponent(token)}`;
 
-  // Send reset email (non-blocking)
   sendPasswordResetEmail({ to: normalizedEmail, resetUrl: fullResetUrl })
     .catch((err) => console.error('[auth] Password reset email error:', err));
 

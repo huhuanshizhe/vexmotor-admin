@@ -34,8 +34,6 @@ export function isEditorialDraftEffectivelyEmpty(values: {
   slug?: string;
   summary?: string;
   body?: string;
-  coverUrl?: string;
-  coverAlt?: string;
   tagsText?: string;
   relatedProductSlugsText?: string;
   seoTitle?: string;
@@ -45,8 +43,6 @@ export function isEditorialDraftEffectivelyEmpty(values: {
     values.title,
     values.slug,
     values.summary,
-    values.coverUrl,
-    values.coverAlt,
     values.tagsText,
     values.relatedProductSlugsText,
     values.seoTitle,

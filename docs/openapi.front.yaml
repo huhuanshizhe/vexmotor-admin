@@ -35,7 +35,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Front-office JWT from /api/front/auth/login or OAuth callback
+      description: 前台 JWT，由 POST /api/front/auth/login 或 POST /api/front/auth/register 返回的 `token` 字段；后续请求放在 Header `Authorization: Bearer <token>`
   parameters:
     PageParam:
       name: page
@@ -382,6 +382,43 @@ components:
             $ref: '#/components/schemas/FaqListItem'
       required: [locale, boardKey, items]
       additionalProperties: false
+    BlogAuthor:
+      type: object
+      properties:
+        name:
+          type:
+            - string
+            - 'null'
+        title:
+          type:
+            - string
+            - 'null'
+        bio:
+          type:
+            - string
+            - 'null'
+      required: [name, title, bio]
+      additionalProperties: false
+    BlogCategoryItem:
+      type: object
+      properties:
+        label:
+          type: string
+          description: 分类显示名（英文内置分类）
+        slug:
+          type: string
+          description: 唯一 URL slug，用于 ?category=application-note 等筛选链接
+      required: [label, slug]
+      additionalProperties: false
+    BlogCategoriesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogCategoryItem'
+      required: [items]
+      additionalProperties: false
     BlogListItem:
       type: object
       properties:
@@ -396,22 +433,36 @@ components:
             - 'null'
         slug:
           type: string
+          description: 文章 slug，前台详情页路径为 /blog/{slug}
         category:
           type:
             - string
             - 'null'
+          description: 分类显示名
+        categorySlug:
+          type:
+            - string
+            - 'null'
+          description: 内置分类对应的 URL slug；自定义分类为 null
         coverStyle:
           type:
             - integer
             - 'null'
           minimum: 1
           maximum: 10
+          description: 封面样式编号（非图片 URL）
+        author:
+          $ref: '#/components/schemas/BlogAuthor'
+        tags:
+          type: array
+          items:
+            type: string
         publishedAt:
           type:
             - string
             - 'null'
           format: date-time
-      required: [id, title, summary, slug, category, coverStyle, publishedAt]
+      required: [id, title, summary, slug, category, categorySlug, coverStyle, author, tags, publishedAt]
       additionalProperties: false
     BlogListResponse:
       type: object
@@ -443,7 +494,12 @@ components:
           description: 博客正文 HTML
         slug:
           type: string
+          description: 文章 slug；接口路径 GET /api/front/blog/{slug} 与前台 /blog/{slug} 一致
         category:
+          type:
+            - string
+            - 'null'
+        categorySlug:
           type:
             - string
             - 'null'
@@ -453,16 +509,7 @@ components:
             - 'null'
           minimum: 1
           maximum: 10
-        cover:
-          type:
-            - object
-            - 'null'
-          properties:
-            url:
-              type: string
-            alt:
-              type: string
-          required: [url, alt]
+          description: 封面样式编号（非图片 URL）
         seo:
           type: object
           properties:
@@ -493,22 +540,8 @@ components:
           items:
             type: string
         author:
-          type: object
-          properties:
-            name:
-              type:
-                - string
-                - 'null'
-            title:
-              type:
-                - string
-                - 'null'
-            bio:
-              type:
-                - string
-                - 'null'
-          required: [name, title, bio]
-      required: [id, title, summary, body, slug, category, coverStyle, cover, author, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
+          $ref: '#/components/schemas/BlogAuthor'
+      required: [id, title, summary, body, slug, category, categorySlug, coverStyle, author, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
       additionalProperties: false
     FeatureSelectionInput:
       type: object
@@ -672,6 +705,7 @@ components:
       additionalProperties: false
     UserProfile:
       type: object
+      description: 当前用户基本资料（不含公司字段；公司信息见 GET /api/front/profile/company）
       properties:
         id:
           type: string
@@ -691,11 +725,14 @@ components:
           type:
             - string
             - 'null'
+          description: 注册/资料中的职位（如 Purchasing）；与系统权限 role 无关
         status:
           type: string
           enum: [active, disabled, pending]
         role:
           type: string
+          enum: [customer, staff, admin]
+          description: 系统账户类型（权限），非注册职位
         emailVerifiedAt:
           type:
             - string
@@ -708,6 +745,23 @@ components:
           type: string
           format: date-time
       required: [id, email, firstName, lastName, status, role, createdAt, updatedAt]
+      additionalProperties: false
+    UserProfileUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type:
+            - string
+            - 'null'
+        jobTitle:
+          type:
+            - string
+            - 'null'
+          maxLength: 100
       additionalProperties: false
     CompanyProfile:
       type: object
@@ -756,32 +810,168 @@ components:
           type:
             - string
             - 'null'
+        verificationDocuments:
+          type: array
+          description: B2B 注册时上传的资质文件（只读，注册后由服务端写入）
+          items:
+            $ref: '#/components/schemas/VerificationDocument'
+      additionalProperties: false
+    CompanyProfileUpdate:
+      type: object
+      description: 可更新的公司资料字段（不含 verificationDocuments）
+      properties:
+        company:
+          type:
+            - string
+            - 'null'
+        industry:
+          type:
+            - string
+            - 'null'
+        companyCountryCode:
+          type:
+            - string
+            - 'null'
+          description: ISO 3166-1 alpha-2
+        companyState:
+          type:
+            - string
+            - 'null'
+        companyCity:
+          type:
+            - string
+            - 'null'
+        companyAddressLine1:
+          type:
+            - string
+            - 'null'
+        companyAddressLine2:
+          type:
+            - string
+            - 'null'
+        companyPostalCode:
+          type:
+            - string
+            - 'null'
+        website:
+          type:
+            - string
+            - 'null'
+        taxId:
+          type:
+            - string
+            - 'null'
+        companySize:
+          type:
+            - string
+            - 'null'
+      additionalProperties: false
+    VerificationDocument:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        key:
+          type: string
+        filename:
+          type: string
+        contentType:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+      required: [url, key, filename, contentType, uploadedAt]
+      additionalProperties: false
+    RegistrationDocumentInput:
+      type: object
+      description: 注册提交用的证件对象；须先通过 POST /api/front/upload/registration 上传获得
+      properties:
+        url:
+          type: string
+          format: uri
+        key:
+          type: string
+          description: OSS 对象 key，须以 registrations/documents/ 为前缀
+        filename:
+          type: string
+        contentType:
+          type: string
+      required: [url, key, filename, contentType]
+      additionalProperties: false
+    RegistrationUploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        key:
+          type: string
+        filename:
+          type: string
+        contentType:
+          type: string
+        size:
+          type: integer
+      required: [url, key, filename, contentType, size]
       additionalProperties: false
     SiteLanguage:
       type: object
+      description: 前台可用语言；每种语言在后台绑定一个展示币种（currencyCode），商品/购物车等接口按 x-vex-locale 选用对应币种。
       properties:
         code:
           type: string
+          description: 语言代码（如 en、de、zh-CN）
+          example: en
         name:
           type: string
+          description: 英文显示名
+          example: English
         nativeName:
           type: string
-        currencyCode:
+          description: 本地语言显示名
+          example: English
+        region:
           type: string
+          description: 区域/市场标签
+          example: Global
         direction:
           type: string
           enum: [ltr, rtl]
+        countryCodes:
+          type: array
+          description: 关联 ISO 3166-1 alpha-2 国家/地区代码
+          items:
+            type: string
+          example: [US, GB]
+        currencyCode:
+          type: string
+          description: 该语言绑定的 ISO 4217 币种代码，用于前台价格展示
+          example: USD
         isDefault:
           type: boolean
+          description: 是否为站点默认语言
         sortOrder:
           type: integer
-      required: [code, name, nativeName, currencyCode, direction, isDefault, sortOrder]
+          description: 语言切换器排序（升序）
+      required: [code, name, nativeName, region, direction, countryCodes, currencyCode, isDefault, sortOrder]
+      additionalProperties: false
+    StorefrontLanguagesResponse:
+      type: object
+      properties:
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteLanguage'
+      required: [languages]
       additionalProperties: false
     AuthTokenResponse:
       type: object
+      description: 登录或注册成功。`token` 为 JWT，默认有效期 7 天（可由服务端 JWT_EXPIRES_IN 配置）。
       properties:
         token:
           type: string
+          description: Bearer JWT，用于 Authorization 请求头
         user:
           type: object
           properties:
@@ -818,6 +1008,28 @@ components:
           type: string
           minLength: 8
       required: [currentPassword, newPassword]
+      additionalProperties: false
+    AccountSummary:
+      type: object
+      description: 会员中心仪表盘统计（订单、地址、询盘、收藏数量）
+      properties:
+        orders:
+          type: integer
+          minimum: 0
+          description: 订单总数
+        addresses:
+          type: integer
+          minimum: 0
+          description: 地址簿条目数
+        inquiries:
+          type: integer
+          minimum: 0
+          description: 询盘总数
+        wishlist:
+          type: integer
+          minimum: 0
+          description: 收藏商品数
+      required: [orders, addresses, inquiries, wishlist]
       additionalProperties: false
     OrderItem:
       type: object
@@ -1052,6 +1264,13 @@ components:
       additionalProperties: false
     AuthRegisterRequest:
       type: object
+      description: |
+        用户注册。轻量注册：仅填基础字段并设 `_quick: true` 或省略 B2B 合规字段。
+        B2B 完整注册：须勾选 termsAccepted、privacyAccepted、exportComplianceAccepted。
+        B2B 注册成功后账户 status 为 active（无需人工审核）。
+        `jobTitle` 为注册页所选职位（如 Purchasing），写入 users.jobTitle；
+        系统权限 role 恒为 customer，与 jobTitle 无关。
+        `documents` 须先调用 POST /api/front/upload/registration 上传，最多 5 个。
       properties:
         email:
           type: string
@@ -1065,6 +1284,10 @@ components:
           type: string
         phone:
           type: string
+        jobTitle:
+          type: string
+          maxLength: 100
+          description: 注册职位（如 Purchasing、Engineering），映射 users.jobTitle
         companyName:
           type: string
         country:
@@ -1077,6 +1300,11 @@ components:
           type: string
         taxId:
           type: string
+        documents:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/RegistrationDocumentInput'
         termsAccepted:
           type: boolean
         privacyAccepted:
@@ -1331,10 +1559,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BlogListResponse'
+  /api/front/blog/categories:
+    get:
+      tags: [Content]
+      summary: 获取博客内置分类枚举（含 URL slug）
+      description: |
+        返回英文内置分类及其唯一 slug，供前台生成筛选链接，例如 `/blog?category=application-note`。
+      responses:
+        '200':
+          description: 分类枚举列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogCategoriesResponse'
   /api/front/blog/{slug}:
     get:
       tags: [Content]
       summary: 获取博客详情（按 slug）
+      description: |
+        按文章 slug 查询已发布博客详情，与前台路径 `/blog/{slug}` 对应。不使用 content id 查询。
       parameters:
         - $ref: '#/components/parameters/ProductSlugParam'
         - $ref: '#/components/parameters/LocaleHeader'
@@ -1611,10 +1854,48 @@ paths:
       responses:
         '204':
           description: 删除成功
+  /api/front/upload/registration:
+    post:
+      tags: [Auth]
+      summary: 注册证件上传（无需登录）
+      description: |
+        B2B 注册 Step 3 上传资质文件。支持 PDF、Office 文档及常见图片（jpeg/png/gif/webp），单文件最大 10MB。
+        返回的 url/key/filename/contentType 用于 POST /api/front/auth/register 的 documents 字段。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationUploadResponse'
+        '400':
+          description: 文件类型或大小不符合要求
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Auth]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/auth/register:
     post:
       tags: [Auth]
       summary: 用户注册（轻量或 B2B 完整注册）
+      description: B2B 注册默认创建 active 账户；不再产生审核询价单。redirectPath 成功时为 /account（快速结账为 /checkout）。
       requestBody:
         required: true
         content:
@@ -1632,6 +1913,7 @@ paths:
     post:
       tags: [Auth]
       summary: 用户登录
+      description: 成功返回 JWT `token` 与精简 `user` 对象；完整资料请再调 GET /api/front/profile。
       requestBody:
         required: true
         content:
@@ -1701,6 +1983,7 @@ paths:
     get:
       tags: [Profile]
       summary: 获取当前用户基本资料
+      description: 需 Bearer 登录态。返回姓名、邮箱、职位（jobTitle）、系统 role 等；公司名与资质文件见 GET /api/front/profile/company。
       security:
         - bearerAuth: []
       responses:
@@ -1710,6 +1993,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       tags: [Profile]
       summary: 更新当前用户基本资料
@@ -1720,20 +2015,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                firstName:
-                  type: string
-                lastName:
-                  type: string
-                phone:
-                  type:
-                    - string
-                    - 'null'
-                jobTitle:
-                  type:
-                    - string
-                    - 'null'
+              $ref: '#/components/schemas/UserProfileUpdate'
       responses:
         '200':
           description: 更新成功
@@ -1741,10 +2023,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: 参数校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Profile]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/profile/company:
     get:
       tags: [Profile]
       summary: 获取当前用户公司资料
+      description: 需 Bearer 登录态。含公司名、地址、税号及 B2B 注册上传的 verificationDocuments（只读）。
       security:
         - bearerAuth: []
       responses:
@@ -1754,6 +2061,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompanyProfile'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     patch:
       tags: [Profile]
       summary: 更新当前用户公司资料
@@ -1764,31 +2083,98 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CompanyProfile'
+              $ref: '#/components/schemas/CompanyProfileUpdate'
       responses:
         '200':
-          description: 更新成功
+          description: 更新成功（响应含完整 CompanyProfile，含 verificationDocuments）
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompanyProfile'
+        '400':
+          description: 参数校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 用户不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Profile]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
+  /api/front/account/summary:
+    get:
+      tags: [Profile]
+      summary: 获取会员中心统计摘要
+      description: 需 Bearer 登录态。返回当前用户的订单、地址、询盘、收藏数量，用于 account 首页仪表盘。
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 统计摘要
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountSummary'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Profile]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/languages:
     get:
       tags: [Languages]
-      summary: 获取可用语言列表（含绑定币种）
+      summary: 获取前台可用语言列表（含绑定币种）
+      description: |
+        返回所有 `status=active` 的站点语言，供前台语言切换器使用。
+        每项包含 `currencyCode`，表示该语言下的默认展示币种；调用商品、购物车等接口时通过 `x-vex-locale` 传入 `code`，服务端按语言-币种映射返回对应价格。
       responses:
         '200':
           description: 语言列表
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  languages:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SiteLanguage'
-                required: [languages]
+                $ref: '#/components/schemas/StorefrontLanguagesResponse'
+              example:
+                languages:
+                  - code: en
+                    name: English
+                    nativeName: English
+                    region: Global
+                    direction: ltr
+                    countryCodes: [US, GB]
+                    currencyCode: USD
+                    isDefault: true
+                    sortOrder: 0
+                  - code: de
+                    name: German
+                    nativeName: Deutsch
+                    region: Europe
+                    direction: ltr
+                    countryCodes: [DE, AT, CH]
+                    currencyCode: EUR
+                    isDefault: false
+                    sortOrder: 10
   /api/front/inquiries:
     post:
       tags: [Inquiries]

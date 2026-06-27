@@ -2,6 +2,7 @@ import 'server-only';
 
 import { and, asc, desc, eq } from 'drizzle-orm';
 
+import { resolveBlogCategorySlug } from '@/lib/blog-categories';
 import {
   type EditorialContentPayload,
 } from '@/lib/editorial-content';
@@ -15,6 +16,12 @@ import {
 } from '@/server/db/schema';
 
 type TranslationRow = typeof editorialContentTranslations.$inferSelect;
+
+export type StorefrontBlogAuthor = {
+  name: string | null;
+  title: string | null;
+  bio: string | null;
+};
 
 function pickTranslation(rows: TranslationRow[], locale: Locale) {
   if (!rows.length) return null;
@@ -35,8 +42,6 @@ function normalizePayload(payload: unknown): EditorialContentPayload {
   const value = (payload ?? {}) as Partial<EditorialContentPayload>;
   return {
     body: typeof value.body === 'string' ? value.body : '',
-    coverUrl: typeof value.coverUrl === 'string' ? value.coverUrl : null,
-    coverAlt: typeof value.coverAlt === 'string' ? value.coverAlt : null,
     coverStyle: normalizeCoverStyle(value.coverStyle),
     tags: Array.isArray(value.tags) ? value.tags.filter((item): item is string => typeof item === 'string') : [],
     relatedProductSlugs: Array.isArray(value.relatedProductSlugs)
@@ -49,7 +54,7 @@ function normalizePayload(payload: unknown): EditorialContentPayload {
   };
 }
 
-function buildAuthor(payload: EditorialContentPayload) {
+function buildAuthor(payload: EditorialContentPayload): StorefrontBlogAuthor {
   return {
     name: payload.authorName ?? null,
     title: payload.authorTitle ?? null,
@@ -115,7 +120,18 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
     return {
       locale,
       boardKey,
-      items: [] as { id: string; title: string; summary: string | null; slug: string; category: string | null; coverStyle: number | null; publishedAt: string | null }[],
+      items: [] as {
+        id: string;
+        title: string;
+        summary: string | null;
+        slug: string;
+        category: string | null;
+        categorySlug: string | null;
+        coverStyle: number | null;
+        author: StorefrontBlogAuthor;
+        tags: string[];
+        publishedAt: string | null;
+      }[],
     };
   }
 
@@ -150,7 +166,10 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
       summary: picked.summary,
       slug: picked.slug,
       category: payload.category,
+      categorySlug: resolveBlogCategorySlug(payload.category),
       coverStyle: payload.coverStyle,
+      author: buildAuthor(payload),
+      tags: payload.tags,
       publishedAt: content.publishedAt?.toISOString() ?? null,
     };
   });
@@ -203,8 +222,8 @@ export async function getStorefrontBlogDetailBySlug(slugInput: string, localeInp
     body: payload.body,
     slug: picked.slug,
     category: payload.category,
+    categorySlug: resolveBlogCategorySlug(payload.category),
     coverStyle: payload.coverStyle,
-    cover: payload.coverUrl ? { url: payload.coverUrl, alt: payload.coverAlt ?? picked.title } : null,
     author: buildAuthor(payload),
     seo: {
       title: picked.seoTitle,

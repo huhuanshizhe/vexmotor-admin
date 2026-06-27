@@ -24,11 +24,6 @@ import { editorialContentBoards, editorialContentTranslations, editorialContents
 
 const payloadSchema = z.object({
   body: z.string().trim().refine(hasMeaningfulHtmlBody, { message: 'Body is required' }),
-  coverUrl: z.string().trim().nullable().optional().transform((value) => {
-    const normalized = value?.trim();
-    return normalized ? normalized : null;
-  }).refine((value) => !value || /^https?:\/\//i.test(value), { message: 'Invalid cover URL' }),
-  coverAlt: z.string().trim().nullable().optional().transform((value) => value || null),
   coverStyle: z.number().int().min(1).max(10).nullable().optional().transform((value) => value ?? null),
   tags: z.array(z.string().trim().min(1)).default([]),
   relatedProductSlugs: z.array(z.string().trim().min(1)).default([]),
@@ -185,8 +180,6 @@ function normalizeCoverStyle(value: number | null | undefined) {
 function normalizePayload(payload: EditorialContentPayload): EditorialContentPayload {
   return {
     body: payload.body.trim(),
-    coverUrl: normalizeText(payload.coverUrl),
-    coverAlt: normalizeText(payload.coverAlt),
     coverStyle: normalizeCoverStyle(payload.coverStyle ?? null),
     tags: payload.tags.map((value) => value.trim()).filter(Boolean),
     relatedProductSlugs: payload.relatedProductSlugs.map(normalizeSlug).filter(Boolean),
@@ -245,10 +238,7 @@ function normalizeTranslationRow(
   boardKeys?: string[],
 ): AdminEditorialContentTranslation | null {
   if (content.contentType !== 'content' || translation.contentType !== 'content') return null;
-  const payload = payloadSchema.safeParse({
-    ...translation.payload,
-    coverUrl: translation.payload?.coverUrl ?? null,
-  });
+  const payload = payloadSchema.safeParse(translation.payload ?? {});
   if (!payload.success) return null;
 
   const resolvedBoardKeys = boardKeys?.length ? boardKeys : [normalizeBoardKey(content.boardKey)];

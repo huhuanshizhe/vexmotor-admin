@@ -17,6 +17,7 @@ import {
 
 import type { ShippingCountryRateConfig, ShippingMethodConfig, VolumePricingRuleConfig } from '@/lib/commerce-config';
 import type { EditorialContentPayload } from '@/lib/editorial-content';
+import type { VerificationDocument } from '@/lib/customer-profile';
 import type { AdminProductPayload } from '@/lib/product-content';
 import {
   defaultEditorialAutomationConfig,
@@ -88,6 +89,7 @@ export const users = pgTable(
     taxId: varchar('tax_id', { length: 100 }),
     companySize: varchar('company_size', { length: 50 }),
     internalNote: text('internal_note'),
+    verificationDocuments: jsonb('verification_documents').$type<VerificationDocument[]>().notNull().default([]),
     role: userRoleEnum('role').notNull().default('customer'),
     status: userStatusEnum('status').notNull().default('active'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
@@ -994,8 +996,6 @@ export const editorialContentTranslations = pgTable(
     seoDescription: varchar('seo_description', { length: 500 }),
     payload: jsonb('payload').$type<EditorialContentPayload>().notNull().default({
       body: '',
-      coverUrl: null,
-      coverAlt: null,
       coverStyle: null,
       tags: [],
       relatedProductSlugs: [],

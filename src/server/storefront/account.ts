@@ -89,6 +89,7 @@ export async function getCompanyProfile(userId: string) {
       website: users.website,
       taxId: users.taxId,
       companySize: users.companySize,
+      verificationDocuments: users.verificationDocuments,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -129,6 +130,7 @@ export async function updateCompanyProfile(
       website: users.website,
       taxId: users.taxId,
       companySize: users.companySize,
+      verificationDocuments: users.verificationDocuments,
     });
 
   return updated ?? null;

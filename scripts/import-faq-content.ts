@@ -133,8 +133,6 @@ async function upsertEntry(entry: ImportEntry): Promise<'created' | 'updated'> {
   const publishedAt = now;
   const payload = {
     body: entry.body,
-    coverUrl: null,
-    coverAlt: null,
     coverStyle: null,
     tags: entry.tags,
     relatedProductSlugs: entry.relatedProductSlugs,

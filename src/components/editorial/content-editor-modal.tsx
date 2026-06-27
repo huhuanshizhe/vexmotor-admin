@@ -9,7 +9,6 @@ import { useEffect, useState, useTransition } from 'react';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
 import { BoardMultiSelect } from '@/components/editorial/board-multi-select';
-import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
 import {
@@ -32,8 +31,6 @@ type LocaleFormValues = {
   summary: string;
   category: string;
   body: string;
-  coverUrl: string;
-  coverAlt: string;
   authorName: string;
   authorTitle: string;
   authorBio: string;
@@ -80,8 +77,6 @@ function createEmptyDraft(): LocaleDraft {
     summary: '',
     category: '',
     body: defaultEditorialContentBody,
-    coverUrl: '',
-    coverAlt: '',
     authorName: '',
     authorTitle: '',
     authorBio: '',
@@ -104,8 +99,6 @@ function entryToDraft(entry: AdminEditorialContentTranslation): LocaleDraft {
     summary: entry.summary ?? '',
     category: entry.payload.category ?? '',
     body: entry.payload.body,
-    coverUrl: entry.payload.coverUrl ?? '',
-    coverAlt: entry.payload.coverAlt ?? '',
     authorName: entry.payload.authorName ?? '',
     authorTitle: entry.payload.authorTitle ?? '',
     authorBio: entry.payload.authorBio ?? '',
@@ -202,8 +195,6 @@ function buildEntryPayload(draft: LocaleDraft, locale: string, status: Editorial
     publishedAt,
     payload: {
       body: draft.body.trim(),
-      coverUrl: draft.coverUrl.trim() || null,
-      coverAlt: draft.coverAlt.trim() || null,
       coverStyle: draft.coverStyle,
       authorName: draft.authorName.trim() || null,
       authorTitle: draft.authorTitle.trim() || null,
@@ -298,8 +289,6 @@ export function ContentEditorModal({
       summary: draft.summary,
       category: draft.category,
       body: draft.body,
-      coverUrl: draft.coverUrl,
-      coverAlt: draft.coverAlt,
       authorName: draft.authorName,
       authorTitle: draft.authorTitle,
       authorBio: draft.authorBio,
@@ -599,7 +588,7 @@ export function ContentEditorModal({
               <Form.Item
                 label="内容分类"
                 name="category"
-                extra={isEnglishLocale ? '选填；可从内置分类选择，也可自行输入' : '选填；请自行输入该语言下的分类名称'}
+                extra={isEnglishLocale ? '选填；可从内置分类选择（含 URL slug），也可自行输入' : '选填；请自行输入该语言下的分类名称'}
               >
                 {isEnglishLocale ? (
                   <AutoComplete
@@ -638,16 +627,6 @@ export function ContentEditorModal({
                   maxHeight={720}
                   disabled={isReadOnly}
                 />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item label="封面图" name="coverUrl">
-                <CoverImageField />
-              </Form.Item>
-            </Col>
-            <Col span={24}>
-              <Form.Item label="封面 Alt" name="coverAlt">
-                <Input />
               </Form.Item>
             </Col>
           </Row>

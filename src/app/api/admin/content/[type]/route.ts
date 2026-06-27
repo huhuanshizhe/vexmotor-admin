@@ -50,8 +50,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { category, content, status, locale, ...data } = parsed.data;
   const payload = {
     body: content,
-    coverUrl: null,
-    coverAlt: null,
     coverStyle: null,
     tags: category ? [category] : [],
     relatedProductSlugs: [],
@@ -130,8 +128,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...(locale !== undefined ? { locale } : {}),
       payload: {
         body: content ?? current.translation.payload.body,
-        coverUrl: current.translation.payload.coverUrl,
-        coverAlt: current.translation.payload.coverAlt,
         coverStyle: current.translation.payload.coverStyle ?? null,
         tags: category ? [category] : current.translation.payload.tags,
         relatedProductSlugs: current.translation.payload.relatedProductSlugs,

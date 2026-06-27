@@ -31,8 +31,6 @@ export function filterCoverageByModule<T extends { key: string }>(
 
 export type EditorialContentPayload = {
   body: string;
-  coverUrl: string | null;
-  coverAlt: string | null;
   coverStyle: number | null;
   tags: string[];
   relatedProductSlugs: string[];
@@ -86,8 +84,6 @@ export type AdminEditorialContentEntry = AdminEditorialContentTranslation;
 export const defaultEditorialContentBody = '<p></p>';
 
 export const defaultEditorialPayloadMeta = {
-  coverUrl: null,
-  coverAlt: null,
   coverStyle: null,
   tags: [] as string[],
   relatedProductSlugs: [] as string[],

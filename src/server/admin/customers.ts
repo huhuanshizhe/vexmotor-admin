@@ -15,6 +15,7 @@ import {
 import { md5Hash } from '@/lib/auth/password';
 import { type AdminListPageSize, normalizePageSize } from '@/lib/admin-list-query';
 import type { CustomerListQuery } from '@/lib/customer-list-query';
+import type { VerificationDocument } from '@/lib/customer-profile';
 import { generateRandomPassword } from '@/lib/random-password';
 import { db } from '@/server/db';
 import {
@@ -57,6 +58,7 @@ export type AdminCustomerDetail = AdminCustomerListItem & {
   taxId: string | null;
   companySize: string | null;
   internalNote: string | null;
+  verificationDocuments: VerificationDocument[];
   emailVerifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -274,6 +276,7 @@ function toDetailItem(
     taxId: row.taxId,
     companySize: row.companySize,
     internalNote: row.internalNote,
+    verificationDocuments: row.verificationDocuments ?? [],
     emailVerifiedAt: row.emailVerifiedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
