@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Col, Empty, Form, Input, Modal, Row, Space, Tabs, Tag, Typography, Alert, Popconfirm, message } from 'antd';
+import { Button, Col, Empty, Form, Input, Modal, Row, Space, Tabs, Tag, Typography, Alert, Popconfirm, AutoComplete, message } from 'antd';
 import type { FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
@@ -20,18 +20,23 @@ import {
   resolveContentId,
 } from '@/lib/editorial-content';
 import { validateSourceThenAutoSlug } from '@/lib/slug';
+import { blogCategorySelectOptions, isEnglishEditorialLocale } from '@/lib/blog-categories';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 import type { EditorialBoardOption } from '@/components/editorial/board-multi-select';
 
-type SectionTabKey = 'content' | 'seo';
+type SectionTabKey = 'content' | 'author' | 'seo';
 
 type LocaleFormValues = {
   title: string;
   slug: string;
   summary: string;
+  category: string;
   body: string;
   coverUrl: string;
   coverAlt: string;
+  authorName: string;
+  authorTitle: string;
+  authorBio: string;
   tagsText: string;
   relatedProductSlugsText: string;
   seoTitle: string;
@@ -72,9 +77,13 @@ function createEmptyDraft(): LocaleDraft {
     title: '',
     slug: '',
     summary: '',
+    category: '',
     body: defaultEditorialContentBody,
     coverUrl: '',
     coverAlt: '',
+    authorName: '',
+    authorTitle: '',
+    authorBio: '',
     publishedAt: '',
     tagsText: '',
     relatedProductSlugsText: '',
@@ -91,9 +100,13 @@ function entryToDraft(entry: AdminEditorialContentTranslation): LocaleDraft {
     title: entry.title,
     slug: entry.slug,
     summary: entry.summary ?? '',
+    category: entry.payload.category ?? '',
     body: entry.payload.body,
     coverUrl: entry.payload.coverUrl ?? '',
     coverAlt: entry.payload.coverAlt ?? '',
+    authorName: entry.payload.authorName ?? '',
+    authorTitle: entry.payload.authorTitle ?? '',
+    authorBio: entry.payload.authorBio ?? '',
     publishedAt: toLocalDateTimeValue(entry.publishedAt),
     tagsText: entry.payload.tags.join('\n'),
     relatedProductSlugsText: entry.payload.relatedProductSlugs.join('\n'),
@@ -188,6 +201,10 @@ function buildEntryPayload(draft: LocaleDraft, locale: string, status: Editorial
       body: draft.body.trim(),
       coverUrl: draft.coverUrl.trim() || null,
       coverAlt: draft.coverAlt.trim() || null,
+      authorName: draft.authorName.trim() || null,
+      authorTitle: draft.authorTitle.trim() || null,
+      authorBio: draft.authorBio.trim() || null,
+      category: draft.category.trim() || null,
       tags: splitMultiline(draft.tagsText),
       relatedProductSlugs: splitMultiline(draft.relatedProductSlugsText),
     },
@@ -275,9 +292,13 @@ export function ContentEditorModal({
       title: draft.title,
       slug: draft.slug,
       summary: draft.summary,
+      category: draft.category,
       body: draft.body,
       coverUrl: draft.coverUrl,
       coverAlt: draft.coverAlt,
+      authorName: draft.authorName,
+      authorTitle: draft.authorTitle,
+      authorBio: draft.authorBio,
       tagsText: draft.tagsText,
       relatedProductSlugsText: draft.relatedProductSlugsText,
       seoTitle: draft.seoTitle,
@@ -537,6 +558,8 @@ export function ContentEditorModal({
     />
   ) : null;
 
+  const isEnglishLocale = isEnglishEditorialLocale(activeLocale);
+
   const editorPanel = (
     <Space orientation="vertical" size="middle" style={{ width: '100%', minWidth: 0 }}>
       <Tabs
@@ -544,6 +567,7 @@ export function ContentEditorModal({
         onChange={handleSectionChange}
         items={[
           { key: 'content', label: '内容' },
+          { key: 'author', label: '作者' },
           { key: 'seo', label: 'SEO' },
         ]}
       />
@@ -565,6 +589,25 @@ export function ContentEditorModal({
             <Col span={24}>
               <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
                 <Input />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                label="内容分类"
+                name="category"
+                extra={isEnglishLocale ? '选填；可从内置分类选择，也可自行输入' : '选填；请自行输入该语言下的分类名称'}
+              >
+                {isEnglishLocale ? (
+                  <AutoComplete
+                    options={blogCategorySelectOptions}
+                    placeholder="例如 Technical Guide"
+                    filterOption={(input, option) => (
+                      String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())
+                    )}
+                  />
+                ) : (
+                  <Input placeholder="选填" />
+                )}
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -601,6 +644,25 @@ export function ContentEditorModal({
             <Col span={24}>
               <Form.Item label="封面 Alt" name="coverAlt">
                 <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
+        <div style={{ display: sectionTab === 'author' ? 'block' : 'none' }}>
+          <Row gutter={[16, 0]}>
+            <Col span={24}>
+              <Form.Item label="作者名称" name="authorName">
+                <Input placeholder="选填" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="作者职位" name="authorTitle">
+                <Input placeholder="选填" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item label="作者简介" name="authorBio">
+                <Input.TextArea rows={4} placeholder="选填" />
               </Form.Item>
             </Col>
           </Row>

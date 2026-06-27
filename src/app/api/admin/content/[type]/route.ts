@@ -54,6 +54,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     coverAlt: null,
     tags: category ? [category] : [],
     relatedProductSlugs: [],
+    authorName: null,
+    authorTitle: null,
+    authorBio: null,
+    category: null,
   };
 
   const [createdContent] = await db

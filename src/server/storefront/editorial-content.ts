@@ -6,6 +6,7 @@ import {
   type EditorialContentPayload,
 } from '@/lib/editorial-content';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
+import { normalizeSlug } from '@/lib/slug';
 import { db } from '@/server/db';
 import {
   editorialContentBoards,
@@ -33,6 +34,18 @@ function normalizePayload(payload: unknown): EditorialContentPayload {
     relatedProductSlugs: Array.isArray(value.relatedProductSlugs)
       ? value.relatedProductSlugs.filter((item): item is string => typeof item === 'string')
       : [],
+    authorName: typeof value.authorName === 'string' ? value.authorName : null,
+    authorTitle: typeof value.authorTitle === 'string' ? value.authorTitle : null,
+    authorBio: typeof value.authorBio === 'string' ? value.authorBio : null,
+    category: typeof value.category === 'string' ? value.category : null,
+  };
+}
+
+function buildAuthor(payload: EditorialContentPayload) {
+  return {
+    name: payload.authorName ?? null,
+    title: payload.authorTitle ?? null,
+    bio: payload.authorBio ?? null,
   };
 }
 
@@ -94,7 +107,7 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
     return {
       locale,
       boardKey,
-      items: [] as { id: string; title: string; summary: string | null; slug: string; publishedAt: string | null }[],
+      items: [] as { id: string; title: string; summary: string | null; slug: string; category: string | null; publishedAt: string | null }[],
     };
   }
 
@@ -122,11 +135,13 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
 
   const items = [...grouped.values()].map(({ content, translations }) => {
     const picked = pickTranslation(translations, locale)!;
+    const payload = normalizePayload(picked.payload);
     return {
       id: content.id,
       title: picked.title,
       summary: picked.summary,
       slug: picked.slug,
+      category: payload.category,
       publishedAt: content.publishedAt?.toISOString() ?? null,
     };
   });
@@ -134,29 +149,41 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
   return { locale, boardKey, items };
 }
 
-export async function getStorefrontBlogDetail(contentId: string, localeInput?: string | null) {
+export async function getStorefrontBlogDetailBySlug(slugInput: string, localeInput?: string | null) {
   const locale = normalizeLocale(localeInput);
+  const slug = normalizeSlug(slugInput);
+  if (!slug) return null;
 
-  const [content] = await db
-    .select()
-    .from(editorialContents)
+  const rows = await db
+    .select({
+      content: editorialContents,
+      translation: editorialContentTranslations,
+    })
+    .from(editorialContentTranslations)
+    .innerJoin(editorialContents, eq(editorialContents.id, editorialContentTranslations.contentId))
     .where(and(
-      eq(editorialContents.id, contentId),
+      eq(editorialContentTranslations.slug, slug),
+      eq(editorialContentTranslations.contentModule, 'editorial'),
       eq(editorialContents.status, 'published'),
       eq(editorialContents.contentModule, 'editorial'),
-    ))
-    .limit(1);
+    ));
 
-  if (!content) return null;
+  if (!rows.length) return null;
+
+  const preferred = rows.find((row) => row.translation.locale === locale)
+    ?? rows.find((row) => row.translation.locale.toLowerCase().startsWith('en'))
+    ?? rows[0];
+  if (!preferred) return null;
+
+  const content = preferred.content;
+  const contentId = content.id;
 
   const translations = await db
     .select()
     .from(editorialContentTranslations)
     .where(eq(editorialContentTranslations.contentId, contentId));
 
-  const picked = pickTranslation(translations, locale);
-  if (!picked) return null;
-
+  const picked = pickTranslation(translations, locale) ?? preferred.translation;
   const payload = normalizePayload(picked.payload);
   const boardKeys = await loadBoardKeys(contentId);
 
@@ -166,7 +193,9 @@ export async function getStorefrontBlogDetail(contentId: string, localeInput?: s
     summary: picked.summary,
     body: payload.body,
     slug: picked.slug,
+    category: payload.category,
     cover: payload.coverUrl ? { url: payload.coverUrl, alt: payload.coverAlt ?? picked.title } : null,
+    author: buildAuthor(payload),
     seo: {
       title: picked.seoTitle,
       description: picked.seoDescription,

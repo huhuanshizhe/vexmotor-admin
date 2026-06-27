@@ -125,14 +125,6 @@ components:
       schema:
         type: string
         description: 看板 key（如 faq、tech-faq、blog 类看板）
-    EditorialContentIdParam:
-      name: contentId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-        description: 博客内容 ID（editorial_contents.id）
   schemas:
     ErrorResponse:
       type: object
@@ -404,12 +396,16 @@ components:
             - 'null'
         slug:
           type: string
+        category:
+          type:
+            - string
+            - 'null'
         publishedAt:
           type:
             - string
             - 'null'
           format: date-time
-      required: [id, title, summary, slug, publishedAt]
+      required: [id, title, summary, slug, category, publishedAt]
       additionalProperties: false
     BlogListResponse:
       type: object
@@ -441,6 +437,10 @@ components:
           description: 博客正文 HTML
         slug:
           type: string
+        category:
+          type:
+            - string
+            - 'null'
         cover:
           type:
             - object
@@ -480,7 +480,23 @@ components:
           type: array
           items:
             type: string
-      required: [id, title, summary, body, slug, cover, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
+        author:
+          type: object
+          properties:
+            name:
+              type:
+                - string
+                - 'null'
+            title:
+              type:
+                - string
+                - 'null'
+            bio:
+              type:
+                - string
+                - 'null'
+          required: [name, title, bio]
+      required: [id, title, summary, body, slug, category, cover, author, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
       additionalProperties: false
     FeatureSelectionInput:
       type: object
@@ -1303,12 +1319,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BlogListResponse'
-  /api/front/blogs/{contentId}:
+  /api/front/blog/{slug}:
     get:
       tags: [Content]
-      summary: 获取博客详情（按内容 ID）
+      summary: 获取博客详情（按 slug）
       parameters:
-        - $ref: '#/components/parameters/EditorialContentIdParam'
+        - $ref: '#/components/parameters/ProductSlugParam'
         - $ref: '#/components/parameters/LocaleHeader'
         - $ref: '#/components/parameters/LocaleQueryParam'
       responses:

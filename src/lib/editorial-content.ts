@@ -35,6 +35,10 @@ export type EditorialContentPayload = {
   coverAlt: string | null;
   tags: string[];
   relatedProductSlugs: string[];
+  authorName: string | null;
+  authorTitle: string | null;
+  authorBio: string | null;
+  category: string | null;
 };
 
 /** 列表行：一条内容对应一行，不展开多语言 */
@@ -79,6 +83,17 @@ export type AdminEditorialContentTranslation = {
 export type AdminEditorialContentEntry = AdminEditorialContentTranslation;
 
 export const defaultEditorialContentBody = '<p></p>';
+
+export const defaultEditorialPayloadMeta = {
+  coverUrl: null,
+  coverAlt: null,
+  tags: [] as string[],
+  relatedProductSlugs: [] as string[],
+  authorName: null,
+  authorTitle: null,
+  authorBio: null,
+  category: null,
+} satisfies Omit<EditorialContentPayload, 'body'>;
 
 export function resolveContentId(item: Pick<AdminEditorialContentTranslation, 'contentId'>) {
   return item.contentId;

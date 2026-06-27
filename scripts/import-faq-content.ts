@@ -140,6 +140,10 @@ async function upsertEntry(entry: ImportEntry): Promise<'created' | 'updated'> {
     coverAlt: null,
     tags: entry.tags,
     relatedProductSlugs: entry.relatedProductSlugs,
+    authorName: null,
+    authorTitle: null,
+    authorBio: null,
+    category: null,
   };
 
   if (existing) {

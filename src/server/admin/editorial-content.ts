@@ -30,6 +30,10 @@ const payloadSchema = z.object({
   coverAlt: z.string().trim().nullable().optional().transform((value) => value || null),
   tags: z.array(z.string().trim().min(1)).default([]),
   relatedProductSlugs: z.array(z.string().trim().min(1)).default([]),
+  authorName: z.string().trim().nullable().optional().transform((value) => value?.trim() || null),
+  authorTitle: z.string().trim().nullable().optional().transform((value) => value?.trim() || null),
+  authorBio: z.string().trim().nullable().optional().transform((value) => value?.trim() || null),
+  category: z.string().trim().nullable().optional().transform((value) => value?.trim() || null),
 });
 
 const adminEditorialContentTranslationBaseSchema = z.object({
@@ -176,6 +180,10 @@ function normalizePayload(payload: EditorialContentPayload): EditorialContentPay
     coverAlt: normalizeText(payload.coverAlt),
     tags: payload.tags.map((value) => value.trim()).filter(Boolean),
     relatedProductSlugs: payload.relatedProductSlugs.map(normalizeSlug).filter(Boolean),
+    authorName: normalizeText(payload.authorName),
+    authorTitle: normalizeText(payload.authorTitle),
+    authorBio: normalizeText(payload.authorBio),
+    category: normalizeText(payload.category),
   };
 }
 

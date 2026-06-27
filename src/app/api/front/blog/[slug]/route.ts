@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getBlogCatalog, getBlogPostBySlug } from '@/server/content/blog';
-import { DEFAULT_LOCALE, normalizeLocale } from '@/lib/i18n';
+import { frontCorsHeaders } from '@/lib/front-cors';
+import { resolveFrontRequestLocale } from '@/lib/front-request-locale';
+import { getStorefrontBlogDetailBySlug } from '@/server/storefront/editorial-content';
 
-function corsHeaders() {
-  const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
-  return { 'Access-Control-Allow-Origin': origin };
-}
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await params;
+  const locale = resolveFrontRequestLocale(request);
+  const detail = await getStorefrontBlogDetailBySlug(slug, locale);
 
-export async function GET(request: NextRequest, context: { params: Promise<{ slug: string }> }) {
-  const { slug } = await context.params;
-  const locale = normalizeLocale(request.headers.get('x-vex-locale') ?? DEFAULT_LOCALE);
-  const catalog = await getBlogCatalog(locale);
-  const post = getBlogPostBySlug(catalog, slug);
-  if (!post) {
-    return NextResponse.json({ code: 'NOT_FOUND', message: 'Post not found' }, { status: 404, headers: corsHeaders() });
+  if (!detail) {
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Blog not found' }, { status: 404, headers: frontCorsHeaders() });
   }
-  return NextResponse.json(post, { headers: corsHeaders() });
+
+  return NextResponse.json(detail, { headers: frontCorsHeaders() });
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+  return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }

@@ -11,6 +11,7 @@ import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
 import {
   defaultEditorialContentBody,
+  defaultEditorialPayloadMeta,
   type AdminEditorialContentListItem,
   type AdminEditorialContentTranslation,
   type EditorialEntryStatus,
@@ -128,10 +129,7 @@ function buildEntryPayload(draft: LocaleDraft, locale: string, status: Editorial
     publishedAt: status === 'published' ? null : draft.publishedAt ? new Date(draft.publishedAt).toISOString() : null,
     payload: {
       body: draft.body.trim(),
-      coverUrl: null,
-      coverAlt: null,
-      tags: [],
-      relatedProductSlugs: [],
+      ...defaultEditorialPayloadMeta,
     },
   };
 }
