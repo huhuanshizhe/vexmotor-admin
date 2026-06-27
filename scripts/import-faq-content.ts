@@ -138,6 +138,7 @@ async function upsertEntry(entry: ImportEntry): Promise<'created' | 'updated'> {
     body: entry.body,
     coverUrl: null,
     coverAlt: null,
+    coverStyle: null,
     tags: entry.tags,
     relatedProductSlugs: entry.relatedProductSlugs,
     authorName: null,

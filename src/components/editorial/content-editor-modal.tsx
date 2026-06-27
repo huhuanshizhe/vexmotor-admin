@@ -45,6 +45,7 @@ type LocaleFormValues = {
 
 type LocaleDraft = LocaleFormValues & {
   entryId?: string;
+  coverStyle: number | null;
   publishedAt: string;
   persisted: boolean;
   status: EditorialEntryStatus;
@@ -84,6 +85,7 @@ function createEmptyDraft(): LocaleDraft {
     authorName: '',
     authorTitle: '',
     authorBio: '',
+    coverStyle: null,
     publishedAt: '',
     tagsText: '',
     relatedProductSlugsText: '',
@@ -107,6 +109,7 @@ function entryToDraft(entry: AdminEditorialContentTranslation): LocaleDraft {
     authorName: entry.payload.authorName ?? '',
     authorTitle: entry.payload.authorTitle ?? '',
     authorBio: entry.payload.authorBio ?? '',
+    coverStyle: entry.payload.coverStyle ?? null,
     publishedAt: toLocalDateTimeValue(entry.publishedAt),
     tagsText: entry.payload.tags.join('\n'),
     relatedProductSlugsText: entry.payload.relatedProductSlugs.join('\n'),
@@ -201,6 +204,7 @@ function buildEntryPayload(draft: LocaleDraft, locale: string, status: Editorial
       body: draft.body.trim(),
       coverUrl: draft.coverUrl.trim() || null,
       coverAlt: draft.coverAlt.trim() || null,
+      coverStyle: draft.coverStyle,
       authorName: draft.authorName.trim() || null,
       authorTitle: draft.authorTitle.trim() || null,
       authorBio: draft.authorBio.trim() || null,

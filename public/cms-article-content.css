@@ -96,3 +96,66 @@
   background: #f9fafb;
   font-weight: 600;
 }
+
+/* Blog blocks (imported from stepmotech structured sections) */
+.cms-article-content .blog-article-list {
+  margin: 0 0 1em;
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+}
+
+.cms-article-content .blog-code-block {
+  margin: 1.25em 0;
+  padding: 18px;
+  border-radius: 16px;
+  background: #0f2137;
+  color: #eef4fb;
+  overflow-x: auto;
+}
+
+.cms-article-content .blog-code-block code {
+  background: transparent;
+  border-radius: 0;
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  padding: 0;
+}
+
+.cms-article-content .blog-table-wrap {
+  display: grid;
+  gap: 10px;
+  margin: 1.25em 0;
+}
+
+.cms-article-content .blog-table-caption {
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: 0;
+}
+
+.cms-article-content .blog-article-table {
+  border: 1px solid rgba(16, 41, 66, 0.1);
+  border-collapse: collapse;
+  border-radius: 16px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.cms-article-content .blog-article-table th,
+.cms-article-content .blog-article-table td {
+  border-bottom: 1px solid rgba(16, 41, 66, 0.07);
+  font-size: 0.9rem;
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cms-article-content .blog-article-table th {
+  background: rgba(16, 41, 66, 0.05);
+  color: #153858;
+  font-weight: 700;
+}

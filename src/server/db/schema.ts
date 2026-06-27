@@ -996,6 +996,7 @@ export const editorialContentTranslations = pgTable(
       body: '',
       coverUrl: null,
       coverAlt: null,
+      coverStyle: null,
       tags: [],
       relatedProductSlugs: [],
       authorName: null,

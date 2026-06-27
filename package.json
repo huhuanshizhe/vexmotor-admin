@@ -20,7 +20,8 @@
     "db:migrate-admins": "tsx scripts/migrate-admin-users.ts",
     "db:import-categories": "tsx scripts/import-categories.ts",
     "db:import-category-images": "tsx scripts/import-category-images.ts",
-    "db:import-faq-content": "tsx scripts/import-faq-content.ts"
+    "db:import-faq-content": "tsx scripts/import-faq-content.ts",
+    "db:import-blog-content": "tsx scripts/import-blog-content.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

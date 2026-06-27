@@ -12,6 +12,7 @@ import {
   type AdminEditorialContentTranslation,
   type EditorialContentModule,
   type EditorialContentPayload,
+  defaultEditorialPayloadMeta,
   editorialContentModules,
   editorialEntryStatuses,
   resolveContentModuleByBoard,
@@ -28,6 +29,7 @@ const payloadSchema = z.object({
     return normalized ? normalized : null;
   }).refine((value) => !value || /^https?:\/\//i.test(value), { message: 'Invalid cover URL' }),
   coverAlt: z.string().trim().nullable().optional().transform((value) => value || null),
+  coverStyle: z.number().int().min(1).max(10).nullable().optional().transform((value) => value ?? null),
   tags: z.array(z.string().trim().min(1)).default([]),
   relatedProductSlugs: z.array(z.string().trim().min(1)).default([]),
   authorName: z.string().trim().nullable().optional().transform((value) => value?.trim() || null),
@@ -173,11 +175,19 @@ function normalizeDateValue(value: Date | string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function normalizeCoverStyle(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 10) {
+    return null;
+  }
+  return value;
+}
+
 function normalizePayload(payload: EditorialContentPayload): EditorialContentPayload {
   return {
     body: payload.body.trim(),
     coverUrl: normalizeText(payload.coverUrl),
     coverAlt: normalizeText(payload.coverAlt),
+    coverStyle: normalizeCoverStyle(payload.coverStyle ?? null),
     tags: payload.tags.map((value) => value.trim()).filter(Boolean),
     relatedProductSlugs: payload.relatedProductSlugs.map(normalizeSlug).filter(Boolean),
     authorName: normalizeText(payload.authorName),
@@ -187,9 +197,18 @@ function normalizePayload(payload: EditorialContentPayload): EditorialContentPay
   };
 }
 
+function mergePayload(payload: Partial<EditorialContentPayload> & Pick<EditorialContentPayload, 'body'>): EditorialContentPayload {
+  const { body, ...rest } = payload;
+  return normalizePayload({
+    ...defaultEditorialPayloadMeta,
+    ...rest,
+    body,
+  });
+}
+
 function sanitizeTranslationInput(input: TranslationCreateInput) {
   const normalizedTitle = input.title.trim();
-  const normalizedPayload = normalizePayload(input.payload);
+  const normalizedPayload = mergePayload(input.payload);
   const boardKeys = resolveBoardKeys(input);
   const boardKey = boardKeys[0] ?? 'content';
   const contentModule = input.contentModule ?? resolveContentModuleByBoard(boardKey);
@@ -248,7 +267,7 @@ function normalizeTranslationRow(
     seoTitle: translation.seoTitle,
     seoDescription: translation.seoDescription,
     publishedAt: content.publishedAt?.toISOString() ?? null,
-    payload: normalizePayload(payload.data),
+    payload: mergePayload(payload.data),
     createdAt: translation.createdAt.toISOString(),
     updatedAt: Math.max(content.updatedAt.getTime(), translation.updatedAt.getTime()) === translation.updatedAt.getTime()
       ? translation.updatedAt.toISOString()

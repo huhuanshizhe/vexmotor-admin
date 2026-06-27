@@ -24,12 +24,20 @@ function pickTranslation(rows: TranslationRow[], locale: Locale) {
   return english ?? rows[0] ?? null;
 }
 
+function normalizeCoverStyle(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 10) {
+    return null;
+  }
+  return value;
+}
+
 function normalizePayload(payload: unknown): EditorialContentPayload {
   const value = (payload ?? {}) as Partial<EditorialContentPayload>;
   return {
     body: typeof value.body === 'string' ? value.body : '',
     coverUrl: typeof value.coverUrl === 'string' ? value.coverUrl : null,
     coverAlt: typeof value.coverAlt === 'string' ? value.coverAlt : null,
+    coverStyle: normalizeCoverStyle(value.coverStyle),
     tags: Array.isArray(value.tags) ? value.tags.filter((item): item is string => typeof item === 'string') : [],
     relatedProductSlugs: Array.isArray(value.relatedProductSlugs)
       ? value.relatedProductSlugs.filter((item): item is string => typeof item === 'string')
@@ -107,7 +115,7 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
     return {
       locale,
       boardKey,
-      items: [] as { id: string; title: string; summary: string | null; slug: string; category: string | null; publishedAt: string | null }[],
+      items: [] as { id: string; title: string; summary: string | null; slug: string; category: string | null; coverStyle: number | null; publishedAt: string | null }[],
     };
   }
 
@@ -142,6 +150,7 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
       summary: picked.summary,
       slug: picked.slug,
       category: payload.category,
+      coverStyle: payload.coverStyle,
       publishedAt: content.publishedAt?.toISOString() ?? null,
     };
   });
@@ -194,6 +203,7 @@ export async function getStorefrontBlogDetailBySlug(slugInput: string, localeInp
     body: payload.body,
     slug: picked.slug,
     category: payload.category,
+    coverStyle: payload.coverStyle,
     cover: payload.coverUrl ? { url: payload.coverUrl, alt: payload.coverAlt ?? picked.title } : null,
     author: buildAuthor(payload),
     seo: {

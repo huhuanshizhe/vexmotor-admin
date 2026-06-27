@@ -400,12 +400,18 @@ components:
           type:
             - string
             - 'null'
+        coverStyle:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 10
         publishedAt:
           type:
             - string
             - 'null'
           format: date-time
-      required: [id, title, summary, slug, category, publishedAt]
+      required: [id, title, summary, slug, category, coverStyle, publishedAt]
       additionalProperties: false
     BlogListResponse:
       type: object
@@ -441,6 +447,12 @@ components:
           type:
             - string
             - 'null'
+        coverStyle:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 10
         cover:
           type:
             - object
@@ -496,7 +508,7 @@ components:
                 - string
                 - 'null'
           required: [name, title, bio]
-      required: [id, title, summary, body, slug, category, cover, author, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
+      required: [id, title, summary, body, slug, category, coverStyle, cover, author, seo, publishedAt, boardKeys, tags, relatedProductSlugs]
       additionalProperties: false
     FeatureSelectionInput:
       type: object
