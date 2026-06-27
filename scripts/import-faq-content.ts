@@ -3,6 +3,11 @@ import '@/lib/env';
 import { and, eq, sql } from 'drizzle-orm';
 
 import {
+  buildCodeBlockHtml,
+  buildListHtml,
+  buildParagraphHtml,
+} from '@/lib/editorial-html-blocks';
+import {
   glossaryTerms,
   storefrontFaqs,
   techFaqEntries,
@@ -29,20 +34,12 @@ type ImportEntry = {
   relatedProductSlugs: string[];
 };
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 function paragraphsToHtml(paragraphs: string[]) {
-  return paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
+  return paragraphs.map((paragraph) => buildParagraphHtml(paragraph)).join('');
 }
 
 function buildGeneralFaqBody(answer: string) {
-  return `<p>${escapeHtml(answer)}</p>`;
+  return buildParagraphHtml(answer);
 }
 
 function buildTechFaqBody(entry: TechFaqEntry) {
@@ -51,16 +48,16 @@ function buildTechFaqBody(entry: TechFaqEntry) {
     parts.push(paragraphsToHtml(entry.answer.paragraphs));
   }
   if (entry.answer.bullets?.length) {
-    parts.push(`<ul>${entry.answer.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`);
+    parts.push(buildListHtml(entry.answer.bullets));
   }
   if (entry.answer.formula) {
     parts.push(
-      `<p><strong>${escapeHtml(entry.answer.formula.label)}</strong></p><pre><code>${escapeHtml(entry.answer.formula.expression)}</code></pre>`,
+      buildCodeBlockHtml(entry.answer.formula.expression, entry.answer.formula.label),
     );
   }
   if (entry.answer.codeSample) {
     parts.push(
-      `<p><strong>${escapeHtml(entry.answer.codeSample.label)}</strong></p><pre><code>${escapeHtml(entry.answer.codeSample.code)}</code></pre>`,
+      buildCodeBlockHtml(entry.answer.codeSample.code, entry.answer.codeSample.label),
     );
   }
   return parts.join('') || '<p></p>';

@@ -46,13 +46,13 @@ type ImportEntry = {
   authorBio: string | null;
 };
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import {
+  buildCodeBlockHtml,
+  buildListHtml,
+  buildParagraphHtml,
+  buildTableHtml,
+  escapeHtml,
+} from '@/lib/editorial-html-blocks';
 
 function coverStyleFromCategory(category: BlogCategory): number {
   return COVER_STYLE_BY_CATEGORY[category] ?? 1;
@@ -66,28 +66,23 @@ function parseSeedPublishedAt(value: string) {
 
 function buildBlockHtml(block: BlogBlock) {
   if (block.type === 'paragraph') {
-    return `<p>${escapeHtml(block.text)}</p>`;
+    return buildParagraphHtml(block.text);
   }
 
   if (block.type === 'list') {
-    return `<ul class="blog-article-list">${block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    return buildListHtml(block.items);
   }
 
   if (block.type === 'code') {
-    return `<pre class="blog-code-block"><code>${escapeHtml(block.code)}</code></pre>`;
+    return buildCodeBlockHtml(block.code);
   }
 
   if (block.type === 'table') {
-    const header = block.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join('');
-    const rows = block.rows
-      .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`)
-      .join('');
-    return [
-      `<div class="blog-table-wrap">`,
-      `<p class="blog-table-caption">${escapeHtml(block.caption)}</p>`,
-      `<table class="blog-article-table"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>`,
-      `</div>`,
-    ].join('');
+    return buildTableHtml({
+      caption: block.caption,
+      columns: block.columns,
+      rows: block.rows,
+    });
   }
 
   return '';
