@@ -1,6 +1,6 @@
 /**
- * Resend-based email sender with graceful degradation.
- * When RESEND_API_KEY is not configured, emails are logged instead of sent.
+ * Mock email sender — logs payloads instead of sending.
+ * Wire a real provider here when outbound email is needed.
  */
 
 type SendEmailInput = {
@@ -12,57 +12,19 @@ type SendEmailInput = {
 
 type SendResult = { ok: true; id?: string } | { ok: false; error: string };
 
-let resendInstance: InstanceType<typeof import('resend').Resend> | null = null;
-
-async function getResendClient() {
-  if (resendInstance) return resendInstance;
-
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    const { Resend } = await import('resend');
-    resendInstance = new Resend(apiKey);
-    return resendInstance;
-  } catch {
-    return null;
-  }
-}
-
 function getFromAddress(): string {
   return process.env.EMAIL_FROM ?? 'STEPMOTECH <support@stepmotech.online>';
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
-  const client = await getResendClient();
+  const recipients = Array.isArray(input.to) ? input.to.join(', ') : input.to;
 
-  if (!client) {
-    console.log('[email] Resend not configured — email logged instead of sent');
-    console.log(`[email] To: ${Array.isArray(input.to) ? input.to.join(', ') : input.to}`);
-    console.log(`[email] Subject: ${input.subject}`);
-    return { ok: true };
-  }
+  console.log('[email:mock] Outbound email skipped (mock mode)');
+  console.log(`[email:mock] From: ${getFromAddress()}`);
+  console.log(`[email:mock] To: ${recipients}`);
+  console.log(`[email:mock] Subject: ${input.subject}`);
 
-  try {
-    const result = await client.emails.send({
-      from: getFromAddress(),
-      to: Array.isArray(input.to) ? input.to : [input.to],
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-    });
-
-    if (result.error) {
-      console.error('[email] Resend API error:', result.error);
-      return { ok: false, error: result.error.message };
-    }
-
-    return { ok: true, id: result.data?.id };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('[email] Failed to send:', message);
-    return { ok: false, error: message };
-  }
+  return { ok: true, id: `mock-${Date.now()}` };
 }
 
 /* ─── Templated emails ─────────────────────────────────────── */

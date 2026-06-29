@@ -17,13 +17,7 @@ import {
 
 import { getStorefrontProductFeatureOptions, getStorefrontProductFeatures } from '@/server/admin/product-features';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
-import {
-  footerContactBlocks,
-  footerCopyright,
-  footerPaymentMethods,
-  storefrontNavigationBase,
-} from '@/server/storefront/site-shell';
-import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
+import type { HomeDynamicData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
 import { brandNameSql, brandSlugSql } from '@/server/brands/resolve-brand-translation';
 import {
   DEFAULT_PRODUCT_LOCALE,
@@ -55,40 +49,13 @@ function catalogLocale(locale?: string | null): Locale {
   return normalizeLocale(locale);
 }
 
-const defaultHomeData: HomeData = {
+const emptyHomeDynamicData: HomeDynamicData = {
   heroBanners: [],
   featuredCategories: [],
   hotSale: [],
   newRelease: [],
-  featuredIndustries: [],
-  testimonials: [],
-  trustHighlights: [
-    { title: 'Free Shipping', description: 'Free shipping and duties on orders $299+.' },
-    { title: 'Easy Returns', description: 'Fast returns processed within 30 days.' },
-    { title: 'Secure Payments', description: 'Multiple secure payment options available.' },
-    { title: 'Reliable Support', description: 'Quick support during business hours.' },
-  ],
-  categoryGroups: [],
-  sellingPoints: [],
   featuredShelves: [],
   mostViewedProducts: [],
-  newsletter: {
-    title: 'Subscribe To Our Newsletter!!',
-    description: 'Be Aware of The Latest News, Special Offers and Discounts',
-    placeholder: 'Enter Your E-mail Address...',
-    buttonLabel: 'SUBSCRIBE',
-  },
-  brandStory: {
-    title: 'Our Promise',
-    description: 'Factory-direct motion components with transparent specs, stable quality control, and engineering-first support.',
-  },
-  footerSections: [
-    { id: 'catalog', title: 'Catalog', links: [{ label: 'Products', href: '/products' }, { label: 'Categories', href: '/products' }] },
-    { id: 'support', title: 'Support', links: [{ label: 'FAQ', href: '/faq' }, { label: 'Contact', href: '/contact' }] },
-  ],
-  footerContact: footerContactBlocks,
-  paymentMethods: footerPaymentMethods,
-  copyright: footerCopyright,
 };
 
 function emptyProductListResult(page: number, pageSize: number): ProductListResult {
@@ -156,7 +123,7 @@ function toImage(row: {
   };
 }
 
-export async function getHomeData(localeInput?: string | null): Promise<HomeData> {
+export async function getHomeData(localeInput?: string | null): Promise<HomeDynamicData> {
   const locale = catalogLocale(localeInput);
   try {
     const [featuredProducts, categoryRows] = await Promise.all([
@@ -231,7 +198,7 @@ export async function getHomeData(localeInput?: string | null): Promise<HomeData
     }
 
     if (!dbProducts.length) {
-      return defaultHomeData;
+      return emptyHomeDynamicData;
     }
 
     const dynamicCards = dbProducts.map((item) => ({
@@ -257,7 +224,7 @@ export async function getHomeData(localeInput?: string | null): Promise<HomeData
       return Array.from({ length }, (_, index) => items[(start + index) % items.length]!);
     }
 
-    const dynamicShelves: HomeData['featuredShelves'] = [
+    const dynamicShelves: HomeDynamicData['featuredShelves'] = [
       {
         id: 'bestseller',
         title: 'Bestseller',
@@ -291,14 +258,12 @@ export async function getHomeData(localeInput?: string | null): Promise<HomeData
       homepageBlocks.map((b) => [b.blockKey, b.content as Record<string, unknown>]),
     );
 
-    const seedBase = defaultHomeData;
     const heroBanners =
       Array.isArray(blockOverrides.heroBanners) && (blockOverrides.heroBanners as Array<{ id?: unknown }>).length > 0
-        ? (blockOverrides.heroBanners as typeof seedBase.heroBanners)
-        : seedBase.heroBanners;
+        ? (blockOverrides.heroBanners as HomeDynamicData['heroBanners'])
+        : emptyHomeDynamicData.heroBanners;
 
     return {
-      ...seedBase,
       heroBanners,
       featuredCategories: categoryRows
         .filter((item) => (item.productCount ?? 0) > 0)
@@ -310,16 +275,8 @@ export async function getHomeData(localeInput?: string | null): Promise<HomeData
       mostViewedProducts: dynamicCards.slice(0, 4),
     };
   } catch {
-    return defaultHomeData;
+    return emptyHomeDynamicData;
   }
-}
-
-export async function getNavigationData(localeInput?: string | null): Promise<NavigationData> {
-  const items = await getCategories(localeInput);
-  return {
-    ...storefrontNavigationBase,
-    categories: items.slice(0, 6),
-  };
 }
 
 export async function getCategories(localeInput?: string | null): Promise<StorefrontCategory[]> {
@@ -341,10 +298,11 @@ export async function getCategories(localeInput?: string | null): Promise<Storef
         .where(eq(categories.status, 'active'))
         .orderBy(asc(categories.sortOrder), asc(categories.id)),
       db
-        .select({ categoryId: products.defaultCategoryId, total: count() })
+        .select({ categoryId: productCategories.categoryId, total: count() })
         .from(products)
-        .where(and(eq(products.status, 'active'), drizzleSql`${products.defaultCategoryId} is not null`))
-        .groupBy(products.defaultCategoryId),
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .where(eq(products.status, 'active'))
+        .groupBy(productCategories.categoryId),
     ]);
     if (!rows.length) {
       return [];

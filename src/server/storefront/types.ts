@@ -136,20 +136,6 @@ export type ProductListResult = {
   facets: Array<{ key: string; label: string; options: Array<{ label: string; value: string; count: number }> }>;
 };
 
-export type StorefrontLink = {
-  label: string;
-  href: string;
-  external?: boolean;
-  children?: StorefrontLink[];
-};
-
-export type StorefrontUtilityLink = {
-  label: string;
-  href: string;
-  external?: boolean;
-  variant?: 'default' | 'pill' | 'pill-secondary';
-};
-
 export type StorefrontServiceHighlight = {
   title: string;
   description: string;
@@ -172,36 +158,6 @@ export type FooterContactBlock = {
   lines: string[];
   href?: string;
   external?: boolean;
-};
-
-export type NavigationData = {
-  utilityLinks: StorefrontUtilityLink[];
-  mainLinks: StorefrontLink[];
-  categories: StorefrontCategory[];
-};
-
-export type SupportPageSection = {
-  title: string;
-  paragraphs?: string[];
-  bullets?: string[];
-};
-
-export type SupportPage = {
-  slug: string;
-  title: string;
-  eyebrow: string;
-  description: string;
-  primaryAction?: {
-    label: string;
-    href: string;
-    external?: boolean;
-  };
-  secondaryAction?: {
-    label: string;
-    href: string;
-    external?: boolean;
-  };
-  sections: SupportPageSection[];
 };
 
 export type HomeCategoryGroup = {
@@ -266,4 +222,14 @@ export type HomeData = {
   footerContact: FooterContactBlock[];
   paymentMethods: string[];
   copyright: string;
+};
+
+/** Database-backed homepage fields exposed via /api/front/home. */
+export type HomeDynamicData = {
+  heroBanners?: HomeData['heroBanners'];
+  featuredCategories: StorefrontCategory[];
+  hotSale: StorefrontProductCard[];
+  newRelease: StorefrontProductCard[];
+  featuredShelves: HomeProductShelf[];
+  mostViewedProducts: StorefrontProductCard[];
 };

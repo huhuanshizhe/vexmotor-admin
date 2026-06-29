@@ -46,7 +46,6 @@
     "proxy-agent": "^6.5.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "resend": "^6.12.4",
     "stripe": "^17.7.0",
     "swagger-ui-react": "^5.32.6",
     "tinymce": "^8.6.0",
