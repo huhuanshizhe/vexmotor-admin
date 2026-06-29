@@ -21,7 +21,6 @@ import {
   footerContactBlocks,
   footerCopyright,
   footerPaymentMethods,
-  storefrontNavigationBase,
 } from '@/server/storefront/site-shell';
 import type { HomeData, NavigationData, ProductListResult, ProductListSort, StorefrontCategory, StorefrontCompatibleGroup, StorefrontImage, StorefrontProductCard, StorefrontProductDetail } from './types';
 import { brandNameSql, brandSlugSql } from '@/server/brands/resolve-brand-translation';
@@ -317,7 +316,8 @@ export async function getHomeData(localeInput?: string | null): Promise<HomeData
 export async function getNavigationData(localeInput?: string | null): Promise<NavigationData> {
   const items = await getCategories(localeInput);
   return {
-    ...storefrontNavigationBase,
+    utilityLinks: [],
+    mainLinks: [],
     categories: items.slice(0, 6),
   };
 }

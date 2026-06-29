@@ -24,6 +24,7 @@
     "db:import-products": "tsx scripts/import-products.ts",
     "db:import-single-product": "tsx scripts/import-single-product.ts",
     "db:translate-product-locales": "tsx scripts/translate-product-locales.ts",
+    "db:translate-all-locales": "tsx scripts/translate-all-locales.ts",
     "db:delete-product-by-spu": "tsx scripts/delete-product-by-spu.ts",
     "db:import-product-images": "tsx scripts/import-product-images.ts"
   },
