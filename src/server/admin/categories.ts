@@ -17,9 +17,11 @@ import {
   categoryStatuses,
   compareCategoryBySortAndName,
 } from '@/lib/category-content';
+import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { db } from '@/server/db';
 import { categories, categoryTranslations, productCategories, products } from '@/server/db/schema';
 import { resolveSlugForSave } from '@/lib/slug';
+import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
 import { DEFAULT_CATEGORY_LOCALE, categoryNameSql, normalizeCategorySlug } from '@/server/categories/resolve-category-translation';
 
 const payloadSchema = z.object({
@@ -116,17 +118,6 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   };
 }
 
-function pickPrimaryTranslation(translations: TranslationRow[]) {
-  if (!translations.length) return null;
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
-}
-
 function normalizeTranslationRow(category: CategoryRow, translation: TranslationRow): AdminCategoryTranslation | null {
   const payload = payloadSchema.safeParse(translation.payload ?? { tags: [] });
   if (!payload.success) return null;
@@ -219,8 +210,9 @@ function toListItem(
   translations: TranslationRow[],
   productCount: number,
   hasChildren: boolean,
+  displayLocale: string,
 ): AdminCategoryListItem | null {
-  const primary = pickPrimaryTranslation(translations);
+  const primary = pickTranslationForDisplay(translations, displayLocale);
   if (!primary) return null;
 
   return {
@@ -308,12 +300,15 @@ export async function searchAdminCategoryTreeByName(keyword: string): Promise<Ad
     .from(categories);
 
   const categoryMap = new Map(allCategoryRows.map((row) => [row.id, row]));
-  const translationMap = await loadTranslationsByCategoryIds(allCategoryRows.map((row) => row.id));
-  const productCounts = await loadProductCounts(matchedIds);
-  const hasChildrenFlags = await loadHasChildrenFlags(matchedIds);
+  const [translationMap, productCounts, hasChildrenFlags, displayLocale] = await Promise.all([
+    loadTranslationsByCategoryIds(allCategoryRows.map((row) => row.id)),
+    loadProductCounts(matchedIds),
+    loadHasChildrenFlags(matchedIds),
+    getDefaultSiteLanguageCode(),
+  ]);
 
   function resolveName(categoryId: string) {
-    const primary = pickPrimaryTranslation(translationMap.get(categoryId) ?? []);
+    const primary = pickTranslationForDisplay(translationMap.get(categoryId) ?? [], displayLocale);
     return primary?.name ?? categoryId;
   }
 
@@ -416,18 +411,21 @@ export async function getAdminCategoriesPaginated(
 
   const total = Number(totalRow?.value ?? 0);
   const offset = (page - 1) * pageSize;
+  const displayLocale = await getDefaultSiteLanguageCode();
 
   const categoryRows = await db
     .select()
     .from(categories)
     .where(whereClause)
-    .orderBy(asc(categories.sortOrder), asc(categoryNameSql(categories.id)))
+    .orderBy(asc(categories.sortOrder), asc(categoryNameSql(categories.id, displayLocale)))
     .limit(pageSize)
     .offset(offset);
 
-  const translationMap = await loadTranslationsByCategoryIds(categoryRows.map((row) => row.id));
-  const productCounts = await loadProductCounts(categoryRows.map((row) => row.id));
-  const hasChildrenFlags = await loadHasChildrenFlags(categoryRows.map((row) => row.id));
+  const [translationMap, productCounts, hasChildrenFlags] = await Promise.all([
+    loadTranslationsByCategoryIds(categoryRows.map((row) => row.id)),
+    loadProductCounts(categoryRows.map((row) => row.id)),
+    loadHasChildrenFlags(categoryRows.map((row) => row.id)),
+  ]);
 
   const items = categoryRows
     .map((category) => toListItem(
@@ -435,6 +433,7 @@ export async function getAdminCategoriesPaginated(
       translationMap.get(category.id) ?? [],
       productCounts.get(category.id) ?? 0,
       hasChildrenFlags.get(category.id) ?? false,
+      displayLocale,
     ))
     .filter((item): item is AdminCategoryListItem => Boolean(item));
 
@@ -443,12 +442,13 @@ export async function getAdminCategoriesPaginated(
 
 export async function getAdminCategoryTreeLevel(parentId: string | null): Promise<AdminCategoryTreeNode[]> {
   const whereClause = parentId ? eq(categories.parentId, parentId) : isNull(categories.parentId);
+  const displayLocale = await getDefaultSiteLanguageCode();
 
   const categoryRows = await db
     .select()
     .from(categories)
     .where(whereClause)
-    .orderBy(asc(categories.sortOrder), asc(categoryNameSql(categories.id)));
+    .orderBy(asc(categories.sortOrder), asc(categoryNameSql(categories.id, displayLocale)));
 
   if (!categoryRows.length) return [];
 
@@ -461,7 +461,7 @@ export async function getAdminCategoryTreeLevel(parentId: string | null): Promis
 
   return categoryRows
     .map((category) => {
-      const primary = pickPrimaryTranslation(translationMap.get(category.id) ?? []);
+      const primary = pickTranslationForDisplay(translationMap.get(category.id) ?? [], displayLocale);
       if (!primary) return null;
       return {
         id: category.id,
@@ -478,16 +478,17 @@ export async function getAdminCategoryTreeLevel(parentId: string | null): Promis
 }
 
 export async function getAdminCategoryTree(): Promise<AdminCategoryTreeNode[]> {
+  const displayLocale = await getDefaultSiteLanguageCode();
   const categoryRows = await db
     .select()
     .from(categories)
-    .orderBy(asc(categories.sortOrder), asc(categoryNameSql(categories.id)));
+    .orderBy(asc(categories.sortOrder), asc(categoryNameSql(categories.id, displayLocale)));
 
   const translationMap = await loadTranslationsByCategoryIds(categoryRows.map((row) => row.id));
   const productCounts = await loadProductCounts(categoryRows.map((row) => row.id));
   const flat = categoryRows
     .map((category) => {
-      const primary = pickPrimaryTranslation(translationMap.get(category.id) ?? []);
+      const primary = pickTranslationForDisplay(translationMap.get(category.id) ?? [], displayLocale);
       if (!primary) return null;
       return {
         id: category.id,
@@ -543,13 +544,17 @@ export async function getAdminCategoryListItem(categoryId: string) {
     .where(eq(categoryTranslations.categoryId, categoryId))
     .orderBy(asc(categoryTranslations.locale));
 
-  const productCounts = await loadProductCounts([categoryId]);
-  const hasChildrenFlags = await loadHasChildrenFlags([categoryId]);
+  const [productCounts, hasChildrenFlags, displayLocale] = await Promise.all([
+    loadProductCounts([categoryId]),
+    loadHasChildrenFlags([categoryId]),
+    getDefaultSiteLanguageCode(),
+  ]);
   return toListItem(
     category,
     translations,
     productCounts.get(categoryId) ?? 0,
     hasChildrenFlags.get(categoryId) ?? false,
+    displayLocale,
   );
 }
 

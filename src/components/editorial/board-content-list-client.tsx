@@ -428,7 +428,7 @@ export function BoardContentListClient({
 
   const tabItems = boards.map((board) => ({
     key: board.key,
-    label: board.title,
+    label: `${board.title} (${board.key})`,
     children: activeBoardKey === board.key ? renderBoardPanel(board.key) : null,
   }));
 

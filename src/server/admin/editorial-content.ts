@@ -18,9 +18,11 @@ import {
   resolveContentModuleByBoard,
 } from '@/lib/editorial-content';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
+import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { extractSummaryFromHtmlBody } from '@/lib/editorial-summary';
 import { db } from '@/server/db';
 import { editorialContentBoards, editorialContentTranslations, editorialContents } from '@/server/db/schema';
+import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
 
 const payloadSchema = z.object({
   body: z.string().trim().refine(hasMeaningfulHtmlBody, { message: 'Body is required' }),
@@ -265,24 +267,14 @@ function normalizeTranslationRow(
   };
 }
 
-function pickPrimaryTranslation(translations: TranslationRow[]) {
-  if (!translations.length) return null;
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
-}
-
 function toListItem(
   content: ContentRow,
   translations: TranslationRow[],
+  displayLocale: string,
   boardKeys?: string[],
 ): AdminEditorialContentListItem | null {
   if (content.contentType !== 'content') return null;
-  const primary = pickPrimaryTranslation(translations);
+  const primary = pickTranslationForDisplay(translations, displayLocale);
   if (!primary) return null;
 
   const resolvedBoardKeys = boardKeys?.length ? boardKeys : [normalizeBoardKey(content.boardKey)];
@@ -475,13 +467,17 @@ export async function getAdminEditorialContentListPaginated(
     .limit(pageSize)
     .offset(offset);
 
-  const translationMap = await loadTranslationsByContentIds(contentRows.map((row) => row.id));
-  const boardKeysMap = await loadBoardKeysByContentIds(contentRows.map((row) => row.id));
+  const [translationMap, boardKeysMap, displayLocale] = await Promise.all([
+    loadTranslationsByContentIds(contentRows.map((row) => row.id)),
+    loadBoardKeysByContentIds(contentRows.map((row) => row.id)),
+    getDefaultSiteLanguageCode(),
+  ]);
 
   const items = contentRows
     .map((content) => toListItem(
       content,
       translationMap.get(content.id) ?? [],
+      displayLocale,
       boardKeysMap.get(content.id),
     ))
     .filter((item): item is AdminEditorialContentListItem => Boolean(item))
@@ -519,8 +515,11 @@ export async function getAdminEditorialContentListItem(contentId: string) {
     .where(eq(editorialContentTranslations.contentId, contentId))
     .orderBy(asc(editorialContentTranslations.locale));
 
-  const boardKeysMap = await loadBoardKeysByContentIds([contentId]);
-  return toListItem(content, translations, boardKeysMap.get(contentId));
+  const [boardKeysMap, displayLocale] = await Promise.all([
+    loadBoardKeysByContentIds([contentId]),
+    getDefaultSiteLanguageCode(),
+  ]);
+  return toListItem(content, translations, displayLocale, boardKeysMap.get(contentId));
 }
 
 export async function getAdminEditorialContentTranslations(contentId: string) {
@@ -844,8 +843,11 @@ export async function updateAdminEditorialContent(contentId: string, input: Cont
     .from(editorialContentTranslations)
     .where(eq(editorialContentTranslations.contentId, contentId));
 
-  const boardKeysMap = await loadBoardKeysByContentIds([contentId]);
-  return toListItem(updated, translations, boardKeysMap.get(contentId));
+  const [boardKeysMap, displayLocale] = await Promise.all([
+    loadBoardKeysByContentIds([contentId]),
+    getDefaultSiteLanguageCode(),
+  ]);
+  return toListItem(updated, translations, displayLocale, boardKeysMap.get(contentId));
 }
 
 export async function deleteAdminEditorialContent(contentId: string) {

@@ -18,6 +18,7 @@ import {
   formatProductFeatureValueCore,
   formatProductFeatureValueDisplay,
 } from '@/lib/product-feature-content';
+import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { mergeUniqueSortedTextOptions } from '@/lib/sort-locale-text';
 import {
   DEFAULT_FEATURE_DEFINITION_LOCALE,
@@ -25,6 +26,7 @@ import {
   getAdminFeatureDefinitionTranslations,
   updateAdminFeatureDefinitionTranslation,
 } from '@/server/admin/feature-definitions';
+import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
 import { db } from '@/server/db';
 import {
   featureDefinitionTranslations,
@@ -71,26 +73,8 @@ function normalizeLocale(value: string | null | undefined) {
   return value?.trim() || DEFAULT_FEATURE_DEFINITION_LOCALE;
 }
 
-function pickPrimaryValueTranslation(translations: TranslationRow[]) {
-  if (!translations.length) return null;
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
-}
-
-function pickPrimaryDefinitionTranslation(translations: DefinitionTranslationRow[]) {
-  if (!translations.length) return null;
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
+async function getAdminDisplayLocale() {
+  return getDefaultSiteLanguageCode();
 }
 
 async function loadDefinitionContext(definitionId: string) {
@@ -186,6 +170,7 @@ export async function countProductFeatureAssignmentsByProductIds(productIds: str
 }
 
 export async function listAdminProductFeatureAssignments(productId: string) {
+  const displayLocale = await getAdminDisplayLocale();
   const assignments = await db
     .select()
     .from(productFeatureAssignments)
@@ -257,16 +242,13 @@ export async function listAdminProductFeatureAssignments(productId: string) {
       const definition = definitionMap.get(assignment.definitionId);
       if (!definition) return null;
       const definitionTranslations = translationsByDefinition.get(assignment.definitionId) ?? [];
-      const primary = pickPrimaryDefinitionTranslation(definitionTranslations);
+      const primary = pickTranslationForDisplay(definitionTranslations, displayLocale);
       const valueType = definition.valueType as FeatureValueType;
       const unit = primary?.unit ?? null;
-      const primaryLocale = primary?.locale ?? DEFAULT_FEATURE_DEFINITION_LOCALE;
       const assignmentValues = valuesByAssignment.get(assignment.id) ?? [];
       const previews = assignmentValues.map((value) => {
         const valueTranslationRows = translationsByValue.get(value.id) ?? [];
-        const primaryValueTranslation = valueTranslationRows.find((item) => item.locale === primaryLocale)
-          ?? pickPrimaryValueTranslation(valueTranslationRows)
-          ?? null;
+        const primaryValueTranslation = pickTranslationForDisplay(valueTranslationRows, displayLocale);
         return buildValuePreview(value.id, valueType, primaryValueTranslation, unit);
       });
 
@@ -282,6 +264,7 @@ export async function listAdminProductFeatureAssignments(productId: string) {
 }
 
 export async function listAvailableFeatureDefinitionsForProduct(productId: string) {
+  const displayLocale = await getAdminDisplayLocale();
   const assigned = await db
     .select({ definitionId: productFeatureAssignments.definitionId })
     .from(productFeatureAssignments)
@@ -313,7 +296,7 @@ export async function listAvailableFeatureDefinitionsForProduct(productId: strin
   }
 
   return definitions.map((definition) => {
-    const primary = pickPrimaryDefinitionTranslation(translationsByDefinition.get(definition.id) ?? []);
+    const primary = pickTranslationForDisplay(translationsByDefinition.get(definition.id) ?? [], displayLocale);
     return {
       id: definition.id,
       key: definition.key,
@@ -357,7 +340,8 @@ export async function createAdminProductFeatureAssignment(productId: string, def
 
   if (!created) return null;
 
-  const primary = pickPrimaryDefinitionTranslation(context.translations);
+  const displayLocale = await getAdminDisplayLocale();
+  const primary = pickTranslationForDisplay(context.translations, displayLocale);
   return buildAssignmentListItem(created, context.definition, primary, 0);
 }
 
@@ -393,7 +377,8 @@ export async function updateAdminProductFeatureAssignment(
     .from(productFeatureValues)
     .where(eq(productFeatureValues.assignmentId, assignmentId));
 
-  const primary = pickPrimaryDefinitionTranslation(context.translations);
+  const displayLocale = await getAdminDisplayLocale();
+  const primary = pickTranslationForDisplay(context.translations, displayLocale);
   return buildAssignmentListItem(updated, context.definition, primary, Number(valueCountRow?.value ?? 0));
 }
 
@@ -406,6 +391,7 @@ export async function deleteAdminProductFeatureAssignment(assignmentId: string) 
 }
 
 export async function listAdminProductFeatureValues(assignmentId: string) {
+  const displayLocale = await getAdminDisplayLocale();
   const [assignment] = await db
     .select()
     .from(productFeatureAssignments)
@@ -425,7 +411,12 @@ export async function listAdminProductFeatureValues(assignmentId: string) {
 
   if (!values.length) {
     return {
-      assignment: buildAssignmentListItem(assignment, context.definition, pickPrimaryDefinitionTranslation(context.translations), 0),
+      assignment: buildAssignmentListItem(
+        assignment,
+        context.definition,
+        pickTranslationForDisplay(context.translations, displayLocale),
+        0,
+      ),
       items: [] as AdminProductFeatureValueListItem[],
     };
   }
@@ -443,16 +434,13 @@ export async function listAdminProductFeatureValues(assignmentId: string) {
     translationsByValue.set(row.valueId, bucket);
   }
 
-  const primaryDefinitionTranslation = pickPrimaryDefinitionTranslation(context.translations);
-  const primaryLocale = primaryDefinitionTranslation?.locale ?? DEFAULT_FEATURE_DEFINITION_LOCALE;
+  const primaryDefinitionTranslation = pickTranslationForDisplay(context.translations, displayLocale);
   const unit = primaryDefinitionTranslation?.unit ?? null;
   const valueType = context.definition.valueType as FeatureValueType;
 
   const items = values.map((value) => {
     const valueTranslations = translationsByValue.get(value.id) ?? [];
-    const primary = valueTranslations.find((item) => item.locale === primaryLocale)
-      ?? pickPrimaryValueTranslation(valueTranslations)
-      ?? null;
+    const primary = pickTranslationForDisplay(valueTranslations, displayLocale);
     return buildValueListItem(value, valueType, primary, unit);
   });
 
@@ -496,8 +484,14 @@ export async function createAdminProductFeatureValue(assignmentId: string) {
 
   if (!created) return null;
 
+  const displayLocale = await getAdminDisplayLocale();
   const valueType = context.definition.valueType as FeatureValueType;
-  return buildValueListItem(created, valueType, null, pickPrimaryDefinitionTranslation(context.translations)?.unit);
+  return buildValueListItem(
+    created,
+    valueType,
+    null,
+    pickTranslationForDisplay(context.translations, displayLocale)?.unit,
+  );
 }
 
 export async function updateAdminProductFeatureValue(
@@ -519,15 +513,14 @@ export async function updateAdminProductFeatureValue(
 
   if (!updated) return null;
 
-  const primaryTranslation = detail.translations.find((item) => item.locale === DEFAULT_FEATURE_DEFINITION_LOCALE)
-    ?? detail.translations[0]
-    ?? null;
+  const displayLocale = await getAdminDisplayLocale();
+  const primaryTranslation = pickTranslationForDisplay(detail.translations, displayLocale);
 
   return buildValueListItem(
     updated,
     detail.valueType,
     primaryTranslation,
-    detail.unitByLocale[primaryTranslation?.locale ?? DEFAULT_FEATURE_DEFINITION_LOCALE] ?? null,
+    detail.unitByLocale[primaryTranslation?.locale ?? displayLocale] ?? null,
   );
 }
 
@@ -565,7 +558,8 @@ export async function getAdminProductFeatureValueDetail(valueId: string): Promis
     .where(eq(productFeatureValueTranslations.valueId, valueId))
     .orderBy(asc(productFeatureValueTranslations.locale));
 
-  const primaryDefinitionTranslation = pickPrimaryDefinitionTranslation(context.translations);
+  const displayLocale = await getAdminDisplayLocale();
+  const primaryDefinitionTranslation = pickTranslationForDisplay(context.translations, displayLocale);
   const valueType = context.definition.valueType as FeatureValueType;
   const unitByLocale: Record<string, string | null> = {};
   const textOptionsByLocale: Record<string, string[]> = {};
@@ -574,7 +568,7 @@ export async function getAdminProductFeatureValueDetail(valueId: string): Promis
     textOptionsByLocale[row.locale] = row.textOptions ?? [];
   }
 
-  const primaryValueTranslation = translations.find((item) => item.locale === (primaryDefinitionTranslation?.locale ?? DEFAULT_FEATURE_DEFINITION_LOCALE))
+  const primaryValueTranslation = pickTranslationForDisplay(translations, displayLocale)
     ?? translations[0]
     ?? null;
 
@@ -772,8 +766,7 @@ export async function getStorefrontProductFeatures(productId: string, locale: st
 
   for (const { assignment, definition } of assignments) {
     const definitionLocaleRows = definitionTranslationMap.get(definition.id) ?? [];
-    const definitionTranslation = definitionLocaleRows.find((row) => row.locale === normalizedLocale)
-      ?? pickPrimaryDefinitionTranslation(definitionLocaleRows);
+    const definitionTranslation = pickTranslationForDisplay(definitionLocaleRows, normalizedLocale);
     const unit = definitionTranslation?.unit ?? null;
     const valueType = definition.valueType as FeatureValueType;
     const assignmentValues = valuesByAssignment.get(assignment.id) ?? [];
@@ -865,8 +858,7 @@ export async function getStorefrontProductFeatureOptions(productId: string, loca
 
   return assignments.map(({ assignment, definition }) => {
     const definitionLocaleRows = definitionTranslationMap.get(definition.id) ?? [];
-    const definitionTranslation = definitionLocaleRows.find((row) => row.locale === normalizedLocale)
-      ?? pickPrimaryDefinitionTranslation(definitionLocaleRows);
+    const definitionTranslation = pickTranslationForDisplay(definitionLocaleRows, normalizedLocale);
     const unit = definitionTranslation?.unit ?? null;
     const valueType = definition.valueType as FeatureValueType;
     const assignmentValues = valuesByAssignment.get(assignment.id) ?? [];

@@ -4,20 +4,27 @@ import { Button, Col, Empty, Form, Input, InputNumber, Modal, Row, Select, Space
 import type { FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
+import { ContentTranslateButton } from '@/components/admin/content-translate-button';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
 import { BrandPickerField } from '@/components/brands/brand-picker-field';
 import { CategoryPickerField } from '@/components/categories/category-picker-field';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
+import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
 import { ProductAttachmentsField } from '@/components/products/product-attachments-field';
 import { ProductGalleryField } from '@/components/products/product-gallery-field';
 import { productLifecycleOptions } from '@/lib/admin-display';
 import { confirmProductListingChange } from '@/lib/confirm-product-listing';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
-import { getCommonCurrencyGroupedSelectOptions } from '@/lib/currencies';
+import { getCommonCurrencyGroupedSelectOptions, getDefaultCurrencyForLanguage } from '@/lib/currencies';
+import {
+  buildSnapshotFromConfig,
+  convertProductPrices,
+  type ExchangeRateSnapshot,
+} from '@/lib/currency-exchange';
 import {
   type AdminProductListItem,
   type AdminProductPayload,
@@ -27,7 +34,10 @@ import {
   defaultProductPayload,
   resolveProductId,
 } from '@/lib/product-content';
-import { generateSlugFromText } from '@/lib/slug';
+import { applyNonemptyTranslatedFields } from '@/lib/content-translate-config';
+import { shouldPersistLocaleDraft } from '@/lib/locale-draft-persistence';
+import { runDefaultLocaleSaveGate } from '@/lib/admin-default-locale-save';
+import { textToSlug, validateSourceThenAutoSlug } from '@/lib/slug';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type SectionTabKey = 'content' | 'pricing' | 'manufacturing' | 'attachments' | 'seo';
@@ -77,7 +87,7 @@ function splitMultiline(value: string) {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
-function createEmptyDraft(): LocaleDraft {
+function createEmptyDraft(currencyCode = 'USD'): LocaleDraft {
   return {
     name: '',
     shortDescription: '',
@@ -87,7 +97,7 @@ function createEmptyDraft(): LocaleDraft {
     gallery: [],
     price: 0,
     compareAtPrice: null,
-    currencyCode: 'USD',
+    currencyCode,
     stockQuantity: 0,
     moq: 1,
     lifecycleStatus: 'active',
@@ -151,22 +161,26 @@ function mergeActiveFormIntoDrafts(
     [activeLocale]: {
       ...previous,
       ...values,
-      gallery: values.gallery ?? [],
-      attachments: values.attachments ?? [],
+      descriptionLong: hasMeaningfulHtmlBody(values.descriptionLong ?? '')
+        ? values.descriptionLong
+        : previous.descriptionLong,
+      coverUrl: values.coverUrl?.trim() ? values.coverUrl : previous.coverUrl,
+      coverAlt: values.coverAlt?.trim() ? values.coverAlt : previous.coverAlt,
+      gallery: values.gallery?.length ? values.gallery : previous.gallery,
+      attachments: values.attachments?.length ? values.attachments : previous.attachments,
     },
   };
 }
 
-function shouldPersistDraft(draft: LocaleDraft) {
-  if (draft.persisted) return true;
-  return Boolean(
-    draft.name.trim()
-    || draft.shortDescription.trim()
-    || draft.descriptionLong.trim()
-    || draft.coverUrl.trim()
-    || draft.gallery.length
-    || draft.slug.trim(),
-  );
+function inheritDefaultLocaleMedia(draft: LocaleDraft, defaultDraft: LocaleDraft | undefined): LocaleDraft {
+  if (!defaultDraft) return draft;
+  return {
+    ...draft,
+    coverUrl: draft.coverUrl.trim() ? draft.coverUrl : defaultDraft.coverUrl,
+    coverAlt: draft.coverAlt.trim() ? draft.coverAlt : defaultDraft.coverAlt,
+    gallery: draft.gallery.length ? draft.gallery : defaultDraft.gallery,
+    attachments: draft.attachments.length ? draft.attachments : defaultDraft.attachments,
+  };
 }
 
 function buildPayload(draft: LocaleDraft): AdminProductPayload {
@@ -202,14 +216,42 @@ export function ProductEditorModal({
   const [drafts, setDrafts] = useState<Record<string, LocaleDraft>>({});
   const [loadingGroup, setLoadingGroup] = useState(false);
   const [editorRevision, setEditorRevision] = useState(0);
+  const [exchangeSnapshot, setExchangeSnapshot] = useState<ExchangeRateSnapshot | null>(null);
   const [isPending, startTransition] = useTransition();
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm<LocaleFormValues>();
+  const activeLocaleRef = useRef(activeLocale);
+
+  useEffect(() => {
+    activeLocaleRef.current = activeLocale;
+  }, [activeLocale]);
 
   const hasLanguages = activeLanguages.length > 0;
+  const defaultLocale = activeLanguages.find((language) => language.isDefault)?.code ?? activeLanguages[0]?.code ?? '';
   const isEditing = Boolean(editingEntry);
   const currencyOptions = useMemo(() => getCommonCurrencyGroupedSelectOptions(), []);
   const defaultCategoryId = categoryIds[0] ?? null;
+
+  function resolveCurrencyForLocale(locale: string) {
+    const language = activeLanguages.find((item) => item.code === locale);
+    return language?.currencyCode ?? getDefaultCurrencyForLanguage(locale);
+  }
+
+  function makeEmptyDraft(locale: string) {
+    return createEmptyDraft(resolveCurrencyForLocale(locale));
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    void fetch('/api/admin/exchange-rates')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((config) => {
+        if (config) {
+          setExchangeSnapshot(buildSnapshotFromConfig(config));
+        }
+      })
+      .catch(() => setExchangeSnapshot(null));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -222,8 +264,8 @@ export function ProductEditorModal({
       return;
     }
 
-    const defaultLocale = activeLanguages[0]?.code ?? '';
-    setActiveLocale(defaultLocale);
+    const nextDefaultLocale = activeLanguages.find((language) => language.isDefault)?.code ?? activeLanguages[0]?.code ?? '';
+    setActiveLocale(nextDefaultLocale);
     setSectionTab('content');
 
     if (!editingEntry) {
@@ -236,9 +278,11 @@ export function ProductEditorModal({
       setPurchaseMode('buy');
       setPaidSampleEnabled(false);
       setStatus('inactive');
-      const emptyDrafts = Object.fromEntries(activeLanguages.map((language) => [language.code, createEmptyDraft()]));
+      const emptyDrafts = Object.fromEntries(
+        activeLanguages.map((language) => [language.code, makeEmptyDraft(language.code)]),
+      );
       setDrafts(emptyDrafts);
-      form.setFieldsValue(createEmptyDraft());
+      form.setFieldsValue(makeEmptyDraft(nextDefaultLocale));
       setEditorRevision((value) => value + 1);
       return;
     }
@@ -285,11 +329,11 @@ export function ProductEditorModal({
         const nextDrafts = Object.fromEntries(
           activeLanguages.map((language) => {
             const translation = payload.translations.find((item) => item.locale === language.code);
-            return [language.code, translation ? entryToDraft(translation) : createEmptyDraft()];
+            return [language.code, translation ? entryToDraft(translation) : makeEmptyDraft(language.code)];
           }),
         );
         setDrafts(nextDrafts);
-        form.setFieldsValue(nextDrafts[defaultLocale] ?? createEmptyDraft());
+        loadDraft(activeLocaleRef.current, nextDrafts);
         setEditorRevision((value) => value + 1);
       } catch {
         void messageApi.error('加载产品详情失败');
@@ -300,7 +344,10 @@ export function ProductEditorModal({
   }, [open, editingEntry, activeLanguages, form, messageApi]);
 
   function loadDraft(locale: string, source: Record<string, LocaleDraft>) {
-    const draft = source[locale] ?? createEmptyDraft();
+    let draft = source[locale] ?? makeEmptyDraft(locale);
+    if (!draft.persisted && !draft.name.trim()) {
+      draft = { ...draft, currencyCode: resolveCurrencyForLocale(locale) };
+    }
     form.setFieldsValue(draft);
     setEditorRevision((value) => value + 1);
   }
@@ -312,16 +359,95 @@ export function ProductEditorModal({
     loadDraft(nextLocale, merged);
   }
 
-  function validateDraft(locale: string, draft: LocaleDraft) {
-    if (!spu.trim()) return { ok: false as const, locale, message: '请填写 SPU' };
-    if (!categoryIds.length) return { ok: false as const, locale, message: '请选择至少一个分类' };
-    if (!brandId) return { ok: false as const, locale, message: '请选择品牌' };
-    if (!draft.name.trim()) return { ok: false as const, locale, message: '请填写产品名称' };
-    if (!draft.slug.trim()) return { ok: false as const, locale, message: '请填写 Slug' };
-    if (draft.leadTimeMin > draft.leadTimeMax) {
-      return { ok: false as const, locale, message: '最短交期不能大于最长交期' };
+  function getMergedDrafts() {
+    return mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+  }
+
+  function getDefaultSourceFields(): Record<string, string> {
+    const draft = getMergedDrafts()[defaultLocale] ?? createEmptyDraft();
+    return {
+      name: draft.name,
+      shortDescription: draft.shortDescription,
+      descriptionLong: draft.descriptionLong,
+      coverAlt: draft.coverAlt,
+      certificationsText: draft.certificationsText,
+      tagsText: draft.tagsText,
+      seoTitle: draft.seoTitle,
+      seoDescription: draft.seoDescription,
+    };
+  }
+
+  function hasTargetLocaleContent() {
+    const draft = getMergedDrafts()[activeLocale] ?? createEmptyDraft();
+    return Boolean(
+      draft.name.trim()
+      || draft.shortDescription.trim()
+      || hasMeaningfulHtmlBody(draft.descriptionLong)
+      || draft.coverAlt.trim()
+      || draft.certificationsText.trim()
+      || draft.tagsText.trim()
+      || draft.seoTitle.trim()
+      || draft.seoDescription.trim(),
+    );
+  }
+
+  function handleTranslated(fields: Record<string, string>) {
+    const merged = getMergedDrafts();
+    const current = merged[activeLocale] ?? makeEmptyDraft(activeLocale);
+    const nextDraft = applyNonemptyTranslatedFields(current, fields);
+    const defaultDraft = merged[defaultLocale] ?? makeEmptyDraft(defaultLocale);
+    const targetCurrency = resolveCurrencyForLocale(activeLocale);
+
+    if (exchangeSnapshot) {
+      const converted = convertProductPrices({
+        price: defaultDraft.price,
+        compareAtPrice: defaultDraft.compareAtPrice,
+        fromCurrency: defaultDraft.currencyCode,
+        toCurrency: targetCurrency,
+        snapshot: exchangeSnapshot,
+      });
+      if (converted.missingRate) {
+        void messageApi.warning(`未配置 ${converted.missingRate} 汇率，价格未换算`);
+      } else {
+        if (converted.price != null) nextDraft.price = converted.price;
+        if (converted.compareAtPrice != null) nextDraft.compareAtPrice = converted.compareAtPrice;
+        nextDraft.currencyCode = converted.currencyCode;
+      }
     }
-    return { ok: true as const };
+
+    const nextDrafts = { ...merged, [activeLocale]: nextDraft };
+    setDrafts(nextDrafts);
+    form.setFieldsValue({
+      name: nextDraft.name,
+      shortDescription: nextDraft.shortDescription,
+      descriptionLong: nextDraft.descriptionLong,
+      slug: nextDraft.slug,
+      coverAlt: nextDraft.coverAlt,
+      certificationsText: nextDraft.certificationsText,
+      tagsText: nextDraft.tagsText,
+      seoTitle: nextDraft.seoTitle,
+      seoDescription: nextDraft.seoDescription,
+      price: nextDraft.price,
+      compareAtPrice: nextDraft.compareAtPrice,
+      currencyCode: nextDraft.currencyCode,
+    });
+    setEditorRevision((value) => value + 1);
+  }
+
+  function validateDraft(locale: string, draft: LocaleDraft) {
+    if (!spu.trim()) return { ok: false as const, locale, message: '请填写 SPU', section: 'content' as const };
+    if (!categoryIds.length) return { ok: false as const, locale, message: '请选择至少一个分类', section: 'content' as const };
+    if (!brandId) return { ok: false as const, locale, message: '请选择品牌', section: 'content' as const };
+    if (draft.leadTimeMin > draft.leadTimeMax) {
+      return { ok: false as const, locale, message: '最短交期不能大于最长交期', section: 'content' as const };
+    }
+    return validateSourceThenAutoSlug({
+      locale,
+      sourceText: draft.name,
+      slug: draft.slug,
+      emptySourceMessage: '请填写产品名称',
+      section: 'content',
+    });
   }
 
   function buildTranslationPayload(draft: LocaleDraft, locale: string) {
@@ -367,9 +493,45 @@ export function ProductEditorModal({
     }
 
     const mergedDrafts = mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+    const gate = runDefaultLocaleSaveGate({
+      defaultLocale,
+      mergedDrafts,
+      createEmptyDraft,
+      validateDraft,
+    });
+    if (!gate.ok) {
+      setDrafts(mergedDrafts);
+      setActiveLocale(gate.validation.locale || defaultLocale);
+      setSectionTab(
+        gate.validation.message === '最短交期不能大于最长交期'
+          ? 'manufacturing'
+          : gate.validation.section === 'seo'
+            ? 'seo'
+            : 'content',
+      );
+      loadDraft(gate.validation.locale || defaultLocale, mergedDrafts);
+      void messageApi.error(gate.validation.message);
+      return;
+    }
+    const workingDrafts = gate.mergedDrafts;
+    if (workingDrafts[defaultLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[defaultLocale].slug);
+    }
+
+    const defaultDraft = workingDrafts[defaultLocale];
     const targets = activeLanguages
-      .map((language) => ({ locale: language.code, draft: mergedDrafts[language.code] ?? createEmptyDraft() }))
-      .filter((target) => shouldPersistDraft(target.draft));
+      .map((language) => {
+        const draft = workingDrafts[language.code] ?? createEmptyDraft();
+        return {
+          locale: language.code,
+          draft: inheritDefaultLocaleMedia(draft, defaultDraft),
+        };
+      })
+      .filter((target) => shouldPersistLocaleDraft({
+        locale: target.locale,
+        defaultLocale,
+        primaryText: target.draft.name,
+      }));
 
     if (!targets.length) {
       void messageApi.warning('请至少填写一个语言版本的内容');
@@ -379,20 +541,34 @@ export function ProductEditorModal({
     for (const target of targets) {
       const validation = validateDraft(target.locale, target.draft);
       if (!validation.ok) {
-        setDrafts(mergedDrafts);
+        setDrafts(workingDrafts);
         setActiveLocale(validation.locale);
-        loadDraft(validation.locale, mergedDrafts);
+        setSectionTab(
+          validation.message === '最短交期不能大于最长交期'
+            ? 'manufacturing'
+            : validation.section === 'seo'
+              ? 'seo'
+              : 'content',
+        );
+        loadDraft(validation.locale, workingDrafts);
         const language = activeLanguages.find((item) => item.code === validation.locale);
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
+      if (validation.autoSlug) {
+        target.draft.slug = validation.autoSlug;
+        workingDrafts[target.locale] = { ...workingDrafts[target.locale], slug: validation.autoSlug };
+      }
     }
 
-    setDrafts(mergedDrafts);
+    setDrafts(workingDrafts);
+    if (workingDrafts[activeLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[activeLocale].slug);
+    }
 
     startTransition(async () => {
       let nextProductId = productId;
-      const nextDrafts = { ...mergedDrafts };
+      const nextDrafts = { ...workingDrafts };
       const savedEntries: AdminProductTranslation[] = [];
       const shared = {
         spu: spu.trim(),
@@ -575,6 +751,18 @@ export function ProductEditorModal({
                   <Tabs
                     activeKey={sectionTab}
                     onChange={(key) => setSectionTab(key as SectionTabKey)}
+                    tabBarExtraContent={(
+                      <ContentTranslateButton
+                        contentType="product"
+                        defaultLocale={defaultLocale}
+                        activeLocale={activeLocale}
+                        disabled={loadingGroup}
+                        getDefaultSourceFields={getDefaultSourceFields}
+                        hasDefaultPersisted={() => Boolean(getMergedDrafts()[defaultLocale]?.persisted)}
+                        hasTargetContent={hasTargetLocaleContent}
+                        onTranslated={handleTranslated}
+                      />
+                    )}
                     items={[
                       {
                         key: 'content',
@@ -586,7 +774,7 @@ export function ProductEditorModal({
                                 const name = form.getFieldValue('name');
                                 const slug = form.getFieldValue('slug');
                                 if (!slug?.trim() && name?.trim()) {
-                                  form.setFieldValue('slug', generateSlugFromText(name));
+                                  form.setFieldValue('slug', textToSlug(name));
                                 }
                               }} />
                             </Form.Item>
@@ -594,8 +782,12 @@ export function ProductEditorModal({
                             <Form.Item label="详细描述" name="descriptionLong">
                               <RichTextEditor key={`${activeLocale}-${editorRevision}`} />
                             </Form.Item>
-                            <Form.Item label="封面图" name="coverUrl">
-                              <CoverImageField folder="products/covers" value={form.getFieldValue('coverUrl') || null} onChange={(value) => form.setFieldValue('coverUrl', value ?? '')} />
+                            <Form.Item
+                              label="封面图"
+                              name="coverUrl"
+                              getValueFromEvent={(value: string | null) => value ?? ''}
+                            >
+                              <CoverImageField folder="products/covers" />
                             </Form.Item>
                             <Form.Item label="封面图 Alt" name="coverAlt"><Input /></Form.Item>
                             <Form.Item label="轮播图" name="gallery"><ProductGalleryField /></Form.Item>
@@ -669,7 +861,7 @@ export function ProductEditorModal({
                         label: 'SEO',
                         children: (
                           <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                            <Form.Item label="Slug" name="slug" rules={[{ required: true, message: '请填写 Slug' }]}><Input /></Form.Item>
+                            <Form.Item label="Slug" name="slug" rules={[{ required: true, message: '请填写 Slug' }]} extra="留空将根据产品名称自动生成；同一语言下的产品 slug 不可重复"><Input /></Form.Item>
                             <Form.Item label="标签" name="tagsText" extra="每行一个标签"><Input.TextArea rows={3} /></Form.Item>
                             <Form.Item label="SEO 标题" name="seoTitle"><Input /></Form.Item>
                             <Form.Item label="SEO 描述" name="seoDescription"><Input.TextArea rows={3} /></Form.Item>

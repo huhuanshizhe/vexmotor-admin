@@ -14,9 +14,11 @@ import {
   type BrandStatus,
   brandStatuses,
 } from '@/lib/brand-content';
+import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { db } from '@/server/db';
 import { brandTranslations, brands, products } from '@/server/db/schema';
 import { resolveSlugForSave } from '@/lib/slug';
+import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
 import { DEFAULT_BRAND_LOCALE, normalizeBrandSlug } from '@/server/brands/resolve-brand-translation';
 
 const payloadSchema = z.object({
@@ -96,17 +98,6 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   };
 }
 
-function pickPrimaryTranslation(translations: TranslationRow[]) {
-  if (!translations.length) return null;
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
-}
-
 function normalizeTranslationRow(brand: BrandRow, translation: TranslationRow): AdminBrandTranslation | null {
   const payload = payloadSchema.safeParse(translation.payload ?? { tags: [] });
   if (!payload.success) return null;
@@ -153,8 +144,9 @@ function toListItem(
   brand: BrandRow,
   translations: TranslationRow[],
   productCount: number,
+  displayLocale: string,
 ): AdminBrandListItem | null {
-  const primary = pickPrimaryTranslation(translations);
+  const primary = pickTranslationForDisplay(translations, displayLocale);
   if (!primary) return null;
 
   return {
@@ -254,14 +246,18 @@ export async function getAdminBrandsPaginated(
     .limit(pageSize)
     .offset(offset);
 
-  const translationMap = await loadTranslationsByBrandIds(brandRows.map((row) => row.id));
-  const productCounts = await loadProductCounts(brandRows.map((row) => row.id));
+  const [translationMap, productCounts, displayLocale] = await Promise.all([
+    loadTranslationsByBrandIds(brandRows.map((row) => row.id)),
+    loadProductCounts(brandRows.map((row) => row.id)),
+    getDefaultSiteLanguageCode(),
+  ]);
 
   const items = brandRows
     .map((brand) => toListItem(
       brand,
       translationMap.get(brand.id) ?? [],
       productCounts.get(brand.id) ?? 0,
+      displayLocale,
     ))
     .filter((item): item is AdminBrandListItem => Boolean(item))
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -289,7 +285,8 @@ export async function getAdminBrandListItem(brandId: string) {
     .orderBy(asc(brandTranslations.locale));
 
   const productCounts = await loadProductCounts([brandId]);
-  return toListItem(brand, translations, productCounts.get(brandId) ?? 0);
+  const displayLocale = await getDefaultSiteLanguageCode();
+  return toListItem(brand, translations, productCounts.get(brandId) ?? 0, displayLocale);
 }
 
 export async function getAdminBrandTranslations(brandId: string) {
@@ -493,8 +490,11 @@ export async function updateAdminBrand(brandId: string, input: BrandPatchInput) 
     .from(brandTranslations)
     .where(eq(brandTranslations.brandId, brandId));
 
-  const productCounts = await loadProductCounts([brandId]);
-  return toListItem(updated, translations, productCounts.get(brandId) ?? 0);
+  const [productCounts, displayLocale] = await Promise.all([
+    loadProductCounts([brandId]),
+    getDefaultSiteLanguageCode(),
+  ]);
+  return toListItem(updated, translations, productCounts.get(brandId) ?? 0, displayLocale);
 }
 
 export async function deleteAdminBrand(brandId: string) {

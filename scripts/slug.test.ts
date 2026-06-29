@@ -4,6 +4,7 @@ import {
   generateSlugFromText,
   normalizeSlug,
   resolveSlugForSave,
+  textToSlug,
   transliterateSlugSource,
 } from '../src/lib/slug';
 
@@ -53,6 +54,26 @@ test('resolveSlugForSave generates from source when slug empty', () => {
 
 test('resolveSlugForSave returns null when both empty', () => {
   assert.equal(resolveSlugForSave({ sourceText: '', slug: '' }), null);
+});
+
+test('textToSlug is an alias of generateSlugFromText', () => {
+  assert.equal(textToSlug('Power Supply'), generateSlugFromText('Power Supply'));
+});
+
+test('validateSourceThenAutoSlug auto-fills from title', () => {
+  // imported via dynamic require to keep test file simple
+  const { validateSourceThenAutoSlug } = require('../src/lib/slug') as typeof import('../src/lib/slug');
+  const result = validateSourceThenAutoSlug({
+    locale: 'de',
+    sourceText: 'Schrittmotor',
+    slug: '',
+    emptySourceMessage: '请输入标题',
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.ok(result.autoSlug);
+    assert.match(result.autoSlug, /^[a-z0-9-]+$/);
+  }
 });
 
 console.log('All slug tests passed.');

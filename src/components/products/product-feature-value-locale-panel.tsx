@@ -62,16 +62,26 @@ export function ProductFeatureValueLocalePanel({
   const [isPending, startTransition] = useTransition();
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm<LocaleFormValues>();
+  const defaultLocale = activeLanguages.find((language) => language.isDefault)?.code ?? activeLanguages[0]?.code ?? '';
 
   useEffect(() => {
-    const defaultLocale = activeLanguages[0]?.code ?? '';
     setActiveLocale(defaultLocale);
     const nextDrafts = Object.fromEntries(
       activeLanguages.map((language) => [language.code, translationToDraft(detail, language.code)]),
     );
     setDrafts(nextDrafts);
     form.setFieldsValue(nextDrafts[defaultLocale] ?? createEmptyDraft());
-  }, [detail, activeLanguages, form]);
+  }, [detail, activeLanguages, defaultLocale, form]);
+
+  function validateDefaultLocaleDraft(draft: LocaleFormValues): string | null {
+    if (detail.valueType === 'number') {
+      return draft.valueNumber == null ? '请填写数值' : null;
+    }
+    if (detail.valueType === 'text') {
+      return draft.valueText.trim() ? null : '请填写文本值';
+    }
+    return null;
+  }
 
   function mergeActiveDraft() {
     if (!activeLocale) return drafts;
@@ -95,6 +105,16 @@ export function ProductFeatureValueLocalePanel({
 
   function persistTranslations() {
     const merged = mergeActiveDraft();
+    const defaultDraft = merged[defaultLocale] ?? createEmptyDraft();
+    const defaultLocaleError = validateDefaultLocaleDraft(defaultDraft);
+    if (defaultLocaleError) {
+      setDrafts(merged);
+      setActiveLocale(defaultLocale);
+      form.setFieldsValue(defaultDraft);
+      void messageApi.error(`默认语言：${defaultLocaleError}`);
+      return;
+    }
+
     const targets = activeLanguages
       .map((language) => ({ locale: language.code, draft: merged[language.code] ?? createEmptyDraft() }))
       .filter((target) => {

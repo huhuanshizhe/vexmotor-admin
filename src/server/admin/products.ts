@@ -30,10 +30,12 @@ import {
   type ProductStatus,
 } from '@/lib/product-content';
 import type { ProductListQuery } from '@/lib/product-list-query';
+import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { resolveSlugForSave } from '@/lib/slug';
 import { getAdminBrandOptions } from '@/server/admin/brands';
 import { getAdminCategoryOptions } from '@/server/admin/categories';
 import { countProductFeatureAssignmentsByProductIds } from '@/server/admin/product-features';
+import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
 import { db } from '@/server/db';
 import { brands, categories, productCategories, productTranslations, products } from '@/server/db/schema';
 import { brandNameSql } from '@/server/brands/resolve-brand-translation';
@@ -237,21 +239,6 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   };
 }
 
-function pickPrimaryTranslation(translations: TranslationRow[], preferredLocale?: string) {
-  if (!translations.length) return null;
-  if (preferredLocale) {
-    const match = translations.find((item) => item.locale.toLowerCase() === preferredLocale.toLowerCase());
-    if (match) return match;
-  }
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
-}
-
 function normalizeTranslationRow(product: ProductRow, translation: TranslationRow): AdminProductTranslation | null {
   const payload = payloadSchema.safeParse(translation.payload ?? defaultProductPayload());
   if (!payload.success) return null;
@@ -301,11 +288,11 @@ function toListItem(
   translations: TranslationRow[],
   brandName: string | null,
   categoryName: string | null,
-  preferredLocale?: string,
+  displayLocale: string,
   featureCount = 0,
   categoryIds?: string[],
 ): AdminProductListItem | null {
-  const primary = pickPrimaryTranslation(translations, preferredLocale);
+  const primary = pickTranslationForDisplay(translations, displayLocale);
   if (!primary) return null;
   const payload = normalizePayload((primary.payload ?? defaultProductPayload()) as AdminProductPayload);
 
@@ -372,7 +359,7 @@ async function findProductIdsBySearch(keyword: string) {
 
   const spuMatches = await db
     .selectDistinct({ id: products.id })
-    .from(products)
+      .from(products)
     .where(ilike(products.spu, pattern));
 
   const ids = new Set<string>();
@@ -421,8 +408,8 @@ function buildProductWhere(query: ProductListQuery, matchingIds?: string[], tran
   if (translationFilterIds?.length) {
     conditions.push(inArray(products.id, translationFilterIds));
   } else if (translationFilterIds && !translationFilterIds.length) {
-    return null;
-  }
+      return null;
+    }
 
   if (query.brandId) conditions.push(eq(products.brandId, query.brandId));
   if (query.categoryId) conditions.push(eq(products.defaultCategoryId, query.categoryId));
@@ -463,6 +450,7 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
   const matchingIds = keyword ? await findProductIdsBySearch(keyword) : undefined;
   const translationFilterIds = await findProductIdsByTranslationFilters(query);
   const whereClause = buildProductWhere(query, matchingIds, translationFilterIds);
+  const displayLocale = await getDefaultSiteLanguageCode();
 
   if (whereClause === null) {
     const stats = await getAdminProductStats();
@@ -476,20 +464,22 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
   const productRows = await db
     .select({
       product: products,
-      brandName: brandNameSql(brands.id),
-      categoryName: categoryNameSql(categories.id),
+      brandName: brandNameSql(brands.id, displayLocale),
+      categoryName: categoryNameSql(categories.id, displayLocale),
     })
     .from(products)
     .leftJoin(brands, eq(products.brandId, brands.id))
     .leftJoin(categories, eq(products.defaultCategoryId, categories.id))
     .where(whereClause ?? undefined)
-    .orderBy(desc(products.updatedAt))
+    .orderBy(desc(products.createdAt))
     .limit(pageSize)
     .offset(offset);
 
-  const translationMap = await loadTranslationsByProductIds(productRows.map((row) => row.product.id));
-  const featureCountMap = await countProductFeatureAssignmentsByProductIds(productRows.map((row) => row.product.id));
-  const stats = await getAdminProductStats();
+  const [translationMap, featureCountMap, stats] = await Promise.all([
+    loadTranslationsByProductIds(productRows.map((row) => row.product.id)),
+    countProductFeatureAssignmentsByProductIds(productRows.map((row) => row.product.id)),
+    getAdminProductStats(),
+  ]);
 
   const items = productRows
     .map(({ product, brandName, categoryName }) => toListItem(
@@ -497,7 +487,7 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
       translationMap.get(product.id) ?? [],
       brandName,
       categoryName,
-      query.locale || undefined,
+      displayLocale,
       featureCountMap.get(product.id) ?? 0,
     ))
     .filter((item): item is AdminProductListItem => Boolean(item));
@@ -505,12 +495,13 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
   return { items, total, activeCount: stats.activeCount, page, pageSize };
 }
 
-export async function getAdminProductListItem(productId: string, preferredLocale?: string) {
+export async function getAdminProductListItem(productId: string) {
+  const displayLocale = await getDefaultSiteLanguageCode();
   const [row] = await db
     .select({
       product: products,
-      brandName: brandNameSql(brands.id),
-      categoryName: categoryNameSql(categories.id),
+      brandName: brandNameSql(brands.id, displayLocale),
+      categoryName: categoryNameSql(categories.id, displayLocale),
     })
     .from(products)
     .leftJoin(brands, eq(products.brandId, brands.id))
@@ -531,13 +522,15 @@ export async function getAdminProductListItem(productId: string, preferredLocale
     ? categoryIdRows
     : (row.product.defaultCategoryId ? [row.product.defaultCategoryId] : []);
 
-  const featureCountMap = await countProductFeatureAssignmentsByProductIds([productId]);
+  const [featureCountMap] = await Promise.all([
+    countProductFeatureAssignmentsByProductIds([productId]),
+  ]);
   return toListItem(
     row.product,
     translations,
     row.brandName,
     row.categoryName,
-    preferredLocale,
+    displayLocale,
     featureCountMap.get(productId) ?? 0,
     categoryIds,
   );

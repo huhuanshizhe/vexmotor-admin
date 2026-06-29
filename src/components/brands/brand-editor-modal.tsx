@@ -5,6 +5,7 @@ import type { FormInstance } from 'antd';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
+import { ContentTranslateButton } from '@/components/admin/content-translate-button';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import {
@@ -13,6 +14,9 @@ import {
   type BrandStatus,
   resolveBrandId,
 } from '@/lib/brand-content';
+import { applyNonemptyTranslatedFields } from '@/lib/content-translate-config';
+import { shouldPersistLocaleDraft } from '@/lib/locale-draft-persistence';
+import { runDefaultLocaleSaveGate } from '@/lib/admin-default-locale-save';
 import { validateSourceThenAutoSlug } from '@/lib/slug';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
@@ -84,11 +88,6 @@ function mergeActiveFormIntoDrafts(
       ...values,
     },
   };
-}
-
-function shouldPersistDraft(draft: LocaleDraft) {
-  if (draft.persisted) return true;
-  return Boolean(draft.name.trim() || draft.slug.trim() || draft.description.trim());
 }
 
 function validateDraft(locale: string, draft: LocaleDraft) {
@@ -250,6 +249,47 @@ export function BrandEditorModal({
     loadDraft(activeLocale, merged);
   }
 
+  function getMergedDrafts() {
+    return mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+  }
+
+  function getDefaultSourceFields(): Record<string, string> {
+    const draft = getMergedDrafts()[defaultLocale] ?? createEmptyDraft();
+    return {
+      name: draft.name,
+      description: draft.description,
+      tagsText: draft.tagsText,
+      seoTitle: draft.seoTitle,
+      seoDescription: draft.seoDescription,
+    };
+  }
+
+  function hasTargetLocaleContent() {
+    const draft = getMergedDrafts()[activeLocale] ?? createEmptyDraft();
+    return Boolean(
+      draft.name.trim()
+      || draft.description.trim()
+      || draft.tagsText.trim()
+      || draft.seoTitle.trim()
+      || draft.seoDescription.trim(),
+    );
+  }
+
+  function handleTranslated(fields: Record<string, string>) {
+    const merged = getMergedDrafts();
+    const current = merged[activeLocale] ?? createEmptyDraft();
+    const nextDraft = applyNonemptyTranslatedFields(current, fields);
+    const nextDrafts = { ...merged, [activeLocale]: nextDraft };
+    setDrafts(nextDrafts);
+    form.setFieldsValue({
+      name: nextDraft.name,
+      description: nextDraft.description,
+      tagsText: nextDraft.tagsText,
+      seoTitle: nextDraft.seoTitle,
+      seoDescription: nextDraft.seoDescription,
+    });
+  }
+
   function persistAllLocales() {
     if (!hasLanguages) {
       void messageApi.warning('请先在「多语言管理」中添加并启用语言');
@@ -257,9 +297,32 @@ export function BrandEditorModal({
     }
 
     const mergedDrafts = mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+    const gate = runDefaultLocaleSaveGate({
+      defaultLocale,
+      mergedDrafts,
+      createEmptyDraft,
+      validateDraft,
+    });
+    if (!gate.ok) {
+      setDrafts(mergedDrafts);
+      setActiveLocale(gate.validation.locale || defaultLocale);
+      setSectionTab(gate.validation.section === 'seo' ? 'seo' : 'content');
+      loadDraft(gate.validation.locale || defaultLocale, mergedDrafts);
+      void messageApi.error(gate.validation.message);
+      return;
+    }
+    const workingDrafts = gate.mergedDrafts;
+    if (workingDrafts[defaultLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[defaultLocale].slug);
+    }
+
     const targets = activeLanguages
-      .map((language) => ({ locale: language.code, draft: mergedDrafts[language.code] ?? createEmptyDraft() }))
-      .filter((target) => shouldPersistDraft(target.draft));
+      .map((language) => ({ locale: language.code, draft: workingDrafts[language.code] ?? createEmptyDraft() }))
+      .filter((target) => shouldPersistLocaleDraft({
+        locale: target.locale,
+        defaultLocale,
+        primaryText: target.draft.name,
+      }));
 
     if (!targets.length) {
       void messageApi.warning('请至少填写一个语言版本的内容');
@@ -269,28 +332,28 @@ export function BrandEditorModal({
     for (const target of targets) {
       const validation = validateDraft(target.locale, target.draft);
       if (!validation.ok) {
-        setDrafts(mergedDrafts);
+        setDrafts(workingDrafts);
         setActiveLocale(validation.locale);
         setSectionTab(validation.section);
-        loadDraft(validation.locale, mergedDrafts);
+        loadDraft(validation.locale, workingDrafts);
         const language = activeLanguages.find((item) => item.code === validation.locale);
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
       if (validation.autoSlug) {
         target.draft.slug = validation.autoSlug;
-        mergedDrafts[target.locale] = { ...mergedDrafts[target.locale], slug: validation.autoSlug };
+        workingDrafts[target.locale] = { ...workingDrafts[target.locale], slug: validation.autoSlug };
       }
     }
 
-    setDrafts(mergedDrafts);
-    if (mergedDrafts[activeLocale]?.slug) {
-      form.setFieldValue('slug', mergedDrafts[activeLocale].slug);
+    setDrafts(workingDrafts);
+    if (workingDrafts[activeLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[activeLocale].slug);
     }
 
     startTransition(async () => {
       let nextBrandId = brandId;
-      const nextDrafts = { ...mergedDrafts };
+      const nextDrafts = { ...workingDrafts };
       const savedEntries: AdminBrandTranslation[] = [];
       const shared = {
         logoUrl,
@@ -363,6 +426,18 @@ export function BrandEditorModal({
           activeKey={sectionTab}
           onChange={handleSectionChange}
           destroyOnHidden
+          tabBarExtraContent={(
+            <ContentTranslateButton
+              contentType="brand"
+              defaultLocale={defaultLocale}
+              activeLocale={activeLocale}
+              disabled={loadingGroup}
+              getDefaultSourceFields={getDefaultSourceFields}
+              hasDefaultPersisted={() => Boolean(getMergedDrafts()[defaultLocale]?.persisted)}
+              hasTargetContent={hasTargetLocaleContent}
+              onTranslated={handleTranslated}
+            />
+          )}
           items={[
             {
               key: 'content',
@@ -391,6 +466,7 @@ export function BrandEditorModal({
                     <Form.Item
                       label="Slug"
                       name="slug"
+                      rules={[{ required: true, message: '请填写 Slug' }]}
                       extra="留空将根据品牌名称自动生成；同一语言下的品牌 slug 不可重复"
                     >
                       <Input placeholder="brand-slug" />

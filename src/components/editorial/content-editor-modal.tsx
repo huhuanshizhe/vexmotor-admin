@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
+import { ContentTranslateButton } from '@/components/admin/content-translate-button';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
 import { BoardMultiSelect } from '@/components/editorial/board-multi-select';
@@ -18,6 +19,9 @@ import {
   type EditorialEntryStatus,
   resolveContentId,
 } from '@/lib/editorial-content';
+import { applyNonemptyTranslatedFields } from '@/lib/content-translate-config';
+import { shouldPersistLocaleDraft } from '@/lib/locale-draft-persistence';
+import { runDefaultLocaleSaveGate } from '@/lib/admin-default-locale-save';
 import { validateSourceThenAutoSlug } from '@/lib/slug';
 import { blogCategorySelectOptions, isEnglishEditorialLocale } from '@/lib/blog-categories';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
@@ -115,8 +119,14 @@ function entryToDraft(entry: AdminEditorialContentTranslation): LocaleDraft {
 
 type PersistMode = 'save' | 'publish' | 'schedule';
 
-function resolveTargetStatus(draft: LocaleDraft, mode: PersistMode): EditorialEntryStatus {
+function resolveTargetStatus(
+  draft: LocaleDraft,
+  mode: PersistMode,
+  contentBaselineStatus?: EditorialEntryStatus,
+): EditorialEntryStatus {
   if (mode === 'publish' || mode === 'schedule') return 'published';
+  if (mode === 'save' && contentBaselineStatus === 'published') return 'published';
+  if (mode === 'save' && contentBaselineStatus === 'archived') return 'archived';
   if (draft.persisted) return draft.status;
   return 'draft';
 }
@@ -137,16 +147,6 @@ function mergeActiveFormIntoDrafts(
       body: hasMeaningfulHtmlBody(values.body ?? '') ? values.body : previous.body,
     },
   };
-}
-
-function shouldPersistDraft(draft: LocaleDraft) {
-  if (draft.persisted) return true;
-  return Boolean(
-    draft.title.trim()
-    || draft.slug.trim()
-    || draft.summary.trim()
-    || hasMeaningfulHtmlBody(draft.body),
-  );
 }
 
 function validateDraft(locale: string, draft: LocaleDraft) {
@@ -408,6 +408,65 @@ export function ContentEditorModal({
     setSectionTab(nextSection as SectionTabKey);
   }
 
+  function getMergedDrafts() {
+    return mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+  }
+
+  function getDefaultSourceFields(): Record<string, string> {
+    const draft = getMergedDrafts()[defaultLocale] ?? createEmptyDraft();
+    return {
+      title: draft.title,
+      category: draft.category,
+      summary: draft.summary,
+      body: draft.body,
+      authorName: draft.authorName,
+      authorTitle: draft.authorTitle,
+      authorBio: draft.authorBio,
+      tagsText: draft.tagsText,
+      relatedProductSlugsText: draft.relatedProductSlugsText,
+      seoTitle: draft.seoTitle,
+      seoDescription: draft.seoDescription,
+    };
+  }
+
+  function hasTargetLocaleContent() {
+    const draft = getMergedDrafts()[activeLocale] ?? createEmptyDraft();
+    return Boolean(
+      draft.title.trim()
+      || draft.summary.trim()
+      || draft.category.trim()
+      || hasMeaningfulHtmlBody(draft.body)
+      || draft.authorName.trim()
+      || draft.authorTitle.trim()
+      || draft.authorBio.trim()
+      || draft.tagsText.trim()
+      || draft.seoTitle.trim()
+      || draft.seoDescription.trim(),
+    );
+  }
+
+  function handleTranslated(fields: Record<string, string>) {
+    const merged = getMergedDrafts();
+    const current = merged[activeLocale] ?? createEmptyDraft();
+    const nextDraft = applyNonemptyTranslatedFields(current, fields);
+    const nextDrafts = { ...merged, [activeLocale]: nextDraft };
+    setDrafts(nextDrafts);
+    form.setFieldsValue({
+      title: nextDraft.title,
+      category: nextDraft.category,
+      summary: nextDraft.summary,
+      body: nextDraft.body,
+      authorName: nextDraft.authorName,
+      authorTitle: nextDraft.authorTitle,
+      authorBio: nextDraft.authorBio,
+      tagsText: nextDraft.tagsText,
+      relatedProductSlugsText: nextDraft.relatedProductSlugsText,
+      seoTitle: nextDraft.seoTitle,
+      seoDescription: nextDraft.seoDescription,
+    });
+    setEditorRevision((currentRevision) => currentRevision + 1);
+  }
+
   function focusValidationIssue(locale: string, section: SectionTabKey, mergedDrafts: Record<string, LocaleDraft>) {
     setDrafts(mergedDrafts);
     setActiveLocale(locale);
@@ -424,9 +483,33 @@ export function ContentEditorModal({
     }
 
     const mergedDrafts = mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+    const gate = runDefaultLocaleSaveGate({
+      defaultLocale,
+      mergedDrafts,
+      createEmptyDraft,
+      validateDraft,
+    });
+    if (!gate.ok) {
+      focusValidationIssue(
+        gate.validation.locale || defaultLocale,
+        gate.validation.section === 'seo' ? 'seo' : 'content',
+        mergedDrafts,
+      );
+      void messageApi.error(gate.validation.message);
+      return;
+    }
+    const workingDrafts = gate.mergedDrafts;
+    if (workingDrafts[defaultLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[defaultLocale].slug);
+    }
+
     const targets = activeLanguages
-      .map((language) => ({ locale: language.code, draft: mergedDrafts[language.code] ?? createEmptyDraft() }))
-      .filter((target) => shouldPersistDraft(target.draft));
+      .map((language) => ({ locale: language.code, draft: workingDrafts[language.code] ?? createEmptyDraft() }))
+      .filter((target) => shouldPersistLocaleDraft({
+        locale: target.locale,
+        defaultLocale,
+        primaryText: target.draft.title,
+      }));
 
     if (!targets.length) {
       void messageApi.warning('请至少填写一个语言版本的内容');
@@ -436,29 +519,29 @@ export function ContentEditorModal({
     for (const target of targets) {
       const validation = validateDraft(target.locale, target.draft);
       if (!validation.ok) {
-        focusValidationIssue(validation.locale, validation.section, mergedDrafts);
+        focusValidationIssue(validation.locale, validation.section, workingDrafts);
         const language = activeLanguages.find((item) => item.code === validation.locale);
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
       if (validation.autoSlug) {
         target.draft.slug = validation.autoSlug;
-        mergedDrafts[target.locale] = { ...mergedDrafts[target.locale], slug: validation.autoSlug };
+        workingDrafts[target.locale] = { ...workingDrafts[target.locale], slug: validation.autoSlug };
       }
     }
 
-    setDrafts(mergedDrafts);
-    if (mergedDrafts[activeLocale]?.slug) {
-      form.setFieldValue('slug', mergedDrafts[activeLocale].slug);
+    setDrafts(workingDrafts);
+    if (workingDrafts[activeLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[activeLocale].slug);
     }
 
     startTransition(async () => {
       let nextContentId = contentId;
-      const nextDrafts = { ...mergedDrafts };
+      const nextDrafts = { ...workingDrafts };
       const savedEntries: AdminEditorialContentTranslation[] = [];
 
       for (const { locale, draft } of targets) {
-        const targetStatus = resolveTargetStatus(draft, mode);
+        const targetStatus = resolveTargetStatus(draft, mode, editingEntry?.status);
         const response = await fetch(
           draft.entryId
             ? `/api/admin/editorial/content/translations/${draft.entryId}`
@@ -555,15 +638,28 @@ export function ContentEditorModal({
 
   const editorPanel = (
     <Space orientation="vertical" size="middle" style={{ width: '100%', minWidth: 0 }}>
-      <Tabs
-        activeKey={sectionTab}
-        onChange={handleSectionChange}
-        items={[
-          { key: 'content', label: '内容' },
-          { key: 'author', label: '作者' },
-          { key: 'seo', label: 'SEO' },
-        ]}
-      />
+      <div className="content-editor-section-toolbar">
+        <Tabs
+          activeKey={sectionTab}
+          onChange={handleSectionChange}
+          className="content-editor-section-tabs"
+          items={[
+            { key: 'content', label: '内容' },
+            { key: 'author', label: '作者' },
+            { key: 'seo', label: 'SEO' },
+          ]}
+        />
+        <ContentTranslateButton
+          contentType="blog"
+          defaultLocale={defaultLocale}
+          activeLocale={activeLocale}
+          disabled={isReadOnly || loadingGroup}
+          getDefaultSourceFields={getDefaultSourceFields}
+          hasDefaultPersisted={() => Boolean(getMergedDrafts()[defaultLocale]?.persisted)}
+          hasTargetContent={hasTargetLocaleContent}
+          onTranslated={handleTranslated}
+        />
+      </div>
 
       <Form<LocaleFormValues> form={form} layout="vertical" disabled={isReadOnly} preserve>
         <div style={{ display: sectionTab === 'content' ? 'block' : 'none' }}>
@@ -656,6 +752,7 @@ export function ContentEditorModal({
               <Form.Item
                 label="Slug"
                 name="slug"
+                rules={[{ required: true, message: '请填写 Slug' }]}
                 extra="留空将根据标题自动生成；同一语言下的内容 slug 不可重复（与商品等业务线互不影响）"
               >
                 <Input />

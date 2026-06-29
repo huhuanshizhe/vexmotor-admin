@@ -1,3 +1,5 @@
+import { textToSlug } from '@/lib/slug';
+
 const ENTITY_KEY_PATTERN = /^[a-z]+(?:-[a-z]+)*$/;
 
 export function normalizeEntityKeyInput(value: string): string {
@@ -10,4 +12,12 @@ export function normalizeEntityKeyForSave(value: string): string | null {
     .replace(/^-+|-+$/g, '');
   if (!normalized || !ENTITY_KEY_PATTERN.test(normalized)) return null;
   return normalized;
+}
+
+export function resolveEntityKeyForSave(input: { key: string; sourceText: string }): string | null {
+  const fromKey = normalizeEntityKeyForSave(input.key);
+  if (fromKey) return fromKey;
+
+  const fromSource = normalizeEntityKeyForSave(textToSlug(input.sourceText));
+  return fromSource || null;
 }

@@ -9630,6 +9630,38 @@ main {
   overflow: hidden;
 }
 
+.content-editor-section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.content-editor-section-toolbar--faq {
+  min-height: 32px;
+}
+
+.content-editor-section-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.content-editor-section-tabs .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.content-translate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.72);
+  pointer-events: all;
+}
+
 .content-editor-modal-wrap .ant-modal {
   top: 48px;
   padding-bottom: 48px;

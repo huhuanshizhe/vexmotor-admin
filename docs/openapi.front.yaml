@@ -13,6 +13,7 @@ servers:
     description: Production placeholder
 tags:
   - name: Home
+  - name: Navigation
   - name: Categories
   - name: Search
   - name: Products
@@ -1411,20 +1412,15 @@ paths:
   /api/front/home:
     get:
       tags: [Home]
-      summary: 获取首页动态数据（商品与分类，静态文案由 web 维护）
-      parameters:
-        - $ref: '#/components/parameters/LocaleHeader'
-        - $ref: '#/components/parameters/LocaleQueryParam'
+      summary: 获取首页聚合数据
       responses:
         '200':
-          description: 首页动态数据
+          description: 首页数据
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  locale:
-                    type: string
                   heroBanners:
                     type: array
                     items:
@@ -1442,16 +1438,24 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ProductCard'
-                  featuredShelves:
+                  featuredIndustries:
                     type: array
                     items:
                       type: object
                       additionalProperties: true
-                  mostViewedProducts:
+                  testimonials:
                     type: array
                     items:
-                      $ref: '#/components/schemas/ProductCard'
-                required: [featuredCategories, hotSale, newRelease, featuredShelves, mostViewedProducts]
+                      type: object
+                      additionalProperties: true
+                required: [heroBanners, featuredCategories, hotSale, newRelease, featuredIndustries, testimonials]
+  /api/front/navigation:
+    get:
+      tags: [Navigation]
+      summary: 获取导航和页头公共数据
+      responses:
+        '200':
+          description: 导航数据
   /api/front/categories:
     get:
       tags: [Categories]

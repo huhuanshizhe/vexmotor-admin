@@ -17,8 +17,10 @@ import {
   isUnitRequiredForValueType,
   normalizeFeatureKeyForSave,
 } from '@/lib/feature-definition-content';
+import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { db } from '@/server/db';
 import { featureDefinitionTranslations, featureDefinitions, productFeatureAssignments } from '@/server/db/schema';
+import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
 
 export const DEFAULT_FEATURE_DEFINITION_LOCALE = 'en';
 
@@ -137,17 +139,6 @@ function sanitizeTranslationInput(input: TranslationCreateInput) {
   };
 }
 
-function pickPrimaryTranslation(translations: TranslationRow[]) {
-  if (!translations.length) return null;
-  const sorted = [...translations].sort((left, right) => {
-    const leftPriority = left.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    const rightPriority = right.locale.toLowerCase().startsWith('en') ? 0 : 1;
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
-    return left.createdAt.getTime() - right.createdAt.getTime();
-  });
-  return sorted[0] ?? null;
-}
-
 function normalizeTranslationRow(
   definition: DefinitionRow,
   translation: TranslationRow,
@@ -170,8 +161,12 @@ function normalizeTranslationRow(
   };
 }
 
-function toListItem(definition: DefinitionRow, translations: TranslationRow[]): AdminFeatureDefinitionListItem | null {
-  const primary = pickPrimaryTranslation(translations);
+function toListItem(
+  definition: DefinitionRow,
+  translations: TranslationRow[],
+  displayLocale: string,
+): AdminFeatureDefinitionListItem | null {
+  const primary = pickTranslationForDisplay(translations, displayLocale);
   if (!primary) return null;
 
   const normalized = normalizeTranslationRow(definition, primary);
@@ -351,10 +346,13 @@ export async function getAdminFeatureDefinitionsPaginated(
     .limit(pageSize)
     .offset(offset);
 
-  const translationMap = await loadTranslationsByDefinitionIds(definitionRows.map((row) => row.id));
+  const [translationMap, displayLocale] = await Promise.all([
+    loadTranslationsByDefinitionIds(definitionRows.map((row) => row.id)),
+    getDefaultSiteLanguageCode(),
+  ]);
 
   const items = definitionRows
-    .map((definition) => toListItem(definition, translationMap.get(definition.id) ?? []))
+    .map((definition) => toListItem(definition, translationMap.get(definition.id) ?? [], displayLocale))
     .filter((item): item is AdminFeatureDefinitionListItem => Boolean(item));
 
   return { items, total, activeCount, page, pageSize };
@@ -370,7 +368,8 @@ export async function getAdminFeatureDefinitionListItem(definitionId: string) {
     .where(eq(featureDefinitionTranslations.definitionId, definitionId))
     .orderBy(asc(featureDefinitionTranslations.locale));
 
-  return toListItem(definition, translations);
+  const displayLocale = await getDefaultSiteLanguageCode();
+  return toListItem(definition, translations, displayLocale);
 }
 
 export async function getAdminFeatureDefinitionTranslations(definitionId: string) {
@@ -616,7 +615,8 @@ export async function updateAdminFeatureDefinition(definitionId: string, input: 
     .from(featureDefinitionTranslations)
     .where(eq(featureDefinitionTranslations.definitionId, definitionId));
 
-  return toListItem(updated, translations);
+  const displayLocale = await getDefaultSiteLanguageCode();
+  return toListItem(updated, translations, displayLocale);
 }
 
 export async function deleteAdminFeatureDefinition(definitionId: string) {

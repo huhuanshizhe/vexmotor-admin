@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   GiftOutlined,
   GlobalOutlined,
+  DollarOutlined,
   InboxOutlined,
   OrderedListOutlined,
   SettingOutlined,
@@ -54,6 +55,7 @@ const iconByKey: Record<string, React.ReactNode> = {
   '/admin/editorial': <FileTextOutlined />,
   'site-management': <SettingOutlined />,
   '/admin/languages': <GlobalOutlined />,
+  '/admin/site/exchange-rates': <DollarOutlined />,
 };
 
 function toMenuItems(items: AdminNavItem[]): NonNullable<MenuProps['items']> {

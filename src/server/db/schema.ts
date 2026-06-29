@@ -363,6 +363,20 @@ export const commerceSettings = pgTable('commerce_settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const exchangeRateSettings = pgTable('exchange_rate_settings', {
+  id: varchar('id', { length: 32 }).primaryKey(),
+  baseCurrencyCode: varchar('base_currency_code', { length: 3 }).notNull().default('USD'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const exchangeRates = pgTable('exchange_rates', {
+  currencyCode: varchar('currency_code', { length: 3 }).primaryKey(),
+  rateToBase: numeric('rate_to_base', { precision: 18, scale: 8 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const coupons = pgTable(
   'coupons',
   {

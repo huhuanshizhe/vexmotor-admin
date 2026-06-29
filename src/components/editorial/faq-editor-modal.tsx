@@ -5,6 +5,7 @@ import type { FormInstance } from 'antd';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
+import { ContentTranslateButton } from '@/components/admin/content-translate-button';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { BoardMultiSelect } from '@/components/editorial/board-multi-select';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
@@ -17,11 +18,18 @@ import {
   type EditorialEntryStatus,
   resolveContentId,
 } from '@/lib/editorial-content';
-import type { AdminSiteLanguageRow } from '@/server/admin/languages';
+import { applyNonemptyTranslatedFields } from '@/lib/content-translate-config';
+import { shouldPersistLocaleDraft } from '@/lib/locale-draft-persistence';
+import { runDefaultLocaleSaveGate } from '@/lib/admin-default-locale-save';
+import { validateSourceThenAutoSlug } from '@/lib/slug';
 import type { EditorialBoardOption } from '@/components/editorial/board-multi-select';
+import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type LocaleFormValues = {
   title: string;
+  slug: string;
+  seoTitle: string;
+  seoDescription: string;
   body: string;
 };
 
@@ -55,6 +63,9 @@ function toLocalDateTimeValue(value: string | null | undefined) {
 function createEmptyDraft(): LocaleDraft {
   return {
     title: '',
+    slug: '',
+    seoTitle: '',
+    seoDescription: '',
     body: defaultEditorialContentBody,
     publishedAt: '',
     persisted: false,
@@ -66,6 +77,9 @@ function entryToDraft(entry: AdminEditorialContentTranslation): LocaleDraft {
   return {
     entryId: entry.id,
     title: entry.title,
+    slug: entry.slug,
+    seoTitle: entry.seoTitle ?? '',
+    seoDescription: entry.seoDescription ?? '',
     body: entry.payload.body,
     publishedAt: toLocalDateTimeValue(entry.publishedAt),
     persisted: true,
@@ -73,8 +87,14 @@ function entryToDraft(entry: AdminEditorialContentTranslation): LocaleDraft {
   };
 }
 
-function resolveTargetStatus(draft: LocaleDraft, mode: PersistMode): EditorialEntryStatus {
+function resolveTargetStatus(
+  draft: LocaleDraft,
+  mode: PersistMode,
+  contentBaselineStatus?: EditorialEntryStatus,
+): EditorialEntryStatus {
   if (mode === 'publish') return 'published';
+  if (mode === 'save' && contentBaselineStatus === 'published') return 'published';
+  if (mode === 'save' && contentBaselineStatus === 'archived') return 'archived';
   if (draft.persisted) return draft.status;
   return 'draft';
 }
@@ -97,11 +117,6 @@ function mergeActiveFormIntoDrafts(
   };
 }
 
-function shouldPersistDraft(draft: LocaleDraft) {
-  if (draft.persisted) return true;
-  return Boolean(draft.title.trim() || hasMeaningfulHtmlBody(draft.body));
-}
-
 function validateDraft(locale: string, draft: LocaleDraft) {
   if (!draft.title.trim()) {
     return { ok: false as const, locale, message: '请输入标题' };
@@ -109,7 +124,13 @@ function validateDraft(locale: string, draft: LocaleDraft) {
   if (!hasMeaningfulHtmlBody(draft.body)) {
     return { ok: false as const, locale, message: '请输入正文' };
   }
-  return { ok: true as const };
+  return validateSourceThenAutoSlug({
+    locale,
+    sourceText: draft.title,
+    slug: draft.slug,
+    emptySourceMessage: '请输入标题',
+    section: 'content',
+  });
 }
 
 function buildEntryPayload(draft: LocaleDraft, locale: string, status: EditorialEntryStatus, options: {
@@ -124,6 +145,9 @@ function buildEntryPayload(draft: LocaleDraft, locale: string, status: Editorial
     boardKey: options.boardKey,
     boardKeys: options.boardKeys,
     title: draft.title.trim(),
+    slug: draft.slug.trim(),
+    seoTitle: draft.seoTitle.trim() || null,
+    seoDescription: draft.seoDescription.trim() || null,
     locale,
     status,
     publishedAt: status === 'published' ? null : draft.publishedAt ? new Date(draft.publishedAt).toISOString() : null,
@@ -201,6 +225,9 @@ export function FaqEditorModal({
     const draft = nextDrafts[locale] ?? createEmptyDraft();
     form.setFieldsValue({
       title: draft.title,
+      slug: draft.slug,
+      seoTitle: draft.seoTitle,
+      seoDescription: draft.seoDescription,
       body: draft.body,
     });
   }
@@ -219,6 +246,7 @@ export function FaqEditorModal({
       seedDrafts[editingEntry.primaryLocale] = {
         ...createEmptyDraft(),
         title: editingEntry.title,
+        slug: editingEntry.slug,
         body: defaultEditorialContentBody,
         persisted: true,
         status: editingEntry.status,
@@ -279,6 +307,46 @@ export function FaqEditorModal({
     setEditorRevision((current) => current + 1);
   }
 
+  function getMergedDrafts() {
+    return mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+  }
+
+  function getDefaultSourceFields(): Record<string, string> {
+    const draft = getMergedDrafts()[defaultLocale] ?? createEmptyDraft();
+    return {
+      title: draft.title,
+      body: draft.body,
+      seoTitle: draft.seoTitle,
+      seoDescription: draft.seoDescription,
+    };
+  }
+
+  function hasTargetLocaleContent() {
+    const draft = getMergedDrafts()[activeLocale] ?? createEmptyDraft();
+    return Boolean(
+      draft.title.trim()
+      || hasMeaningfulHtmlBody(draft.body)
+      || draft.seoTitle.trim()
+      || draft.seoDescription.trim(),
+    );
+  }
+
+  function handleTranslated(fields: Record<string, string>) {
+    const merged = getMergedDrafts();
+    const current = merged[activeLocale] ?? createEmptyDraft();
+    const nextDraft = applyNonemptyTranslatedFields(current, fields);
+    const nextDrafts = { ...merged, [activeLocale]: nextDraft };
+    setDrafts(nextDrafts);
+    form.setFieldsValue({
+      title: nextDraft.title,
+      slug: nextDraft.slug,
+      seoTitle: nextDraft.seoTitle,
+      seoDescription: nextDraft.seoDescription,
+      body: nextDraft.body,
+    });
+    setEditorRevision((currentRevision) => currentRevision + 1);
+  }
+
   function persistAllLocales(mode: PersistMode) {
     if (isReadOnly) return;
     if (mode === 'publish' && isPublished) return;
@@ -288,9 +356,31 @@ export function FaqEditorModal({
     }
 
     const mergedDrafts = mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+    const gate = runDefaultLocaleSaveGate({
+      defaultLocale,
+      mergedDrafts,
+      createEmptyDraft,
+      validateDraft,
+    });
+    if (!gate.ok) {
+      setDrafts(mergedDrafts);
+      setActiveLocale(gate.validation.locale || defaultLocale);
+      loadDraft(gate.validation.locale || defaultLocale, mergedDrafts);
+      void messageApi.error(gate.validation.message);
+      return;
+    }
+    const workingDrafts = gate.mergedDrafts;
+    if (workingDrafts[defaultLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[defaultLocale].slug);
+    }
+
     const targets = activeLanguages
-      .map((language) => ({ locale: language.code, draft: mergedDrafts[language.code] ?? createEmptyDraft() }))
-      .filter((target) => shouldPersistDraft(target.draft));
+      .map((language) => ({ locale: language.code, draft: workingDrafts[language.code] ?? createEmptyDraft() }))
+      .filter((target) => shouldPersistLocaleDraft({
+        locale: target.locale,
+        defaultLocale,
+        primaryText: target.draft.title,
+      }));
 
     if (!targets.length) {
       void messageApi.warning('请至少填写一个语言版本的内容');
@@ -300,22 +390,31 @@ export function FaqEditorModal({
     for (const target of targets) {
       const validation = validateDraft(target.locale, target.draft);
       if (!validation.ok) {
-        setDrafts(mergedDrafts);
+        setDrafts(workingDrafts);
         setActiveLocale(validation.locale);
-        loadDraft(validation.locale, mergedDrafts);
+        loadDraft(validation.locale, workingDrafts);
         const language = activeLanguages.find((item) => item.code === validation.locale);
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
+      if ('autoSlug' in validation && validation.autoSlug) {
+        target.draft.slug = validation.autoSlug;
+        workingDrafts[target.locale] = { ...workingDrafts[target.locale], slug: validation.autoSlug };
+      }
+    }
+
+    setDrafts(workingDrafts);
+    if (workingDrafts[activeLocale]?.slug) {
+      form.setFieldValue('slug', workingDrafts[activeLocale].slug);
     }
 
     startTransition(async () => {
       let nextContentId = contentId;
-      const nextDrafts = { ...mergedDrafts };
+      const nextDrafts = { ...workingDrafts };
       const savedEntries: AdminEditorialContentTranslation[] = [];
 
       for (const { locale, draft } of targets) {
-        const targetStatus = resolveTargetStatus(draft, mode);
+        const targetStatus = resolveTargetStatus(draft, mode, editingEntry?.status);
         const response = await fetch(
           draft.entryId
             ? `/api/admin/editorial/content/translations/${draft.entryId}`
@@ -375,6 +474,19 @@ export function FaqEditorModal({
 
   const editorPanel = (
     <Space orientation="vertical" size="middle" style={{ width: '100%', minWidth: 0 }}>
+      <div className="content-editor-section-toolbar content-editor-section-toolbar--faq">
+        <span />
+        <ContentTranslateButton
+          contentType="faq"
+          defaultLocale={defaultLocale}
+          activeLocale={activeLocale}
+          disabled={isReadOnly || loadingGroup}
+          getDefaultSourceFields={getDefaultSourceFields}
+          hasDefaultPersisted={() => Boolean(getMergedDrafts()[defaultLocale]?.persisted)}
+          hasTargetContent={hasTargetLocaleContent}
+          onTranslated={handleTranslated}
+        />
+      </div>
       <Form<LocaleFormValues> form={form} layout="vertical" disabled={isReadOnly} preserve>
         <Row gutter={[16, 0]}>
           <Col span={24}>
@@ -391,6 +503,26 @@ export function FaqEditorModal({
           <Col span={24}>
             <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
               <Input placeholder="请输入标题" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item
+              label="Slug"
+              name="slug"
+              rules={[{ required: true, message: '请填写 Slug' }]}
+              extra="留空将根据标题自动生成；同一语言下的 FAQ slug 不可重复"
+            >
+              <Input placeholder="faq-slug" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item label="SEO 标题" name="seoTitle">
+              <Input placeholder="留空保存时将使用标题" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item label="SEO 描述" name="seoDescription">
+              <Input.TextArea rows={3} placeholder="留空保存时将使用正文摘要" />
             </Form.Item>
           </Col>
           <Col span={24}>

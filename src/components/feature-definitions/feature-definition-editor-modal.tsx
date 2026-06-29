@@ -5,6 +5,7 @@ import type { FormInstance } from 'antd';
 import Link from 'next/link';
 import { useEffect, useState, useTransition } from 'react';
 
+import { ContentTranslateButton } from '@/components/admin/content-translate-button';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { FeatureTextOptionsField } from '@/components/feature-definitions/feature-text-options-field';
 import { FeatureUnitCombobox } from '@/components/feature-definitions/feature-unit-combobox';
@@ -20,11 +21,14 @@ import {
   featureValueTypeLabels,
   isUnitRequiredForValueType,
   joinTextOptionsMultiline,
-  normalizeFeatureKeyForSave,
   normalizeFeatureKeyInput,
   resolveFeatureDefinitionId,
   splitTextOptionsMultiline,
 } from '@/lib/feature-definition-content';
+import { applyNonemptyTranslatedFields } from '@/lib/content-translate-config';
+import { shouldPersistLocaleDraft } from '@/lib/locale-draft-persistence';
+import { runDefaultLocaleSaveGate } from '@/lib/admin-default-locale-save';
+import { resolveEntityKeyForSave } from '@/lib/admin-entity-key';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 type LocaleFormValues = {
@@ -84,13 +88,6 @@ function mergeActiveFormIntoDrafts(
   };
 }
 
-function shouldPersistDraft(draft: LocaleDraft, valueType: FeatureValueType) {
-  if (draft.persisted) return true;
-  if (draft.name.trim()) return true;
-  if (isUnitRequiredForValueType(valueType) && draft.unit.trim()) return true;
-  return Boolean(draft.textOptionsText.trim());
-}
-
 export function FeatureDefinitionEditorModal({
   open,
   activeLanguages,
@@ -111,6 +108,7 @@ export function FeatureDefinitionEditorModal({
   const [form] = Form.useForm<LocaleFormValues>();
 
   const hasLanguages = activeLanguages.length > 0;
+  const defaultLocale = activeLanguages.find((language) => language.isDefault)?.code ?? activeLanguages[0]?.code ?? '';
   const isEditing = Boolean(editingEntry);
 
   useEffect(() => {
@@ -124,8 +122,8 @@ export function FeatureDefinitionEditorModal({
       return;
     }
 
-    const defaultLocale = activeLanguages[0]?.code ?? '';
-    setActiveLocale(defaultLocale);
+    const nextDefaultLocale = activeLanguages.find((language) => language.isDefault)?.code ?? activeLanguages[0]?.code ?? '';
+    setActiveLocale(nextDefaultLocale);
 
     if (!editingEntry) {
       setDefinitionId(undefined);
@@ -163,7 +161,7 @@ export function FeatureDefinitionEditorModal({
           }),
         );
         setDrafts(nextDrafts);
-        form.setFieldsValue(nextDrafts[defaultLocale] ?? createEmptyDraft());
+        form.setFieldsValue(nextDrafts[nextDefaultLocale] ?? createEmptyDraft());
       } catch {
         void messageApi.error('加载特性详情失败');
       } finally {
@@ -188,6 +186,37 @@ export function FeatureDefinitionEditorModal({
     loadDraft(nextLocale, merged);
   }
 
+  function getMergedDrafts() {
+    return mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+  }
+
+  function getDefaultSourceFields(): Record<string, string> {
+    const draft = getMergedDrafts()[defaultLocale] ?? createEmptyDraft();
+    return {
+      name: draft.name,
+      unit: draft.unit,
+      textOptionsText: draft.textOptionsText,
+    };
+  }
+
+  function hasTargetLocaleContent() {
+    const draft = getMergedDrafts()[activeLocale] ?? createEmptyDraft();
+    return Boolean(draft.name.trim() || draft.unit.trim() || draft.textOptionsText.trim());
+  }
+
+  function handleTranslated(fields: Record<string, string>) {
+    const merged = getMergedDrafts();
+    const current = merged[activeLocale] ?? createEmptyDraft();
+    const nextDraft = applyNonemptyTranslatedFields(current, fields);
+    const nextDrafts = { ...merged, [activeLocale]: nextDraft };
+    setDrafts(nextDrafts);
+    form.setFieldsValue({
+      name: nextDraft.name,
+      unit: nextDraft.unit,
+      textOptionsText: nextDraft.textOptionsText,
+    });
+  }
+
   function validateDraft(locale: string, draft: LocaleDraft) {
     if (!draft.name.trim()) {
       return { ok: false as const, locale, message: '请填写特性名称' };
@@ -198,12 +227,13 @@ export function FeatureDefinitionEditorModal({
     return { ok: true as const };
   }
 
-  function validateSharedFields() {
-    const normalizedKey = normalizeFeatureKeyForSave(featureKey);
-    if (!normalizedKey) {
+  function validateSharedFields(mergedDrafts: Record<string, LocaleDraft>) {
+    const defaultName = mergedDrafts[defaultLocale]?.name ?? '';
+    const resolvedKey = resolveEntityKeyForSave({ key: featureKey, sourceText: defaultName });
+    if (!resolvedKey) {
       return { ok: false as const, message: '请填写 Key（仅限小写英文字母和连字符）' };
     }
-    return { ok: true as const, key: normalizedKey };
+    return { ok: true as const, key: resolvedKey };
   }
 
   function buildTranslationPayload(draft: LocaleDraft, locale: string, key?: string) {
@@ -226,16 +256,38 @@ export function FeatureDefinitionEditorModal({
       return;
     }
 
-    const sharedValidation = validateSharedFields();
+    const mergedDrafts = mergeActiveFormIntoDrafts(drafts, activeLocale, form);
+    const gate = runDefaultLocaleSaveGate({
+      defaultLocale,
+      mergedDrafts,
+      createEmptyDraft,
+      validateDraft,
+    });
+    if (!gate.ok) {
+      setDrafts(mergedDrafts);
+      setActiveLocale(gate.validation.locale || defaultLocale);
+      loadDraft(gate.validation.locale || defaultLocale, mergedDrafts);
+      void messageApi.error(gate.validation.message);
+      return;
+    }
+    const workingDrafts = gate.mergedDrafts;
+
+    const sharedValidation = validateSharedFields(workingDrafts);
     if (!sharedValidation.ok) {
       void messageApi.error(sharedValidation.message);
       return;
     }
+    if (sharedValidation.key !== featureKey) {
+      setFeatureKey(sharedValidation.key);
+    }
 
-    const mergedDrafts = mergeActiveFormIntoDrafts(drafts, activeLocale, form);
     const targets = activeLanguages
-      .map((language) => ({ locale: language.code, draft: mergedDrafts[language.code] ?? createEmptyDraft() }))
-      .filter((target) => shouldPersistDraft(target.draft, valueType));
+      .map((language) => ({ locale: language.code, draft: workingDrafts[language.code] ?? createEmptyDraft() }))
+      .filter((target) => shouldPersistLocaleDraft({
+        locale: target.locale,
+        defaultLocale,
+        primaryText: target.draft.name,
+      }));
 
     if (!targets.length) {
       void messageApi.warning('请至少填写一个语言版本的内容');
@@ -245,20 +297,20 @@ export function FeatureDefinitionEditorModal({
     for (const target of targets) {
       const validation = validateDraft(target.locale, target.draft);
       if (!validation.ok) {
-        setDrafts(mergedDrafts);
+        setDrafts(workingDrafts);
         setActiveLocale(validation.locale);
-        loadDraft(validation.locale, mergedDrafts);
+        loadDraft(validation.locale, workingDrafts);
         const language = activeLanguages.find((item) => item.code === validation.locale);
         void messageApi.error(`${language?.nativeName ?? validation.locale}：${validation.message}`);
         return;
       }
     }
 
-    setDrafts(mergedDrafts);
+    setDrafts(workingDrafts);
 
     startTransition(async () => {
       let nextDefinitionId = definitionId;
-      const nextDrafts = { ...mergedDrafts };
+      const nextDrafts = { ...workingDrafts };
       const savedEntries: AdminFeatureDefinitionTranslation[] = [];
       const shared = {
         key: sharedValidation.key,
@@ -330,7 +382,7 @@ export function FeatureDefinitionEditorModal({
     <div className="content-editor-shared-section">
       <Row gutter={[16, 0]}>
         <Col xs={24} md={8}>
-          <Form.Item label="Key" layout="vertical" required style={{ marginBottom: 16 }}>
+          <Form.Item label="Key" layout="vertical" required style={{ marginBottom: 16 }} extra="留空将根据默认语言特性名称自动生成">
             <Input
               value={featureKey}
               placeholder="如 weight、max-torque"
@@ -378,8 +430,20 @@ export function FeatureDefinitionEditorModal({
 
   const editorPanel = (
     <Form<LocaleFormValues> form={form} layout="vertical" preserve>
-      <div className="feature-definition-editor-content">
+      <div className="content-editor-section-toolbar content-editor-section-toolbar--faq">
         <div className="feature-definition-editor-content__title">内容</div>
+        <ContentTranslateButton
+          contentType="feature"
+          defaultLocale={defaultLocale}
+          activeLocale={activeLocale}
+          disabled={loadingGroup}
+          getDefaultSourceFields={getDefaultSourceFields}
+          hasDefaultPersisted={() => Boolean(getMergedDrafts()[defaultLocale]?.persisted)}
+          hasTargetContent={hasTargetLocaleContent}
+          onTranslated={handleTranslated}
+        />
+      </div>
+      <div className="feature-definition-editor-content">
         <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <Form.Item
             label="特性名称"

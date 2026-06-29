@@ -21,9 +21,13 @@ export function normalizeSlug(value: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function generateSlugFromText(text: string): string {
+/** 将任意字符串转为 URL slug（仅 ASCII、小写、空白转横线、合并连续横线）。 */
+export function textToSlug(text: string): string {
   return normalizeSlug(transliterateSlugSource(text));
 }
+
+/** @deprecated 请使用 {@link textToSlug} */
+export const generateSlugFromText = textToSlug;
 
 export function resolveSlugForSave(input: { sourceText: string; slug?: string | null }): string | null {
   const manualSlug = input.slug?.trim();
@@ -32,7 +36,7 @@ export function resolveSlugForSave(input: { sourceText: string; slug?: string | 
   const sourceText = input.sourceText.trim();
   if (!sourceText) return null;
 
-  return generateSlugFromText(sourceText) || null;
+  return textToSlug(sourceText) || null;
 }
 
 export type DraftSlugValidation =
@@ -51,15 +55,14 @@ export function validateSourceThenAutoSlug(input: {
     return { ok: false, locale: input.locale, message: input.emptySourceMessage, section };
   }
 
-  const manualSlug = input.slug.trim();
-  if (manualSlug) {
-    return { ok: true };
+  const resolved = resolveSlugForSave({
+    sourceText: input.sourceText,
+    slug: input.slug,
+  });
+  if (!resolved) {
+    return { ok: false, locale: input.locale, message: '请填写 Slug', section: 'seo' };
   }
 
-  const autoSlug = generateSlugFromText(input.sourceText);
-  if (!autoSlug) {
-    return { ok: false, locale: input.locale, message: '无法根据名称生成 slug，请手动填写', section: 'seo' };
-  }
-
+  const autoSlug = input.slug.trim() ? undefined : resolved;
   return { ok: true, autoSlug };
 }
