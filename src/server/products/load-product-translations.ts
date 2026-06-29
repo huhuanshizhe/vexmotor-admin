@@ -102,3 +102,17 @@ export function resolveProductCoverImage(
   const normalizedTableImage = tableImage?.url?.trim() ? tableImage : null;
   return normalizedTableImage ?? coverImageFromPayload(productId, productName, payload);
 }
+
+/** Ensure storefront gallery leads with the resolved cover image. */
+export function mergeGalleryWithCover(
+  gallery: StorefrontImage[],
+  coverImage: StorefrontImage | null,
+): StorefrontImage[] {
+  if (!coverImage?.url?.trim()) {
+    return gallery;
+  }
+
+  const coverUrl = coverImage.url.trim();
+  const rest = gallery.filter((image) => image.url?.trim() !== coverUrl);
+  return [coverImage, ...rest];
+}

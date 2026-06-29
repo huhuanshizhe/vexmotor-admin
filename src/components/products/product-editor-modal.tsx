@@ -45,7 +45,7 @@ type SectionTabKey = 'content' | 'pricing' | 'manufacturing' | 'attachments' | '
 type LocaleFormValues = {
   name: string;
   shortDescription: string;
-  descriptionLong: string;
+  description: string;
   coverUrl: string;
   coverAlt: string;
   gallery: AdminProductPayload['gallery'];
@@ -91,7 +91,7 @@ function createEmptyDraft(currencyCode = 'USD'): LocaleDraft {
   return {
     name: '',
     shortDescription: '',
-    descriptionLong: '',
+    description: '',
     coverUrl: '',
     coverAlt: '',
     gallery: [],
@@ -122,7 +122,7 @@ function entryToDraft(entry: AdminProductTranslation): LocaleDraft {
     entryId: entry.id,
     name: entry.name,
     shortDescription: entry.shortDescription ?? '',
-    descriptionLong: entry.descriptionLong ?? '',
+    description: entry.description ?? '',
     coverUrl: entry.payload.coverUrl ?? '',
     coverAlt: entry.payload.coverAlt ?? '',
     gallery: entry.payload.gallery ?? [],
@@ -161,9 +161,9 @@ function mergeActiveFormIntoDrafts(
     [activeLocale]: {
       ...previous,
       ...values,
-      descriptionLong: hasMeaningfulHtmlBody(values.descriptionLong ?? '')
-        ? values.descriptionLong
-        : previous.descriptionLong,
+      description: hasMeaningfulHtmlBody(values.description ?? '')
+        ? values.description
+        : previous.description,
       coverUrl: values.coverUrl?.trim() ? values.coverUrl : previous.coverUrl,
       coverAlt: values.coverAlt?.trim() ? values.coverAlt : previous.coverAlt,
       gallery: values.gallery?.length ? values.gallery : previous.gallery,
@@ -368,7 +368,7 @@ export function ProductEditorModal({
     return {
       name: draft.name,
       shortDescription: draft.shortDescription,
-      descriptionLong: draft.descriptionLong,
+      description: draft.description,
       coverAlt: draft.coverAlt,
       certificationsText: draft.certificationsText,
       tagsText: draft.tagsText,
@@ -382,7 +382,7 @@ export function ProductEditorModal({
     return Boolean(
       draft.name.trim()
       || draft.shortDescription.trim()
-      || hasMeaningfulHtmlBody(draft.descriptionLong)
+      || hasMeaningfulHtmlBody(draft.description)
       || draft.coverAlt.trim()
       || draft.certificationsText.trim()
       || draft.tagsText.trim()
@@ -420,7 +420,7 @@ export function ProductEditorModal({
     form.setFieldsValue({
       name: nextDraft.name,
       shortDescription: nextDraft.shortDescription,
-      descriptionLong: nextDraft.descriptionLong,
+      description: nextDraft.description,
       slug: nextDraft.slug,
       coverAlt: nextDraft.coverAlt,
       certificationsText: nextDraft.certificationsText,
@@ -466,8 +466,7 @@ export function ProductEditorModal({
       name: draft.name.trim(),
       slug: draft.slug.trim(),
       shortDescription: draft.shortDescription.trim() || null,
-      description: null,
-      descriptionLong: draft.descriptionLong.trim() || null,
+      description: draft.description.trim() || null,
       seoTitle: draft.seoTitle.trim() || null,
       seoDescription: draft.seoDescription.trim() || null,
       price: draft.price,
@@ -779,7 +778,7 @@ export function ProductEditorModal({
                               }} />
                             </Form.Item>
                             <Form.Item label="简短描述" name="shortDescription"><Input.TextArea rows={3} /></Form.Item>
-                            <Form.Item label="详细描述" name="descriptionLong">
+                            <Form.Item label="详细描述" name="description">
                               <RichTextEditor key={`${activeLocale}-${editorRevision}`} />
                             </Form.Item>
                             <Form.Item

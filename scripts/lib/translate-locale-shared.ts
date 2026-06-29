@@ -233,7 +233,7 @@ export function productPayloadToTranslateFields(
   return {
     name: source.name,
     shortDescription: source.shortDescription ?? '',
-    descriptionLong: source.descriptionLong ?? '',
+    description: source.description ?? '',
     coverAlt: payload.coverAlt ?? '',
     certificationsText: (payload.certifications ?? []).join('\n'),
     tagsText: tagsToText(payload.tags),

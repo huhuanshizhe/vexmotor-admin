@@ -84,7 +84,6 @@ export type StorefrontCompatibleGroup = {
 
 export type StorefrontProductDetail = StorefrontProductCard & {
   description: string;
-  descriptionLong?: string | null;
   gallery: StorefrontImage[];
   categories: StorefrontCategory[];
   attributes: Array<{ group: string; value: string }>;

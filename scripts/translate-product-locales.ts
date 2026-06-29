@@ -79,7 +79,7 @@ async function main() {
   const sourceFields = {
     name: sourceTranslation.name,
     shortDescription: sourceTranslation.shortDescription ?? '',
-    descriptionLong: sourceTranslation.descriptionLong ?? '',
+    description: sourceTranslation.description ?? '',
     coverAlt: (sourceTranslation.payload as { coverAlt?: string | null })?.coverAlt ?? '',
     certificationsText: '',
     tagsText: '',
@@ -113,8 +113,7 @@ async function main() {
       name,
       slug,
       shortDescription: normalizeImportText(translated.shortDescription ?? sourceTranslation.shortDescription),
-      description: null,
-      descriptionLong: normalizeImportText(translated.descriptionLong ?? sourceTranslation.descriptionLong),
+      description: normalizeImportText(translated.description ?? sourceTranslation.description),
       seoTitle: normalizeImportSeoText(translated.seoTitle ?? sourceTranslation.seoTitle, 255),
       seoDescription: normalizeImportSeoText(translated.seoDescription ?? sourceTranslation.seoDescription, 500),
       price: converted.price != null ? String(converted.price) : sourceTranslation.price,

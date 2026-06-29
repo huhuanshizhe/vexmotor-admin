@@ -68,10 +68,6 @@ export function productDescriptionSql(productIdColumn: SQLWrapper, locale: strin
   return productTranslationColumnSql(productIdColumn, 'description', locale) as SQL<string | null>;
 }
 
-export function productDescriptionLongSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
-  return productTranslationColumnSql(productIdColumn, 'description_long', locale) as SQL<string | null>;
-}
-
 export function productSeoTitleSql(productIdColumn: SQLWrapper, locale: string = DEFAULT_PRODUCT_LOCALE) {
   return productTranslationColumnSql(productIdColumn, 'seo_title', locale) as SQL<string | null>;
 }

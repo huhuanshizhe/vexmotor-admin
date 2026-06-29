@@ -71,7 +71,7 @@ export const CONTENT_TRANSLATE_PROFILES: Record<ContentTranslateType, ContentTra
     sourceFields: [
       'name',
       'shortDescription',
-      'descriptionLong',
+      'description',
       'coverAlt',
       'certificationsText',
       'tagsText',
@@ -87,7 +87,7 @@ export const CONTENT_TRANSLATE_PROFILES: Record<ContentTranslateType, ContentTra
       'seoTitle',
       'seoDescription',
     ],
-    htmlField: 'descriptionLong',
+    htmlField: 'description',
     serverLabel: 'catalog product',
     tooltip: '将默认语言已保存的产品名称、描述、认证与 SEO 字段翻译到当前语言，并按汇率换算销售价与原价；Slug 不会翻译；详细描述保留排版结构',
   },

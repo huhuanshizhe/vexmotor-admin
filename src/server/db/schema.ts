@@ -1056,7 +1056,6 @@ export const productTranslations = pgTable(
     slug: varchar('slug', { length: 255 }).notNull(),
     shortDescription: text('short_description'),
     description: text('description'),
-    descriptionLong: text('description_long'),
     seoTitle: varchar('seo_title', { length: 255 }),
     seoDescription: varchar('seo_description', { length: 500 }),
     price: numeric('price', { precision: 12, scale: 2 }).notNull().default('0'),

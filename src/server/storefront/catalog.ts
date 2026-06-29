@@ -15,6 +15,13 @@ import {
   productVariants,
 } from '@/server/db/schema';
 
+import {
+  galleryFromPayload,
+  loadProductTranslationsByProductIds,
+  mergeGalleryWithCover,
+  pickProductTranslation,
+  resolveProductCoverImage,
+} from '@/server/products/load-product-translations';
 import { getStorefrontProductFeatureOptions, getStorefrontProductFeatures } from '@/server/admin/product-features';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
 import {
@@ -28,7 +35,6 @@ import {
   DEFAULT_PRODUCT_LOCALE,
   productCompareAtPriceSql,
   productCurrencyCodeSql,
-  productDescriptionLongSql,
   productDescriptionSql,
   productLeadTimeMaxSql,
   productLeadTimeMinSql,
@@ -229,23 +235,33 @@ export async function getHomeData(localeInput?: string | null): Promise<HomeData
       }
     }
 
+    const homeTranslationMap = await loadProductTranslationsByProductIds(dbProducts.map((item) => item.id));
+
     if (!dbProducts.length) {
       return defaultHomeData;
     }
 
-    const dynamicCards = dbProducts.map((item) => ({
+    const dynamicCards = dbProducts.map((item) => {
+      const translation = pickProductTranslation(homeTranslationMap.get(item.id), locale);
+      return {
       id: item.id,
       name: item.name,
       slug: item.slug,
       spu: item.spu,
       shortDescription: item.shortDescription,
-      coverImage: firstImageByProductId.get(item.id) ?? null,
+      coverImage: resolveProductCoverImage(
+        item.id,
+        item.name,
+        firstImageByProductId.get(item.id),
+        translation?.payload,
+      ),
       price: asMoney(item.price, item.currencyCode),
       compareAtPrice: item.compareAtPrice ? asMoney(item.compareAtPrice, item.currencyCode) : null,
       purchaseMode: item.purchaseMode,
       inStock: item.stockQuantity > 0,
       brand: item.brandId && item.brandName && item.brandSlug ? { id: item.brandId, name: item.brandName, slug: item.brandSlug } : null,
-    }));
+    };
+    });
 
     function cycleItems<T>(items: T[], start: number, count: number) {
       if (!items.length) {
@@ -523,22 +539,32 @@ export async function getProductList(input: {
       }
     }
 
+    const listTranslationMap = await loadProductTranslationsByProductIds(rows.map((item) => item.id));
+
     const purchaseModeCounts = new Map(facetCountRows.map((row) => [row.purchaseMode, Number(row.total)]));
 
     return {
-      items: rows.map((item) => ({
+      items: rows.map((item) => {
+        const translation = pickProductTranslation(listTranslationMap.get(item.id), locale);
+        return {
         id: item.id,
         name: item.name,
         slug: item.slug,
         spu: item.spu,
         shortDescription: item.shortDescription,
-        coverImage: listImageByProductId.get(item.id) ?? null,
+        coverImage: resolveProductCoverImage(
+          item.id,
+          item.name,
+          listImageByProductId.get(item.id),
+          translation?.payload,
+        ),
         price: asMoney(item.price, item.currencyCode),
         compareAtPrice: item.compareAtPrice ? asMoney(item.compareAtPrice, item.currencyCode) : null,
         purchaseMode: item.purchaseMode,
         inStock: item.stockQuantity > 0,
         brand: item.brandId && item.brandName && item.brandSlug ? { id: item.brandId, name: item.brandName, slug: item.brandSlug } : null,
-      })),
+      };
+      }),
       meta: {
         page,
         pageSize,
@@ -572,7 +598,6 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
         spu: products.spu,
         shortDescription: productTranslations.shortDescription,
         description: productTranslations.description,
-        descriptionLong: productTranslations.descriptionLong,
         purchaseMode: products.purchaseMode,
         stockQuantity: productTranslations.stockQuantity,
         price: productTranslations.price,
@@ -637,6 +662,12 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
     const eolDate = product.eolDate ? product.eolDate.toISOString() : null;
     const lastTimeBuyDate = product.lastTimeBuyDate ? product.lastTimeBuyDate.toISOString() : null;
 
+    const tableCover = images[0] ? toImage(images[0]) : null;
+    const tableGallery = images.map(toImage);
+    const payloadGallery = galleryFromPayload(product.id, product.name, product.payload);
+    const coverImage = resolveProductCoverImage(product.id, product.name, tableCover, product.payload);
+    const baseGallery = tableGallery.length ? tableGallery : payloadGallery;
+
     return {
       id: product.id,
       name: product.name,
@@ -644,8 +675,8 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
       spu: product.spu,
       shortDescription: product.shortDescription,
       description: product.description ?? '',
-      coverImage: images[0] ? toImage(images[0]) : null,
-      gallery: images.map(toImage),
+      coverImage,
+      gallery: mergeGalleryWithCover(baseGallery, coverImage),
       price: asMoney(product.price, product.currencyCode),
       compareAtPrice: product.compareAtPrice ? asMoney(product.compareAtPrice, product.currencyCode) : null,
       purchaseMode: product.purchaseMode,
@@ -700,7 +731,6 @@ export async function getProductBySlug(slug: string, localeInput?: string | null
       },
       features: featureRows,
       configurableFeatures,
-      descriptionLong: product.descriptionLong || null,
     };
   } catch (error) {
     console.error('getProductBySlug DB error:', error);

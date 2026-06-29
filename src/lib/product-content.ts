@@ -73,7 +73,6 @@ export type AdminProductTranslation = {
   slug: string;
   shortDescription: string | null;
   description: string | null;
-  descriptionLong: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
   price: string;
