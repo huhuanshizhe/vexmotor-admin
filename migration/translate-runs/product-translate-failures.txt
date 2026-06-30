@@ -1,0 +1,101 @@
+# Product translate failures
+# Generated: 2026-06-29T23:11:19.302Z
+# Total failures: 33
+1. SPU 11HB20-0674S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+2. SPU 14HB17-0504S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+3. SPU 14HB20-1504S → de
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+4. SPU 16H917-0304S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+5. SPU 16H910-0604S → de
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+6. SPU 17HB19-2004S1 → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+7. SPU 17H915-0904S → de
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+8. SPU 17HB15-0404S → de
+   LLM API error 500: {"error":{"code":"BalanceError","message":"<500> InternalError.Algo: An error occurred in model serving, error message is: [There are no suitable services.]","param":null,"type":"BalanceError"},"request_id":"217643a7-2de1-9946-877d-55f9037e3264"}
+
+9. SPU 17HB15-0404S → es
+   fetch failed
+
+10. SPU 17HB15-0406S → de
+   fetch failed
+
+11. SPU 17HB15-0406S → es
+   fetch failed
+
+12. SPU 263 → de
+   fetch failed
+
+13. SPU 17H913-0316D → es
+   fetch failed
+
+14. SPU 17HB19-2504S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+15. SPU 23HB16-0884S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+16. SPU 290 → de
+   fetch failed
+
+17. SPU 23HB30-2804S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+18. SPU 34HB59-5004S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+19. SPU 282 → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+20. SPU 14HB13-0406S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+21. SPU 17HB24-1206S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+22. SPU 17HB19-1684S1 → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+23. SPU 17HB13-0956S → de
+   fetch failed
+
+24. SPU 17H915-1004S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+25. SPU 17HB15-0854S-C2 → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+26. SPU 23HB33-4008S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+27. SPU 23HB22-2804S1 → de
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+28. SPU 281 → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+29. SPU 23HB22-3008D → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+30. SPU 17HB19-0854S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+31. SPU 17H908-1204S → de
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+32. SPU 17HB15-1504S1 → de
+   Unexpected token 'T', "Thinking P"... is not valid JSON
+
+33. SPU 17HB15-0854S → es
+   Unexpected token 'T', "Thinking P"... is not valid JSON
