@@ -1,9 +1,14 @@
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, inArray } from 'drizzle-orm';
 
 import { normalizeLocale, type Locale } from '@/lib/i18n';
 import { db } from '@/server/db';
 import { productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
-import { addresses, inquiries, orderItems, orders, products, users, wishlists } from '@/server/db/schema';
+import {
+  loadProductTranslationsByProductIds,
+  pickProductTranslation,
+  resolveProductCoverImage,
+} from '@/server/products/load-product-translations';
+import { addresses, inquiries, orderItems, orders, productImages, products, users, wishlists } from '@/server/db/schema';
 
 import { getStorefrontInquiriesByUser } from './inquiries';
 
@@ -308,9 +313,48 @@ export async function getWishlistByUser(userId: string, localeInput?: string | n
     .where(eq(wishlists.userId, userId))
     .orderBy(desc(wishlists.createdAt));
 
-  return rows.map((row) => ({
-    ...row,
-    price: formatWishlistMoney(row.price, row.currencyCode),
-    inStock: row.stockQuantity > 0,
-  }));
+  const productIds = rows.map((row) => row.productId);
+  const imageRows = productIds.length
+    ? await db
+        .select({
+          productId: productImages.productId,
+          id: productImages.id,
+          url: productImages.url,
+          alt: productImages.alt,
+          width: productImages.width,
+          height: productImages.height,
+        })
+        .from(productImages)
+        .where(and(eq(productImages.isPrimary, true), inArray(productImages.productId, productIds)))
+    : [];
+  const tableImageByProductId = new Map(
+    imageRows.map((row) => [
+      row.productId,
+      {
+        id: row.id,
+        url: row.url,
+        alt: row.alt,
+        width: row.width,
+        height: row.height,
+      },
+    ]),
+  );
+  const translationsByProductId = await loadProductTranslationsByProductIds(productIds);
+
+  return rows.map((row) => {
+    const translation = pickProductTranslation(translationsByProductId.get(row.productId), locale);
+    const coverImage = resolveProductCoverImage(
+      row.productId,
+      row.name,
+      tableImageByProductId.get(row.productId),
+      translation?.payload,
+    );
+
+    return {
+      ...row,
+      price: formatWishlistMoney(row.price, row.currencyCode),
+      inStock: row.stockQuantity > 0,
+      coverImage,
+    };
+  });
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 
 import { calculateOrderPricing } from '@/lib/commerce-config';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
@@ -9,6 +9,11 @@ import { getVolumePricingForQuantity } from '@/lib/volume-pricing';
 import { validateAndBuildFeatureSelections } from '@/server/admin/product-features';
 import { getCommerceConfig } from '@/server/commerce/config';
 import { db } from '@/server/db';
+import {
+  loadProductTranslationsByProductIds,
+  pickProductTranslation,
+  resolveProductCoverImage,
+} from '@/server/products/load-product-translations';
 import { productCompareAtPriceSql, productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
 import { addresses, cartItems, carts, orderCouponRedemptions, orderItems, orders, productImages, products, verificationTokens } from '@/server/db/schema';
 
@@ -193,7 +198,8 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
     .innerJoin(products, eq(products.id, cartItems.productId))
     .where(eq(cartItems.cartId, cartId));
 
-  const imageRows = items.length
+  const productIds = items.map((item) => item.productId);
+  const imageRows = productIds.length
     ? await db
         .select({
           productId: productImages.productId,
@@ -204,24 +210,48 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
           height: productImages.height,
         })
         .from(productImages)
-        .where(and(eq(productImages.isPrimary, true), inArray(productImages.productId, items.map((item) => item.productId))))
+        .where(inArray(productImages.productId, productIds))
+        .orderBy(asc(productImages.productId), asc(productImages.sortOrder))
     : [];
 
-  const firstImageByProductId = new Map(
-    imageRows.map((row) => [
-      row.productId,
-      {
+  const firstImageByProductId = new Map<
+    string,
+    { id: string; url: string; alt: string; width: number | null; height: number | null }
+  >();
+  for (const row of imageRows) {
+    if (!firstImageByProductId.has(row.productId)) {
+      firstImageByProductId.set(row.productId, {
         id: row.id,
         url: row.url,
         alt: row.alt,
         width: row.width,
         height: row.height,
-      },
-    ]),
-  );
+      });
+    }
+  }
 
-  const subtotal = items.reduce((sum, item) => sum + Number(item.subtotal), 0);
-  const listSubtotal = items.reduce((sum, item) => sum + Number(item.basePrice) * item.quantity, 0);
+  const translationsByProductId = await loadProductTranslationsByProductIds(productIds);
+
+  const pricedItems = items.map((item) => {
+    const basePriceAmount = Number(item.basePrice);
+    const unitPriceAmount = resolveTierUnitPrice(
+      basePriceAmount,
+      item.currencyCode ?? 'USD',
+      item.quantity,
+      commerceConfig.volumePricingRules,
+    );
+    const lineSubtotal = Number((unitPriceAmount * item.quantity).toFixed(2));
+
+    return {
+      item,
+      basePriceAmount,
+      unitPriceAmount,
+      lineSubtotal,
+    };
+  });
+
+  const subtotal = pricedItems.reduce((sum, row) => sum + row.lineSubtotal, 0);
+  const listSubtotal = pricedItems.reduce((sum, row) => sum + row.basePriceAmount * row.item.quantity, 0);
   const summary = buildCartPricingSummary({
     subtotal,
     listSubtotal,
@@ -233,9 +263,16 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
   return {
     id: cart.id,
     locale,
-    items: items.map((item) => {
+    items: pricedItems.map(({ item, basePriceAmount, unitPriceAmount, lineSubtotal }) => {
       const featureSelections = (item.featureSelections ?? []) as FeatureSelectionSnapshot;
       const configurationLabel = buildConfigurationLabel(featureSelections);
+      const translation = pickProductTranslation(translationsByProductId.get(item.productId), locale);
+      const coverImage = resolveProductCoverImage(
+        item.productId,
+        item.productName,
+        firstImageByProductId.get(item.productId),
+        translation?.payload,
+      );
       return {
         id: item.id,
         productId: item.productId,
@@ -250,20 +287,20 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
           purchaseMode: item.purchaseMode,
           inStock: item.stockQuantity > 0,
           brand: null,
-          coverImage: firstImageByProductId.get(item.productId) ?? null,
+          coverImage,
         },
         quantity: item.quantity,
         listUnitPrice: formatMoney(item.basePrice, item.currencyCode),
-        unitPrice: formatMoney(item.unitPrice, item.currencyCode),
-        subtotal: formatMoney(item.subtotal, item.currencyCode),
-        tierApplied: Number(item.unitPrice) < Number(item.basePrice),
+        unitPrice: formatMoney(unitPriceAmount, item.currencyCode),
+        subtotal: formatMoney(lineSubtotal, item.currencyCode),
+        tierApplied: unitPriceAmount < basePriceAmount,
         configurationKey: item.configurationKey,
         featureSelections,
         configurationLabel,
         variantLabel: configurationLabel,
       };
     }),
-    itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+    itemCount: pricedItems.reduce((sum, row) => sum + row.item.quantity, 0),
     couponCode: cart.couponCode,
     coupon: summary.coupon,
     subtotal: formatMoney(subtotal, cart.currencyCode),
