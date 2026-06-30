@@ -645,15 +645,19 @@ components:
           properties:
             code:
               type: string
+              description: 已应用的优惠券代码（区分大小写）
             description:
               type: string
+            discountType:
+              type: string
+              enum: [direct_amount, percent, fixed_amount, special_price]
             isApplied:
               type: boolean
             message:
               type:
                 - string
                 - 'null'
-          required: [code, description, isApplied, message]
+          required: [code, description, discountType, isApplied, message]
         subtotal:
           $ref: '#/components/schemas/Money'
         discount:
@@ -676,9 +680,6 @@ components:
         id:
           type: string
           format: uuid
-        addressType:
-          type: string
-          enum: [shipping, billing]
         firstName:
           type: string
         lastName:
@@ -701,7 +702,48 @@ components:
           type: string
         isDefault:
           type: boolean
-      required: [id, addressType, firstName, lastName, countryCode, city, addressLine1, postalCode, isDefault]
+      required: [id, firstName, lastName, countryCode, city, addressLine1, postalCode, isDefault]
+      additionalProperties: false
+    GeoCountry:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        isoAlpha2:
+          type: string
+        isoAlpha3:
+          type: string
+          nullable: true
+        continentCode:
+          type: string
+        nameEn:
+          type: string
+        nameZh:
+          type: string
+          nullable: true
+        label:
+          type: string
+      required: [id, code, isoAlpha2, continentCode, nameEn, label]
+      additionalProperties: false
+    GeoDivision:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        level:
+          type: string
+        nameEn:
+          type: string
+        nameZh:
+          type: string
+          nullable: true
+        label:
+          type: string
+      required: [id, code, level, nameEn, label]
       additionalProperties: false
     UserProfile:
       type: object
@@ -1361,6 +1403,8 @@ components:
           type:
             - string
             - 'null'
+          description: 优惠券代码（区分大小写）；传 null 或空字符串移除已应用优惠
+          maxLength: 64
       additionalProperties: false
     CreateOrderRequest:
       type: object
@@ -1385,7 +1429,38 @@ components:
           type: string
         tradeTerm:
           type: string
-      required: [shippingAddressId, billingAddressId, shippingMethod, paymentMethod]
+        buyNow:
+          type: object
+          properties:
+            productId:
+              type: string
+              format: uuid
+            quantity:
+              type: integer
+              minimum: 1
+            featureValueIds:
+              type: array
+              items:
+                type: string
+                format: uuid
+          required: [productId, quantity]
+      required: [shippingMethod, paymentMethod]
+      additionalProperties: false
+    BuyNowPreviewRequest:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        featureValueIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: [productId, quantity]
       additionalProperties: false
     CreateInquiryRequest:
       type: object
@@ -1685,6 +1760,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Cart]
+      summary: 应用或移除购物车优惠码
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartCouponRequest'
+      responses:
+        '200':
+          description: 更新后的购物车
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: 请求非法或优惠码不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/cart/items/{itemId}:
     patch:
       tags: [Cart]
@@ -1712,6 +1812,29 @@ paths:
       responses:
         '204':
           description: 删除成功
+  /api/front/checkout/buy-now-preview:
+    post:
+      tags: [Checkout]
+      summary: 生成 Buy Now 结账预览（不写持久购物车）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyNowPreviewRequest'
+      responses:
+        '200':
+          description: 预览购物车结构
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartDetail'
+        '400':
+          description: 参数错误或商品不可购买
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/checkout/orders:
     post:
       tags: [Checkout]
@@ -1748,28 +1871,7 @@ paths:
           description: 订单列表
           content:
             application/json:
-    patch:
-      tags: [Cart]
-      summary: 应用或移除购物车优惠码
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateCartCouponRequest'
-      responses:
-        '200':
-          description: 更新后的购物车
-          content:
-            application/json:
               schema:
-                $ref: '#/components/schemas/Cart'
-        '400':
-          description: 请求非法或优惠码不可用
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
                 type: array
                 items:
                   $ref: '#/components/schemas/OrderSummary'
@@ -1794,6 +1896,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/geo/countries:
+    get:
+      tags: [Geo]
+      summary: 国家列表
+      parameters:
+        - name: continent
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GeoCountry'
+                required: [items]
+  /api/front/geo/divisions:
+    get:
+      tags: [Geo]
+      summary: 行政区划级联
+      parameters:
+        - name: country
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: parentId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GeoDivision'
+                required: [items]
   /api/front/addresses:
     get:
       tags: [Addresses]
@@ -1824,7 +1977,7 @@ paths:
               allOf:
                 - $ref: '#/components/schemas/Address'
                 - type: object
-                  required: [addressType, firstName, lastName, countryCode, city, addressLine1, postalCode]
+                  required: [firstName, lastName, countryCode, city, addressLine1, postalCode]
       responses:
         '201':
           description: 创建成功

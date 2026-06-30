@@ -213,7 +213,7 @@ export function CouponListClient({
 
   const columns: ColumnsType<AdminCouponListItem> = [
     buildAdminListRowIndexColumn(query.page, query.pageSize),
-    { title: 'Key', dataIndex: 'couponKey', width: 200, ...adminTableNowrapHeader() },
+    { title: '优惠券代码', dataIndex: 'code', width: 160, ...adminTableNowrapHeader() },
     { title: '名称', dataIndex: 'name', width: 180, ellipsis: true, ...adminTableNowrapHeader() },
     {
       title: '适用范围',
@@ -321,7 +321,7 @@ export function CouponListClient({
         <Space wrap style={{ marginBottom: 16, width: '100%' }}>
           <Input.Search
             allowClear
-            placeholder="搜索名称 / Key"
+            placeholder="搜索名称 / 代码"
             style={{ width: 240 }}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -340,7 +340,7 @@ export function CouponListClient({
             placeholder="优惠类型"
             style={{ width: 120 }}
             value={query.discountType || undefined}
-            options={couponDiscountTypeOptions}
+            options={[...couponDiscountTypeOptions]}
             onChange={(value) => applyQueryChange({ discountType: value ?? '', page: 1 })}
           />
           <Select

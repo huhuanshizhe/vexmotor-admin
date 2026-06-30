@@ -144,18 +144,13 @@ export async function updateCompanyProfile(
   return updated ?? null;
 }
 
-export async function getAddressesByUser(userId: string, addressType?: 'shipping' | 'billing') {
-  const conditions = addressType
-    ? and(eq(addresses.userId, userId), eq(addresses.addressType, addressType))
-    : eq(addresses.userId, userId);
-
-  return db.select().from(addresses).where(conditions).orderBy(desc(addresses.isDefault), desc(addresses.updatedAt));
+export async function getAddressesByUser(userId: string) {
+  return db.select().from(addresses).where(eq(addresses.userId, userId)).orderBy(desc(addresses.isDefault), desc(addresses.updatedAt));
 }
 
 export async function createAddressForUser(
   userId: string,
   payload: {
-    addressType: 'shipping' | 'billing';
     firstName: string;
     lastName: string;
     company?: string | null;
@@ -173,14 +168,13 @@ export async function createAddressForUser(
     await db
       .update(addresses)
       .set({ isDefault: false, updatedAt: new Date() })
-      .where(and(eq(addresses.userId, userId), eq(addresses.addressType, payload.addressType)));
+      .where(eq(addresses.userId, userId));
   }
 
   const [created] = await db
     .insert(addresses)
     .values({
       userId,
-      addressType: payload.addressType,
       firstName: payload.firstName,
       lastName: payload.lastName,
       company: payload.company ?? null,
@@ -213,7 +207,6 @@ export async function updateAddressForUser(
     addressLine2: string | null;
     postalCode: string;
     isDefault: boolean;
-    addressType: 'shipping' | 'billing';
   }>,
 ) {
   const [existing] = await db.select().from(addresses).where(eq(addresses.id, addressId)).limit(1);
@@ -221,17 +214,17 @@ export async function updateAddressForUser(
     return null;
   }
 
-  const addressType = payload.addressType ?? existing.addressType;
   if (payload.isDefault) {
     await db
       .update(addresses)
       .set({ isDefault: false, updatedAt: new Date() })
-      .where(and(eq(addresses.userId, userId), eq(addresses.addressType, addressType)));
+      .where(eq(addresses.userId, userId));
   }
 
+  const { addressType: _removed, ...rest } = payload as typeof payload & { addressType?: unknown };
   const [updated] = await db
     .update(addresses)
-    .set({ ...payload, updatedAt: new Date() })
+    .set({ ...rest, updatedAt: new Date() })
     .where(eq(addresses.id, addressId))
     .returning();
 

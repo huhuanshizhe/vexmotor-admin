@@ -14,6 +14,7 @@ import {
 } from '@/components/promotion/coupon-pricing-locale-panel';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
 import type { AdminCouponDetail } from '@/lib/coupon-list-query';
+import { COUPON_CODE_PATTERN } from '@/lib/coupon-list-query';
 import {
   couponDiscountTypeOptions,
   couponScopeOptions,
@@ -31,6 +32,7 @@ type CouponEditorModalProps = {
 
 type CouponFormValues = {
   name: string;
+  code: string;
   couponKey?: string;
   scope: AdminCouponDetail['scope'];
   stackable: boolean;
@@ -77,7 +79,7 @@ export function CouponEditorModal({
   const discountType = Form.useWatch('discountType', form);
 
   const discountTypeOptions = useMemo(() => {
-    if (scope === 'product') return couponDiscountTypeOptions;
+    if (scope === 'product') return [...couponDiscountTypeOptions];
     return couponDiscountTypeOptions.filter((option) => option.value !== 'special_price');
   }, [scope]);
 
@@ -89,6 +91,7 @@ export function CouponEditorModal({
     if (editing) {
       form.setFieldsValue({
         name: editing.name,
+        code: editing.code,
         couponKey: editing.couponKey,
         scope: editing.scope,
         stackable: editing.stackable,
@@ -109,7 +112,7 @@ export function CouponEditorModal({
       form.setFieldsValue({
         scope: 'all',
         stackable: false,
-        discountType: 'percent',
+        discountType: 'direct_amount',
         status: 'inactive',
         grantOnRegister: false,
         categoryIds: [],
@@ -143,14 +146,14 @@ export function CouponEditorModal({
       throw error;
     }
 
-    pricingPanelRef.current?.mergeActiveLocale();
-    const pricingValidation = pricingPanelRef.current?.validate();
+    await pricingPanelRef.current?.mergeActiveLocale();
+    const pricingValidation = await pricingPanelRef.current?.validate();
     if (pricingValidation && !pricingValidation.ok) {
       void message.error(pricingValidation.message ?? '请完善多语言优惠幅度');
       return;
     }
 
-    const localePricing = pricingPanelRef.current?.buildLocalePricing() ?? [];
+    const localePricing = (await pricingPanelRef.current?.buildLocalePricing()) ?? [];
     if (!localePricing.length) {
       void message.error('请至少为一个语言填写优惠幅度');
       return;
@@ -158,6 +161,7 @@ export function CouponEditorModal({
 
     const payload = {
       name: values.name,
+      code: values.code.trim(),
       couponKey: values.couponKey?.trim() || undefined,
       scope: values.scope,
       stackable: values.stackable,
@@ -198,6 +202,17 @@ export function CouponEditorModal({
     <>
       <Form.Item label="优惠券名称" name="name" rules={[{ required: true, message: '请填写名称' }]}>
         <Input placeholder="例如 新客满减券" />
+      </Form.Item>
+      <Form.Item
+        label="优惠券代码"
+        name="code"
+        rules={[
+          { required: true, message: '请填写优惠券代码' },
+          { pattern: COUPON_CODE_PATTERN, message: '仅允许英文、数字和横线，区分大小写' },
+        ]}
+        extra="用户在前台输入的核销码，区分大小写"
+      >
+        <Input placeholder="例如 B2B10 或 Spring-Sale" />
       </Form.Item>
       <Form.Item label="Key" name="couponKey" extra="留空将自动生成唯一 Key">
         <Input placeholder="例如 CPN-1719300000123-A3F7K2" />
@@ -331,17 +346,17 @@ export function CouponEditorModal({
             { key: 'limits', label: '使用限制', children: limitsTab },
           ]}
         />
-
-        <Divider className="coupon-editor-modal__section-divider" />
-
-        <CouponPricingLocalePanel
-          key={editing?.id ?? 'new'}
-          ref={pricingPanelRef}
-          activeLanguages={activeLanguages}
-          discountType={discountType ?? 'percent'}
-          initialLocalePricing={editing?.localePricing}
-        />
       </Form>
+
+      <Divider className="coupon-editor-modal__section-divider" />
+
+      <CouponPricingLocalePanel
+        key={editing?.id ?? 'new'}
+        ref={pricingPanelRef}
+        activeLanguages={activeLanguages}
+        discountType={discountType ?? 'percent'}
+        initialLocalePricing={editing?.localePricing}
+      />
     </Modal>
   );
 }

@@ -17,7 +17,6 @@ const patchSchema = z.object({
   addressLine2: z.string().nullable().optional(),
   postalCode: z.string().min(1).optional(),
   isDefault: z.boolean().optional(),
-  addressType: z.enum(['shipping', 'billing']).optional(),
 });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

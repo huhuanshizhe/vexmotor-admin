@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { LOCALE_REQUEST_HEADER, normalizeLocale } from '@/lib/i18n';
 import { getCurrentUserId } from '@/server/auth/session';
 import { sendOrderConfirmationEmail } from '@/server/email';
-import { createOrderFromCart, getOrCreateCart } from '@/server/storefront/cart';
+import { createOrderFromBuyNowLine, createOrderFromCart, getOrCreateCart } from '@/server/storefront/cart';
 
 function corsHeaders() {
   const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
@@ -28,7 +28,14 @@ const addressSnapshotSchema = z.object({
   postalCode: z.string().trim().min(1).max(32),
 });
 
+const buyNowSchema = z.object({
+  productId: z.string().uuid(),
+  quantity: z.number().int().min(1).max(99999),
+  featureValueIds: z.array(z.string().uuid()).optional(),
+});
+
 const orderSchema = z.object({
+  buyNow: buyNowSchema.optional(),
   shippingAddressId: z.string().uuid().optional(),
   billingAddressId: z.string().uuid().optional(),
   shippingAddress: addressSnapshotSchema.optional(),
@@ -36,6 +43,7 @@ const orderSchema = z.object({
   shippingMethod: z.string().min(1),
   paymentMethod: z.string().min(1),
   customerNote: z.string().optional(),
+  orderComment: z.string().max(2000).optional(),
   purchaseOrderNumber: z.string().max(80).optional(),
   taxId: z.string().max(80).optional(),
   requestedShipDate: z.string().max(40).optional(),
@@ -55,18 +63,7 @@ export async function POST(request: NextRequest) {
 
   const cookieStore = await cookies();
   const cartToken = request.headers.get('x-cart-token')?.trim() || cookieStore.get('cart_token')?.value || null;
-  const cart = await getOrCreateCart({ userId, anonymousToken: cartToken });
-  if (!cart) {
-    return NextResponse.json({ code: 'CART_UNAVAILABLE', message: 'Cart not found' }, { status: 400 });
-  }
-
-  if (!parsed.data.exportComplianceConfirmed) {
-    return NextResponse.json({ code: 'EXPORT_COMPLIANCE_REQUIRED', message: 'Confirm restricted end-use compliance before placing the order.' }, { status: 400 });
-  }
-
-  if (!userId && !parsed.data.contactEmail?.trim()) {
-    return NextResponse.json({ code: 'CONTACT_EMAIL_REQUIRED', message: 'Guest checkout requires a contact email.' }, { status: 400 });
-  }
+  const locale = normalizeLocale(request.headers.get(LOCALE_REQUEST_HEADER));
 
   const customerNote = [
     parsed.data.contactEmail ? `Contact Email: ${parsed.data.contactEmail}` : null,
@@ -76,34 +73,74 @@ export async function POST(request: NextRequest) {
     parsed.data.tradeTerm ? `Trade Term: ${parsed.data.tradeTerm}` : null,
     parsed.data.subscribeToUpdates ? 'Engineering Updates: Yes' : null,
     parsed.data.exportComplianceConfirmed ? 'Restricted End Use Confirmed: Yes' : null,
+    parsed.data.orderComment?.trim() ? `Order Comment: ${parsed.data.orderComment.trim()}` : null,
     parsed.data.customerNote?.trim() || null,
   ]
     .filter(Boolean)
     .join('\n');
 
-  const locale = normalizeLocale(request.headers.get(LOCALE_REQUEST_HEADER));
+  if (!parsed.data.exportComplianceConfirmed) {
+    return NextResponse.json({ code: 'EXPORT_COMPLIANCE_REQUIRED', message: 'Confirm restricted end-use compliance before placing the order.' }, { status: 400 });
+  }
 
-  const order = userId
-    ? await createOrderFromCart({
-        userId,
-        cartId: cart.id,
-        shippingAddressId: parsed.data.shippingAddressId,
-        billingAddressId: parsed.data.billingAddressId,
-        shippingMethod: parsed.data.shippingMethod,
-        paymentMethod: parsed.data.paymentMethod,
-        customerNote,
-        locale,
-      })
-    : await createOrderFromCart({
-        userId: null,
-        cartId: cart.id,
-        shippingAddress: parsed.data.shippingAddress,
-        billingAddress: parsed.data.billingAddress,
-        shippingMethod: parsed.data.shippingMethod,
-        paymentMethod: parsed.data.paymentMethod,
-        customerNote,
-        locale,
-      });
+  if (!userId && !parsed.data.contactEmail?.trim()) {
+    return NextResponse.json({ code: 'CONTACT_EMAIL_REQUIRED', message: 'Guest checkout requires a contact email.' }, { status: 400 });
+  }
+
+  const order = parsed.data.buyNow
+    ? userId
+      ? await createOrderFromBuyNowLine({
+          userId,
+          productId: parsed.data.buyNow.productId,
+          quantity: parsed.data.buyNow.quantity,
+          featureValueIds: parsed.data.buyNow.featureValueIds,
+          shippingAddressId: parsed.data.shippingAddressId,
+          billingAddressId: parsed.data.billingAddressId,
+          shippingMethod: parsed.data.shippingMethod,
+          paymentMethod: parsed.data.paymentMethod,
+          customerNote,
+          locale,
+        })
+      : await createOrderFromBuyNowLine({
+          userId: null,
+          productId: parsed.data.buyNow.productId,
+          quantity: parsed.data.buyNow.quantity,
+          featureValueIds: parsed.data.buyNow.featureValueIds,
+          shippingAddress: parsed.data.shippingAddress,
+          billingAddress: parsed.data.billingAddress,
+          shippingMethod: parsed.data.shippingMethod,
+          paymentMethod: parsed.data.paymentMethod,
+          customerNote,
+          locale,
+        })
+    : await (async () => {
+        const cart = await getOrCreateCart({ userId, anonymousToken: cartToken });
+        if (!cart) {
+          return null;
+        }
+
+        return userId
+          ? await createOrderFromCart({
+              userId,
+              cartId: cart.id,
+              shippingAddressId: parsed.data.shippingAddressId,
+              billingAddressId: parsed.data.billingAddressId,
+              shippingMethod: parsed.data.shippingMethod,
+              paymentMethod: parsed.data.paymentMethod,
+              customerNote,
+              locale,
+            })
+          : await createOrderFromCart({
+              userId: null,
+              cartId: cart.id,
+              shippingAddress: parsed.data.shippingAddress,
+              billingAddress: parsed.data.billingAddress,
+              shippingMethod: parsed.data.shippingMethod,
+              paymentMethod: parsed.data.paymentMethod,
+              customerNote,
+              locale,
+            });
+      })();
 
   if (!order) {
     return NextResponse.json({ code: 'ORDER_CREATE_FAILED', message: 'Unable to create order' }, { status: 400 });

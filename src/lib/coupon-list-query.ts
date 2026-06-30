@@ -11,8 +11,10 @@ export type CouponStatus = (typeof couponStatuses)[number];
 export const couponScopes = ['all', 'category', 'brand', 'product'] as const;
 export type CouponScope = (typeof couponScopes)[number];
 
-export const couponDiscountTypes = ['percent', 'fixed_amount', 'special_price'] as const;
+export const couponDiscountTypes = ['direct_amount', 'percent', 'fixed_amount', 'special_price'] as const;
 export type CouponDiscountType = (typeof couponDiscountTypes)[number];
+
+export const COUPON_CODE_PATTERN = /^[A-Za-z0-9-]+$/;
 
 export const couponGrantSources = ['admin_send', 'registration', 'self_claim'] as const;
 export type CouponGrantSource = (typeof couponGrantSources)[number];
@@ -58,6 +60,7 @@ export type CouponBatchListQuery = {
 export type AdminCouponListItem = {
   id: string;
   name: string;
+  code: string;
   couponKey: string;
   scope: CouponScope;
   discountType: CouponDiscountType;
@@ -84,6 +87,7 @@ export type AdminCouponDetail = Omit<AdminCouponListItem, 'displayCurrencyCode'>
 
 export type AdminCouponPayload = {
   name: string;
+  code: string;
   couponKey?: string;
   scope: CouponScope;
   stackable?: boolean;

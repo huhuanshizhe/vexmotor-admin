@@ -16,6 +16,12 @@ import {
 } from '@/server/products/load-product-translations';
 import { productCompareAtPriceSql, productCurrencyCodeSql, productNameSql, productPriceSql, productShortDescriptionSql, productSlugSql, productStockQuantitySql } from '@/server/products/resolve-product-translation';
 import { addresses, cartItems, carts, orderCouponRedemptions, orderItems, orders, productImages, products, verificationTokens } from '@/server/db/schema';
+import {
+  normalizeCouponCode,
+  resolveStorefrontCoupon,
+  validateCouponForApplication,
+  type CartLineForCoupon,
+} from '@/server/storefront/coupons';
 
 function cartLocale(locale?: string | null): Locale {
   return normalizeLocale(locale);
@@ -34,43 +40,42 @@ function resolveTierUnitPrice(basePrice: number, currencyCode: string, quantity:
   return getVolumePricingForQuantity(basePrice, currencyCode, quantity, volumePricingRules).unitPriceAmount;
 }
 
-const CART_COUPONS = {
-  SMALLBATCH5: {
-    code: 'SMALLBATCH5',
-    description: '5% off direct-buy orders above $120.',
-    minimumSubtotal: 120,
-    discountRate: 0.05,
-  },
-  B2B10: {
-    code: 'B2B10',
-    description: '10% off catalog orders above $400.',
-    minimumSubtotal: 400,
-    discountRate: 0.1,
-  },
-} as const;
+async function buildCartPricingSummary(input: {
+  subtotal: number;
+  listSubtotal: number;
+  couponCode: string | null;
+  currencyCode: string;
+  locale: Locale;
+  lines: CartLineForCoupon[];
+  commerceConfig: Awaited<ReturnType<typeof getCommerceConfig>>;
+}) {
+  const volumeDiscount = Math.max(input.listSubtotal - input.subtotal, 0);
+  const coupon = input.couponCode
+    ? await resolveStorefrontCoupon({
+        code: input.couponCode,
+        locale: input.locale,
+        currencyCode: input.currencyCode,
+        cartSubtotal: input.subtotal,
+        lines: input.lines,
+      })
+    : null;
+  const discount = coupon?.isApplied ? coupon.discountAmount : 0;
+  const pricing = calculateOrderPricing(input.commerceConfig, {
+    subtotal: input.subtotal,
+    discountAmount: discount,
+    countryCode: input.commerceConfig.defaultCountryCode,
+    shippingMethodCode: input.commerceConfig.defaultShippingMethodCode,
+  });
 
-function normalizeCouponCode(couponCode?: string | null) {
-  return couponCode?.trim().toUpperCase() || null;
-}
-
-function getCouponSummary(couponCode: string | null | undefined, subtotal: number) {
-  const normalizedCouponCode = normalizeCouponCode(couponCode);
-  if (!normalizedCouponCode) {
-    return null;
-  }
-
-  const coupon = CART_COUPONS[normalizedCouponCode as keyof typeof CART_COUPONS];
-  if (!coupon) {
-    return null;
-  }
-
-  const isApplied = subtotal >= coupon.minimumSubtotal;
   return {
-    code: coupon.code,
-    description: coupon.description,
-    isApplied,
-    message: isApplied ? null : `Requires a merchandise subtotal of ${formatMoney(coupon.minimumSubtotal).formatted}.`,
-    discountAmount: isApplied ? subtotal * coupon.discountRate : 0,
+    coupon,
+    volumeDiscount,
+    discount,
+    shippingAmount: pricing.shippingAmount,
+    taxAmount: pricing.taxAmount,
+    totalAmount: pricing.totalAmount,
+    freeShippingThreshold: pricing.freeShippingThreshold ?? 0,
+    remainingForFreeShipping: pricing.remainingForFreeShipping,
   };
 }
 
@@ -95,35 +100,6 @@ function createOrderNumber() {
 
 function getOrderTokenIdentifier(orderNumber: string) {
   return `order:${orderNumber}`;
-}
-
-function buildCartPricingSummary(input: {
-  subtotal: number;
-  listSubtotal: number;
-  couponCode: string | null;
-  currencyCode: string;
-  commerceConfig: Awaited<ReturnType<typeof getCommerceConfig>>;
-}) {
-  const volumeDiscount = Math.max(input.listSubtotal - input.subtotal, 0);
-  const coupon = getCouponSummary(input.couponCode, input.subtotal);
-  const discount = coupon?.discountAmount ?? 0;
-  const pricing = calculateOrderPricing(input.commerceConfig, {
-    subtotal: input.subtotal,
-    discountAmount: discount,
-    countryCode: input.commerceConfig.defaultCountryCode,
-    shippingMethodCode: input.commerceConfig.defaultShippingMethodCode,
-  });
-
-  return {
-    coupon,
-    volumeDiscount,
-    discount,
-    shippingAmount: pricing.shippingAmount,
-    taxAmount: pricing.taxAmount,
-    totalAmount: pricing.totalAmount,
-    freeShippingThreshold: pricing.freeShippingThreshold ?? 0,
-    remainingForFreeShipping: pricing.remainingForFreeShipping,
-  };
 }
 
 export async function getOrCreateCart(input: { userId?: string | null; anonymousToken?: string | null }) {
@@ -166,6 +142,17 @@ export async function getActiveCartDetail(input: { userId?: string | null; anony
     return null;
   }
   return getCartDetail(cart.id, input.locale);
+}
+
+function toPublicCouponSummary(coupon: Awaited<ReturnType<typeof resolveStorefrontCoupon>>) {
+  if (!coupon) return null;
+  return {
+    code: coupon.code,
+    description: coupon.description,
+    discountType: coupon.discountType,
+    isApplied: coupon.isApplied,
+    message: coupon.message,
+  };
 }
 
 export async function getCartDetail(cartId: string, localeInput?: string | null) {
@@ -252,11 +239,19 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
 
   const subtotal = pricedItems.reduce((sum, row) => sum + row.lineSubtotal, 0);
   const listSubtotal = pricedItems.reduce((sum, row) => sum + row.basePriceAmount * row.item.quantity, 0);
-  const summary = buildCartPricingSummary({
+  const couponLines: CartLineForCoupon[] = pricedItems.map(({ item, unitPriceAmount, lineSubtotal }) => ({
+    productId: item.productId,
+    lineSubtotal,
+    unitPrice: unitPriceAmount,
+    quantity: item.quantity,
+  }));
+  const summary = await buildCartPricingSummary({
     subtotal,
     listSubtotal,
     couponCode: cart.couponCode,
     currencyCode: cart.currencyCode,
+    locale,
+    lines: couponLines,
     commerceConfig,
   });
 
@@ -302,7 +297,7 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
     }),
     itemCount: pricedItems.reduce((sum, row) => sum + row.item.quantity, 0),
     couponCode: cart.couponCode,
-    coupon: summary.coupon,
+    coupon: toPublicCouponSummary(summary.coupon),
     subtotal: formatMoney(subtotal, cart.currencyCode),
     volumeDiscount: formatMoney(summary.volumeDiscount, cart.currencyCode),
     discount: formatMoney(summary.discount, cart.currencyCode),
@@ -314,7 +309,141 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
   };
 }
 
-export async function updateCartCoupon(cartId: string, couponCode?: string | null) {
+export async function buildBuyNowCartPreview(input: {
+  productId: string;
+  quantity: number;
+  locale?: string | null;
+  featureValueIds?: string[];
+}) {
+  const locale = cartLocale(input.locale);
+  const commerceConfig = await getCommerceConfig();
+  const validation = await validateAndBuildFeatureSelections(
+    input.productId,
+    locale,
+    input.featureValueIds ?? [],
+  );
+  if (!validation.ok) {
+    return validation;
+  }
+
+  const [product] = await db
+    .select({
+      id: products.id,
+      purchaseMode: products.purchaseMode,
+      productName: productNameSql(products.id, locale),
+      slug: productSlugSql(products.id, locale),
+      spu: products.spu,
+      shortDescription: productShortDescriptionSql(products.id, locale),
+      stockQuantity: productStockQuantitySql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
+      basePrice: productPriceSql(products.id, locale),
+      compareAtPrice: productCompareAtPriceSql(products.id, locale),
+    })
+    .from(products)
+    .where(eq(products.id, input.productId))
+    .limit(1);
+
+  if (!product || product.purchaseMode !== 'buy') {
+    return { ok: false as const, code: 'PRODUCT_NOT_AVAILABLE' as const, message: 'Product cannot be purchased directly' };
+  }
+
+  const quantity = Math.max(1, input.quantity);
+  const currencyCode = product.currencyCode ?? 'USD';
+  const basePriceAmount = Number(product.basePrice);
+  const unitPriceAmount = resolveTierUnitPrice(basePriceAmount, currencyCode, quantity, commerceConfig.volumePricingRules);
+  const lineSubtotal = Number((unitPriceAmount * quantity).toFixed(2));
+  const subtotal = lineSubtotal;
+  const listSubtotal = basePriceAmount * quantity;
+
+  const [imageRow] = await db
+    .select({
+      id: productImages.id,
+      url: productImages.url,
+      alt: productImages.alt,
+      width: productImages.width,
+      height: productImages.height,
+    })
+    .from(productImages)
+    .where(eq(productImages.productId, input.productId))
+    .orderBy(asc(productImages.sortOrder))
+    .limit(1);
+
+  const translationsByProductId = await loadProductTranslationsByProductIds([input.productId]);
+  const translation = pickProductTranslation(translationsByProductId.get(input.productId), locale);
+  const coverImage = resolveProductCoverImage(
+    input.productId,
+    product.productName,
+    imageRow ? { id: imageRow.id, url: imageRow.url, alt: imageRow.alt, width: imageRow.width, height: imageRow.height } : undefined,
+    translation?.payload,
+  );
+
+  const featureSelections = validation.featureSelections;
+  const configurationLabel = buildConfigurationLabel(featureSelections);
+  const couponLines: CartLineForCoupon[] = [{
+    productId: input.productId,
+    lineSubtotal,
+    unitPrice: unitPriceAmount,
+    quantity,
+  }];
+  const summary = await buildCartPricingSummary({
+    subtotal,
+    listSubtotal,
+    couponCode: null,
+    currencyCode,
+    locale,
+    lines: couponLines,
+    commerceConfig,
+  });
+
+  const syntheticItemId = `buy-now-${input.productId}`;
+
+  return {
+    ok: true as const,
+    detail: {
+      id: 'buy-now-preview',
+      locale,
+      items: [{
+        id: syntheticItemId,
+        productId: input.productId,
+        product: {
+          id: input.productId,
+          name: product.productName,
+          slug: product.slug,
+          spu: product.spu,
+          shortDescription: product.shortDescription,
+          price: formatMoney(product.basePrice, currencyCode),
+          compareAtPrice: product.compareAtPrice ? formatMoney(product.compareAtPrice, currencyCode) : null,
+          purchaseMode: product.purchaseMode,
+          inStock: product.stockQuantity > 0,
+          brand: null,
+          coverImage,
+        },
+        quantity,
+        listUnitPrice: formatMoney(product.basePrice, currencyCode),
+        unitPrice: formatMoney(unitPriceAmount, currencyCode),
+        subtotal: formatMoney(lineSubtotal, currencyCode),
+        tierApplied: unitPriceAmount < basePriceAmount,
+        configurationKey: validation.configurationKey,
+        featureSelections,
+        configurationLabel,
+        variantLabel: configurationLabel,
+      }],
+      itemCount: quantity,
+      couponCode: null,
+      coupon: toPublicCouponSummary(summary.coupon),
+      subtotal: formatMoney(subtotal, currencyCode),
+      volumeDiscount: formatMoney(summary.volumeDiscount, currencyCode),
+      discount: formatMoney(summary.discount, currencyCode),
+      shipping: formatMoney(summary.shippingAmount, currencyCode),
+      tax: formatMoney(summary.taxAmount, currencyCode),
+      total: formatMoney(summary.totalAmount, currencyCode),
+      freeShippingThreshold: formatMoney(summary.freeShippingThreshold, currencyCode),
+      remainingForFreeShipping: formatMoney(summary.remainingForFreeShipping, currencyCode),
+    },
+  };
+}
+
+export async function updateCartCoupon(cartId: string, couponCode?: string | null, localeInput?: string | null) {
   const [cart] = await db.select().from(carts).where(eq(carts.id, cartId)).limit(1);
   if (!cart) {
     return { detail: null, error: 'CART_NOT_FOUND', message: 'Cart could not be found.' };
@@ -323,29 +452,33 @@ export async function updateCartCoupon(cartId: string, couponCode?: string | nul
   const normalizedCouponCode = normalizeCouponCode(couponCode);
   if (!normalizedCouponCode) {
     await db.update(carts).set({ couponCode: null, updatedAt: new Date() }).where(eq(carts.id, cartId));
-    return { detail: await getCartDetail(cartId), error: null, message: null };
+    return { detail: await getCartDetail(cartId, localeInput), error: null, message: null };
   }
 
-  const coupon = CART_COUPONS[normalizedCouponCode as keyof typeof CART_COUPONS];
-  if (!coupon) {
-    return { detail: null, error: 'INVALID_COUPON', message: 'Coupon code is not recognized.' };
-  }
-
-  const currentDetail = await getCartDetail(cartId);
+  const currentDetail = await getCartDetail(cartId, localeInput);
   if (!currentDetail || !currentDetail.items.length) {
     return { detail: null, error: 'EMPTY_CART', message: 'Add at least one item before applying a coupon.' };
   }
 
-  if (currentDetail.subtotal.amount < coupon.minimumSubtotal) {
-    return {
-      detail: null,
-      error: 'COUPON_INELIGIBLE',
-      message: `${coupon.code} requires a merchandise subtotal of ${formatMoney(coupon.minimumSubtotal, cart.currencyCode).formatted}.`,
-    };
+  const validation = await validateCouponForApplication({
+    code: normalizedCouponCode,
+    locale: localeInput,
+    currencyCode: cart.currencyCode,
+    cartSubtotal: currentDetail.subtotal.amount,
+    lines: currentDetail.items.map((item) => ({
+      productId: item.productId,
+      lineSubtotal: item.subtotal.amount,
+      unitPrice: item.unitPrice.amount,
+      quantity: item.quantity,
+    })),
+  });
+
+  if (!validation.ok) {
+    return { detail: null, error: validation.error, message: validation.message };
   }
 
-  await db.update(carts).set({ couponCode: coupon.code, updatedAt: new Date() }).where(eq(carts.id, cartId));
-  return { detail: await getCartDetail(cartId), error: null, message: null };
+  await db.update(carts).set({ couponCode: normalizedCouponCode, updatedAt: new Date() }).where(eq(carts.id, cartId));
+  return { detail: await getCartDetail(cartId, localeInput), error: null, message: null };
 }
 
 export async function addCartItem(input: {
@@ -462,83 +595,83 @@ export async function deleteCartItem(itemId: string) {
   return getCartDetail(deleted.cartId);
 }
 
-export async function createOrderFromCart(input: {
-  userId?: string | null;
-  cartId: string;
-  shippingAddressId?: string;
-  billingAddressId?: string;
-  shippingAddress?: OrderAddressSnapshot;
-  billingAddress?: OrderAddressSnapshot;
+function toOrderAddressSnapshot(input: OrderAddressSnapshot | typeof addresses.$inferSelect): OrderAddressSnapshot {
+  return {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    company: input.company ?? null,
+    phone: input.phone ?? null,
+    countryCode: input.countryCode,
+    state: input.state ?? null,
+    city: input.city,
+    addressLine1: input.addressLine1,
+    addressLine2: input.addressLine2 ?? null,
+    postalCode: input.postalCode,
+  };
+}
+
+async function createGuestAccessToken(orderNumber: string) {
+  const guestAccessToken = randomUUID();
+  await db
+    .insert(verificationTokens)
+    .values({
+      identifier: getOrderTokenIdentifier(orderNumber),
+      token: guestAccessToken,
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10),
+    })
+    .onConflictDoUpdate({
+      target: verificationTokens.identifier,
+      set: {
+        token: guestAccessToken,
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10),
+      },
+    });
+  return guestAccessToken;
+}
+
+async function insertOrderFromCartDetail(input: {
+  userId: string | null;
+  cartId: string | null;
+  shippingAddressId: string | null;
+  billingAddressId: string | null;
+  shippingSnapshot: OrderAddressSnapshot;
+  billingSnapshot: OrderAddressSnapshot;
   shippingMethod: string;
   paymentMethod: string;
   customerNote?: string;
   locale?: string | null;
+  currencyCode: string;
+  detail: NonNullable<Awaited<ReturnType<typeof getCartDetail>>>;
+  pricing: ReturnType<typeof calculateOrderPricing>;
 }) {
-  if (!input.userId) {
-    return null;
-  }
-
-  const commerceConfig = await getCommerceConfig();
-  if (!input.shippingAddressId || !input.billingAddressId) {
-    return null;
-  }
-
-  const [shippingAddress, billingAddress, cart] = await Promise.all([
-    db.select().from(addresses).where(eq(addresses.id, input.shippingAddressId)).limit(1),
-    db.select().from(addresses).where(eq(addresses.id, input.billingAddressId)).limit(1),
-    db.select().from(carts).where(eq(carts.id, input.cartId)).limit(1),
-  ]);
-
-  const ship = shippingAddress[0];
-  const bill = billingAddress[0];
-  const currentCart = cart[0];
-  if (!ship || !bill || !currentCart || currentCart.userId !== input.userId) {
-    return null;
-  }
-  if (ship.userId !== input.userId || bill.userId !== input.userId) {
-    return null;
-  }
-  if (ship.addressType !== 'shipping' || bill.addressType !== 'billing') {
-    return null;
-  }
-
-  const detail = await getCartDetail(input.cartId, input.locale);
-  if (!detail || !detail.items.length) {
-    return null;
-  }
-
-  const pricing = calculateOrderPricing(commerceConfig, {
-    subtotal: detail.subtotal.amount,
-    discountAmount: detail.discount.amount,
-    countryCode: String(ship.countryCode),
-    shippingMethodCode: input.shippingMethod,
-  });
-  if (!pricing.selectedShippingOption) {
-    return null;
-  }
-
   const orderNumber = createOrderNumber();
-  const composedCustomerNote = [detail.coupon?.isApplied ? `Coupon: ${detail.coupon.code}` : null, input.customerNote?.trim() || null].filter(Boolean).join('\n');
+  const composedCustomerNote = [
+    input.detail.coupon?.isApplied ? `Coupon: ${input.detail.coupon.code}` : null,
+    input.customerNote?.trim() || null,
+  ].filter(Boolean).join('\n');
+
   const [createdOrder] = await db
     .insert(orders)
     .values({
       orderNumber,
       userId: input.userId,
       cartId: input.cartId,
+      shippingAddressId: input.shippingAddressId,
+      billingAddressId: input.billingAddressId,
       status: 'unpaid',
       paymentStatus: 'unpaid',
       locale: normalizeLocale(input.locale),
-      currencyCode: currentCart.currencyCode,
-      subtotal: detail.subtotal.amount.toFixed(2),
-      shippingAmount: pricing.shippingAmount.toFixed(2),
-      taxAmount: pricing.taxAmount.toFixed(2),
-      discountAmount: detail.discount.amount.toFixed(2),
-      totalAmount: pricing.totalAmount.toFixed(2),
-      shippingMethod: pricing.selectedShippingOption.title,
+      currencyCode: input.currencyCode,
+      subtotal: input.detail.subtotal.amount.toFixed(2),
+      shippingAmount: input.pricing.shippingAmount.toFixed(2),
+      taxAmount: input.pricing.taxAmount.toFixed(2),
+      discountAmount: input.detail.discount.amount.toFixed(2),
+      totalAmount: input.pricing.totalAmount.toFixed(2),
+      shippingMethod: input.pricing.selectedShippingOption?.title ?? input.shippingMethod,
       paymentMethod: input.paymentMethod,
       customerNote: composedCustomerNote || null,
-      shippingAddressSnapshot: ship,
-      billingAddressSnapshot: bill,
+      shippingAddressSnapshot: input.shippingSnapshot,
+      billingAddressSnapshot: input.billingSnapshot,
       placedAt: new Date(),
     })
     .returning();
@@ -548,7 +681,7 @@ export async function createOrderFromCart(input: {
   }
 
   await db.insert(orderItems).values(
-    detail.items.map((item) => ({
+    input.detail.items.map((item) => ({
       orderId: createdOrder.id,
       productId: item.productId,
       productName: item.product.name,
@@ -561,21 +694,258 @@ export async function createOrderFromCart(input: {
     })),
   );
 
-  if (detail.coupon?.isApplied && detail.coupon.code in CART_COUPONS) {
-    const coupon = CART_COUPONS[detail.coupon.code as keyof typeof CART_COUPONS];
-    await db.insert(orderCouponRedemptions).values({
-      orderId: createdOrder.id,
-      couponCode: detail.coupon.code,
-      couponName: detail.coupon.code,
-      discountType: 'percent',
-      discountValue: String(coupon.discountRate),
-      discountAmount: detail.discount.amount.toFixed(2),
-      scopeSummary: '全场',
+  const currentCart = input.cartId
+    ? await db.select({ couponCode: carts.couponCode }).from(carts).where(eq(carts.id, input.cartId)).limit(1)
+    : [];
+  const couponCode = currentCart[0]?.couponCode;
+
+  if (input.cartId && input.detail.coupon?.isApplied && couponCode) {
+    const fullCoupon = await resolveStorefrontCoupon({
+      code: couponCode,
+      locale: input.locale,
+      currencyCode: input.currencyCode,
+      cartSubtotal: input.detail.subtotal.amount,
+      lines: input.detail.items.map((item) => ({
+        productId: item.productId,
+        lineSubtotal: item.subtotal.amount,
+        unitPrice: item.unitPrice.amount,
+        quantity: item.quantity,
+      })),
+    });
+
+    if (fullCoupon?.isApplied && fullCoupon.couponId) {
+      await db.insert(orderCouponRedemptions).values({
+        orderId: createdOrder.id,
+        couponId: fullCoupon.couponId,
+        couponCode: fullCoupon.code,
+        couponName: fullCoupon.couponName,
+        discountType: fullCoupon.discountType,
+        discountValue: fullCoupon.discountValue,
+        discountAmount: input.detail.discount.amount.toFixed(2),
+        scopeSummary: fullCoupon.scopeSummary,
+      });
+    }
+  }
+
+  if (input.cartId) {
+    await db.update(carts).set({ status: 'converted', updatedAt: new Date() }).where(eq(carts.id, input.cartId));
+  }
+
+  if (!input.userId) {
+    const guestAccessToken = await createGuestAccessToken(orderNumber);
+    return { ...createdOrder, guestAccessToken };
+  }
+
+  return createdOrder;
+}
+
+export async function createOrderFromCart(input: {
+  userId?: string | null;
+  cartId: string;
+  shippingAddressId?: string;
+  billingAddressId?: string;
+  shippingAddress?: OrderAddressSnapshot;
+  billingAddress?: OrderAddressSnapshot;
+  shippingMethod: string;
+  paymentMethod: string;
+  customerNote?: string;
+  locale?: string | null;
+}) {
+  const commerceConfig = await getCommerceConfig();
+  const [currentCart] = await db.select().from(carts).where(eq(carts.id, input.cartId)).limit(1);
+  if (!currentCart) {
+    return null;
+  }
+
+  const detail = await getCartDetail(input.cartId, input.locale);
+  if (!detail || !detail.items.length) {
+    return null;
+  }
+
+  if (input.userId) {
+    if (!input.shippingAddressId || !input.billingAddressId) {
+      return null;
+    }
+
+    const [ship, bill] = await Promise.all([
+      db.select().from(addresses).where(eq(addresses.id, input.shippingAddressId)).limit(1),
+      db.select().from(addresses).where(eq(addresses.id, input.billingAddressId)).limit(1),
+    ]);
+
+    const shippingRow = ship[0];
+    const billingRow = bill[0];
+    if (!shippingRow || !billingRow || currentCart.userId !== input.userId) {
+      return null;
+    }
+    if (shippingRow.userId !== input.userId || billingRow.userId !== input.userId) {
+      return null;
+    }
+
+    const pricing = calculateOrderPricing(commerceConfig, {
+      subtotal: detail.subtotal.amount,
+      discountAmount: detail.discount.amount,
+      countryCode: String(shippingRow.countryCode),
+      shippingMethodCode: input.shippingMethod,
+    });
+    if (!pricing.selectedShippingOption) {
+      return null;
+    }
+
+    return insertOrderFromCartDetail({
+      userId: input.userId,
+      cartId: input.cartId,
+      shippingAddressId: input.shippingAddressId,
+      billingAddressId: input.billingAddressId,
+      shippingSnapshot: toOrderAddressSnapshot(shippingRow),
+      billingSnapshot: toOrderAddressSnapshot(billingRow),
+      shippingMethod: input.shippingMethod,
+      paymentMethod: input.paymentMethod,
+      customerNote: input.customerNote,
+      locale: input.locale,
+      currencyCode: currentCart.currencyCode,
+      detail,
+      pricing,
     });
   }
 
-  await db.update(carts).set({ status: 'converted', updatedAt: new Date() }).where(eq(carts.id, input.cartId));
-  return createdOrder;
+  if (!input.shippingAddress || !input.billingAddress) {
+    return null;
+  }
+  if (currentCart.userId) {
+    return null;
+  }
+
+  const shippingSnapshot = toOrderAddressSnapshot(input.shippingAddress);
+  const billingSnapshot = toOrderAddressSnapshot(input.billingAddress);
+  const pricing = calculateOrderPricing(commerceConfig, {
+    subtotal: detail.subtotal.amount,
+    discountAmount: detail.discount.amount,
+    countryCode: shippingSnapshot.countryCode,
+    shippingMethodCode: input.shippingMethod,
+  });
+  if (!pricing.selectedShippingOption) {
+    return null;
+  }
+
+  return insertOrderFromCartDetail({
+    userId: null,
+    cartId: input.cartId,
+    shippingAddressId: null,
+    billingAddressId: null,
+    shippingSnapshot,
+    billingSnapshot,
+    shippingMethod: input.shippingMethod,
+    paymentMethod: input.paymentMethod,
+    customerNote: input.customerNote,
+    locale: input.locale,
+    currencyCode: currentCart.currencyCode,
+    detail,
+    pricing,
+  });
+}
+
+export async function createOrderFromBuyNowLine(input: {
+  userId?: string | null;
+  productId: string;
+  quantity: number;
+  featureValueIds?: string[];
+  shippingAddressId?: string;
+  billingAddressId?: string;
+  shippingAddress?: OrderAddressSnapshot;
+  billingAddress?: OrderAddressSnapshot;
+  shippingMethod: string;
+  paymentMethod: string;
+  customerNote?: string;
+  locale?: string | null;
+}) {
+  const preview = await buildBuyNowCartPreview({
+    productId: input.productId,
+    quantity: input.quantity,
+    locale: input.locale,
+    featureValueIds: input.featureValueIds,
+  });
+  if (!preview.ok) {
+    return null;
+  }
+
+  const detail = preview.detail;
+  const commerceConfig = await getCommerceConfig();
+  const currencyCode = detail.subtotal.currency;
+
+  if (input.userId) {
+    if (!input.shippingAddressId || !input.billingAddressId) {
+      return null;
+    }
+
+    const [ship, bill] = await Promise.all([
+      db.select().from(addresses).where(eq(addresses.id, input.shippingAddressId)).limit(1),
+      db.select().from(addresses).where(eq(addresses.id, input.billingAddressId)).limit(1),
+    ]);
+
+    const shippingRow = ship[0];
+    const billingRow = bill[0];
+    if (!shippingRow || !billingRow || shippingRow.userId !== input.userId || billingRow.userId !== input.userId) {
+      return null;
+    }
+
+    const pricing = calculateOrderPricing(commerceConfig, {
+      subtotal: detail.subtotal.amount,
+      discountAmount: detail.discount.amount,
+      countryCode: String(shippingRow.countryCode),
+      shippingMethodCode: input.shippingMethod,
+    });
+    if (!pricing.selectedShippingOption) {
+      return null;
+    }
+
+    return insertOrderFromCartDetail({
+      userId: input.userId,
+      cartId: null,
+      shippingAddressId: input.shippingAddressId,
+      billingAddressId: input.billingAddressId,
+      shippingSnapshot: toOrderAddressSnapshot(shippingRow),
+      billingSnapshot: toOrderAddressSnapshot(billingRow),
+      shippingMethod: input.shippingMethod,
+      paymentMethod: input.paymentMethod,
+      customerNote: input.customerNote,
+      locale: input.locale,
+      currencyCode,
+      detail,
+      pricing,
+    });
+  }
+
+  if (!input.shippingAddress || !input.billingAddress) {
+    return null;
+  }
+
+  const shippingSnapshot = toOrderAddressSnapshot(input.shippingAddress);
+  const billingSnapshot = toOrderAddressSnapshot(input.billingAddress);
+  const pricing = calculateOrderPricing(commerceConfig, {
+    subtotal: detail.subtotal.amount,
+    discountAmount: detail.discount.amount,
+    countryCode: shippingSnapshot.countryCode,
+    shippingMethodCode: input.shippingMethod,
+  });
+  if (!pricing.selectedShippingOption) {
+    return null;
+  }
+
+  return insertOrderFromCartDetail({
+    userId: null,
+    cartId: null,
+    shippingAddressId: null,
+    billingAddressId: null,
+    shippingSnapshot,
+    billingSnapshot,
+    shippingMethod: input.shippingMethod,
+    paymentMethod: input.paymentMethod,
+    customerNote: input.customerNote,
+    locale: input.locale,
+    currencyCode,
+    detail,
+    pricing,
+  });
 }
 
 export async function getGuestOrderDetailByNumber(orderNumber: string, guestAccessToken?: string | null) {

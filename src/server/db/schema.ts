@@ -61,10 +61,9 @@ export const textDirectionEnum = pgEnum('text_direction', ['ltr', 'rtl']);
 export const geoDivisionLevelEnum = pgEnum('geo_division_level', ['country', 'admin1', 'admin2', 'admin3', 'locality', 'postal']);
 export const couponStatusEnum = pgEnum('coupon_status', ['active', 'inactive']);
 export const couponScopeEnum = pgEnum('coupon_scope', ['all', 'category', 'brand', 'product']);
-export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['percent', 'fixed_amount', 'special_price']);
+export const couponDiscountTypeEnum = pgEnum('coupon_discount_type', ['direct_amount', 'percent', 'fixed_amount', 'special_price']);
 export const couponGrantSourceEnum = pgEnum('coupon_grant_source', ['admin_send', 'registration', 'self_claim']);
 export const couponDistributionTargetModeEnum = pgEnum('coupon_distribution_target_mode', ['all_customers', 'selected_customers']);
-export const addressTypeEnum = pgEnum('address_type', ['shipping', 'billing']);
 
 export const users = pgTable(
   'users',
@@ -382,6 +381,7 @@ export const coupons = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 200 }).notNull(),
+    code: varchar('code', { length: 64 }).notNull(),
     couponKey: varchar('coupon_key', { length: 64 }).notNull(),
     scope: couponScopeEnum('scope').notNull(),
     stackable: boolean('stackable').notNull().default(false),
@@ -399,6 +399,7 @@ export const coupons = pgTable(
   },
   (table) => ({
     couponKeyUnique: uniqueIndex('coupons_coupon_key_unique').on(table.couponKey),
+    codeUnique: uniqueIndex('coupons_code_unique').on(table.code),
     statusDatesIdx: index('coupons_status_dates_idx').on(table.status, table.startsAt, table.endsAt),
   }),
 );
@@ -686,7 +687,6 @@ export const addresses = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    addressType: addressTypeEnum('address_type').notNull().default('shipping'),
     firstName: varchar('first_name', { length: 100 }).notNull(),
     lastName: varchar('last_name', { length: 100 }).notNull(),
     company: varchar('company', { length: 150 }),
@@ -702,7 +702,7 @@ export const addresses = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    userTypeIdx: index('addresses_user_type_idx').on(table.userId, table.addressType),
+    userIdIdx: index('addresses_user_id_idx').on(table.userId),
   }),
 );
 
@@ -711,7 +711,7 @@ export const orders = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     orderNumber: varchar('order_number', { length: 50 }).notNull(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'restrict' }),
     cartId: uuid('cart_id').references(() => carts.id, { onDelete: 'set null' }),
     status: orderStatusEnum('status').notNull().default('unpaid'),
     paymentStatus: paymentStatusEnum('payment_status').notNull().default('unpaid'),
@@ -727,6 +727,8 @@ export const orders = pgTable(
     shippingMethod: varchar('shipping_method', { length: 100 }),
     paymentMethod: varchar('payment_method', { length: 100 }),
     customerNote: text('customer_note'),
+    shippingAddressId: uuid('shipping_address_id').references(() => addresses.id, { onDelete: 'set null' }),
+    billingAddressId: uuid('billing_address_id').references(() => addresses.id, { onDelete: 'set null' }),
     shippingAddressSnapshot: jsonb('shipping_address_snapshot').$type<Record<string, unknown>>().notNull().default({}),
     billingAddressSnapshot: jsonb('billing_address_snapshot').$type<Record<string, unknown>>().notNull().default({}),
     internalNote: text('internal_note'),

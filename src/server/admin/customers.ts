@@ -208,6 +208,7 @@ async function loadCustomerAggregates(userIds: string[]) {
   ]);
 
   for (const row of orderRows) {
+    if (!row.userId) continue;
     const current = map.get(row.userId) ?? emptyAggregates();
     current.orderCount = Number(row.orderCount ?? 0);
     current.totalSpent = Number(row.totalSpent ?? 0);

@@ -5,10 +5,7 @@ import { frontCorsHeaders } from '@/lib/front-cors';
 import { getCurrentUserId } from '@/server/auth/session';
 import { createAddressForUser, getAddressesByUser } from '@/server/storefront/account';
 
-const addressTypeSchema = z.enum(['shipping', 'billing']);
-
 const addressSchema = z.object({
-  addressType: addressTypeSchema,
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   company: z.string().optional().nullable(),
@@ -28,13 +25,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Authentication required' }, { status: 401, headers: frontCorsHeaders() });
   }
 
-  const typeParam = request.nextUrl.searchParams.get('type');
-  const parsedType = typeParam ? addressTypeSchema.safeParse(typeParam) : null;
-  if (typeParam && !parsedType?.success) {
-    return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Invalid address type filter' }, { status: 400, headers: frontCorsHeaders() });
-  }
-
-  return NextResponse.json(await getAddressesByUser(userId, parsedType?.data), { headers: frontCorsHeaders() });
+  return NextResponse.json(await getAddressesByUser(userId), { headers: frontCorsHeaders() });
 }
 
 export async function POST(request: NextRequest) {

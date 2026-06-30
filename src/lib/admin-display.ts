@@ -166,6 +166,7 @@ export const couponScopeLabels = {
 } as const;
 
 export const couponDiscountTypeLabels = {
+  direct_amount: '直减',
   percent: '折扣',
   fixed_amount: '满减',
   special_price: '特价',
@@ -184,7 +185,12 @@ export const couponDistributionTargetModeLabels = {
 
 export const couponStatusOptions = Object.entries(couponStatusLabels).map(([value, label]) => ({ value, label }));
 export const couponScopeOptions = Object.entries(couponScopeLabels).map(([value, label]) => ({ value, label }));
-export const couponDiscountTypeOptions = Object.entries(couponDiscountTypeLabels).map(([value, label]) => ({ value, label }));
+export const couponDiscountTypeOptions = [
+  { value: 'direct_amount', label: couponDiscountTypeLabels.direct_amount },
+  { value: 'percent', label: couponDiscountTypeLabels.percent },
+  { value: 'fixed_amount', label: couponDiscountTypeLabels.fixed_amount },
+  { value: 'special_price', label: couponDiscountTypeLabels.special_price },
+] as const;
 export const couponGrantSourceOptions = Object.entries(couponGrantSourceLabels).map(([value, label]) => ({ value, label }));
 
 export const couponStatusColors = {
@@ -200,6 +206,7 @@ export const couponScopeColors = {
 } as const;
 
 export const couponDiscountTypeColors = {
+  direct_amount: 'volcano',
   percent: 'gold',
   fixed_amount: 'red',
   special_price: 'magenta',

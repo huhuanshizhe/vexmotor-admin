@@ -16,7 +16,7 @@ const addSchema = z.object({
 });
 
 const couponSchema = z.object({
-  couponCode: z.string().trim().min(1).max(40).optional().nullable(),
+  couponCode: z.string().trim().max(64).optional().nullable(),
 });
 
 async function getCartContext(request: NextRequest) {
@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const locale = resolveFrontRequestLocale(request);
   const body = await request.json();
   const parsed = couponSchema.safeParse(body);
   if (!parsed.success) {
@@ -114,7 +115,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ code: 'CART_UNAVAILABLE', message: 'Cart could not be initialized' }, { status: 500, headers: frontCorsHeaders() });
   }
 
-  const result = await updateCartCoupon(cart.id, parsed.data.couponCode ?? null);
+  const result = await updateCartCoupon(cart.id, parsed.data.couponCode ?? null, locale);
   if (!result.detail) {
     return NextResponse.json(
       { code: result.error ?? 'COUPON_UPDATE_FAILED', message: result.message ?? 'Coupon update failed' },

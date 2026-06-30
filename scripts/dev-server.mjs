@@ -18,9 +18,13 @@ console.log(
   `[dev-server] bundler=${useTurbo ? 'turbopack' : 'webpack'} database=${useDatabase ? 'enabled' : 'fallback-only'} port=${port}`,
 );
 
+// Next.js 16 defaults to Turbopack; --webpack matches vexmotor-web and avoids
+// Windows/pnpm "Next.js package not found" panics on admin pages (e.g. coupons).
+const bundlerArgs = useTurbo ? ['--turbo'] : ['--webpack'];
+
 const child = spawn(
   process.execPath,
-  [nextCliPath, 'dev', '-p', port, ...forwardedArgs],
+  [nextCliPath, 'dev', '-p', port, ...bundlerArgs, ...forwardedArgs],
   {
     stdio: 'inherit',
     env,

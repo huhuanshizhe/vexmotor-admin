@@ -22,9 +22,9 @@ type LocalePricingDraft = LocalePricingFormValues & {
 };
 
 export type CouponPricingLocalePanelRef = {
-  mergeActiveLocale: () => void;
-  buildLocalePricing: () => CouponLocalePricingInput[];
-  validate: () => { ok: boolean; message?: string };
+  mergeActiveLocale: () => Promise<void>;
+  buildLocalePricing: () => Promise<CouponLocalePricingInput[]>;
+  validate: () => Promise<{ ok: boolean; message?: string }>;
 };
 
 type CouponPricingLocalePanelProps = {
@@ -51,23 +51,44 @@ function pricingToDraft(row: CouponLocalePricing): LocalePricingDraft {
   };
 }
 
+function pickFormValues(form: FormInstance<LocalePricingFormValues>): LocalePricingFormValues {
+  return form.getFieldsValue(true);
+}
+
+function syncDraftFromForm(
+  drafts: Record<string, LocalePricingDraft>,
+  activeLocale: string,
+  values: LocalePricingFormValues,
+): Record<string, LocalePricingDraft> {
+  if (!activeLocale) return drafts;
+  const previous = drafts[activeLocale] ?? createEmptyDraft();
+  const discountValue = values.discountValue !== undefined
+    ? values.discountValue
+    : (previous.discountValue ?? null);
+  const hasValue = discountValue != null && discountValue > 0;
+  return {
+    ...drafts,
+    [activeLocale]: {
+      ...previous,
+      thresholdAmount: values.thresholdAmount !== undefined
+        ? values.thresholdAmount
+        : (previous.thresholdAmount ?? null),
+      discountValue,
+      maxDiscountAmount: values.maxDiscountAmount !== undefined
+        ? values.maxDiscountAmount
+        : (previous.maxDiscountAmount ?? null),
+      persisted: previous.persisted || hasValue,
+    },
+  };
+}
+
 function mergeActiveFormIntoDrafts(
   drafts: Record<string, LocalePricingDraft>,
   activeLocale: string,
   form: FormInstance<LocalePricingFormValues>,
 ): Record<string, LocalePricingDraft> {
   if (!activeLocale) return drafts;
-  const previous = drafts[activeLocale] ?? createEmptyDraft();
-  const values = form.getFieldsValue(true);
-  const hasValue = values.discountValue != null && values.discountValue > 0;
-  return {
-    ...drafts,
-    [activeLocale]: {
-      ...previous,
-      ...values,
-      persisted: previous.persisted || hasValue,
-    },
-  };
+  return syncDraftFromForm(drafts, activeLocale, pickFormValues(form));
 }
 
 function buildDraftsFromPricing(
@@ -84,6 +105,7 @@ function buildDraftsFromPricing(
 
 function getDiscountValueLabel(discountType: CouponDiscountType) {
   if (discountType === 'special_price') return '优惠价';
+  if (discountType === 'direct_amount') return '直减金额';
   return '优惠幅度';
 }
 
@@ -112,6 +134,7 @@ export const CouponPricingLocalePanel = forwardRef<CouponPricingLocalePanelRef, 
 
     const [activeLocale, setActiveLocale] = useState('');
     const [drafts, setDrafts] = useState<Record<string, LocalePricingDraft>>({});
+    const draftsRef = useRef<Record<string, LocalePricingDraft>>({});
     const [pricingForm] = Form.useForm<LocalePricingFormValues>();
     const lastInitKeyRef = useRef('');
 
@@ -134,31 +157,66 @@ export const CouponPricingLocalePanel = forwardRef<CouponPricingLocalePanelRef, 
       const initKey = `${enabledLanguageKey}|${initialPricingKey}`;
       if (lastInitKeyRef.current === initKey) return;
       lastInitKeyRef.current = initKey;
-      setDrafts(buildDraftsFromPricing(enabledLanguages, pricingRows));
-    }, [enabledLanguageKey, enabledLanguages, initialPricingKey, pricingRows]);
+      const nextDrafts = buildDraftsFromPricing(enabledLanguages, pricingRows);
+      draftsRef.current = nextDrafts;
+      setDrafts(nextDrafts);
+      const locale = activeLocale || enabledLanguages[0]?.code;
+      if (locale) {
+        const draft = nextDrafts[locale] ?? createEmptyDraft();
+        pricingForm.setFieldsValue({
+          thresholdAmount: draft.thresholdAmount,
+          discountValue: draft.discountValue,
+          maxDiscountAmount: draft.maxDiscountAmount,
+        });
+      }
+    }, [activeLocale, enabledLanguageKey, enabledLanguages, initialPricingKey, pricingForm, pricingRows]);
+
+    useEffect(() => {
+      draftsRef.current = drafts;
+    }, [drafts]);
 
     useEffect(() => {
       if (!activeLocale) return;
-      const draft = drafts[activeLocale] ?? createEmptyDraft();
+      const draft = draftsRef.current[activeLocale] ?? createEmptyDraft();
       pricingForm.setFieldsValue({
         thresholdAmount: draft.thresholdAmount,
         discountValue: draft.discountValue,
         maxDiscountAmount: draft.maxDiscountAmount,
       });
-    }, [activeLocale, drafts, pricingForm, discountType]);
+    }, [activeLocale, discountType, pricingForm]);
 
     function handleLocaleChange(nextLocale: string) {
       if (nextLocale === activeLocale) return;
-      setDrafts((current) => mergeActiveFormIntoDrafts(current, activeLocale, pricingForm));
+      setDrafts((current) => {
+        const next = mergeActiveFormIntoDrafts(current, activeLocale, pricingForm);
+        draftsRef.current = next;
+        return next;
+      });
       setActiveLocale(nextLocale);
     }
 
     useImperativeHandle(ref, () => ({
-      mergeActiveLocale() {
-        setDrafts((current) => mergeActiveFormIntoDrafts(current, activeLocale, pricingForm));
+      async mergeActiveLocale() {
+        if (discountType === 'fixed_amount') {
+          await pricingForm.validateFields(['thresholdAmount', 'discountValue']);
+        } else {
+          await pricingForm.validateFields(['discountValue']);
+        }
+        setDrafts((current) => {
+          const next = mergeActiveFormIntoDrafts(current, activeLocale, pricingForm);
+          draftsRef.current = next;
+          return next;
+        });
       },
-      buildLocalePricing(): CouponLocalePricingInput[] {
-        const merged = mergeActiveFormIntoDrafts(drafts, activeLocale, pricingForm);
+      async buildLocalePricing(): Promise<CouponLocalePricingInput[]> {
+        if (discountType === 'fixed_amount') {
+          await pricingForm.validateFields(['thresholdAmount', 'discountValue']);
+        } else {
+          await pricingForm.validateFields(['discountValue']);
+        }
+        const merged = mergeActiveFormIntoDrafts(draftsRef.current, activeLocale, pricingForm);
+        draftsRef.current = merged;
+        setDrafts(merged);
         const items: CouponLocalePricingInput[] = [];
         for (const language of enabledLanguages) {
           const draft = merged[language.code];
@@ -172,8 +230,18 @@ export const CouponPricingLocalePanel = forwardRef<CouponPricingLocalePanelRef, 
         }
         return items;
       },
-      validate() {
-        const merged = mergeActiveFormIntoDrafts(drafts, activeLocale, pricingForm);
+      async validate() {
+        try {
+          if (discountType === 'fixed_amount') {
+            await pricingForm.validateFields(['thresholdAmount', 'discountValue']);
+          } else {
+            await pricingForm.validateFields(['discountValue']);
+          }
+        } catch {
+          return { ok: false, message: '请完善当前语言的优惠幅度' };
+        }
+
+        const merged = mergeActiveFormIntoDrafts(draftsRef.current, activeLocale, pricingForm);
         const items = enabledLanguages
           .map((language) => merged[language.code])
           .filter((draft) => draft?.discountValue && draft.discountValue > 0);
@@ -183,7 +251,7 @@ export const CouponPricingLocalePanel = forwardRef<CouponPricingLocalePanelRef, 
         }
 
         for (const draft of items) {
-          if (discountType === 'fixed_amount' && draft.thresholdAmount === undefined) {
+          if (discountType === 'fixed_amount' && draft.thresholdAmount == null) {
             return { ok: false, message: '满减券需填写优惠门槛' };
           }
           if (discountType === 'percent' && draft.discountValue != null && (draft.discountValue <= 0 || draft.discountValue > 100)) {
@@ -193,26 +261,36 @@ export const CouponPricingLocalePanel = forwardRef<CouponPricingLocalePanelRef, 
 
         return { ok: true };
       },
-    }), [activeLocale, discountType, drafts, enabledLanguages, pricingForm]);
+    }), [activeLocale, discountType, enabledLanguages, pricingForm]);
 
     const pricingTab = (
       <div className="coupon-pricing-locale-panel__fields">
-        <Form form={pricingForm} layout="vertical" preserve={false}>
-          {discountType === 'fixed_amount' ? (
-            <Form.Item
-              label="优惠门槛"
-              name="thresholdAmount"
-              rules={[{ required: true, message: '请填写门槛' }]}
-              extra="填 0 表示无门槛"
-            >
-              <InputNumber
-                min={0}
-                precision={2}
-                style={COUPON_NUMERIC_INPUT_STYLE}
-                addonAfter={currencyCode}
-              />
-            </Form.Item>
-          ) : null}
+        <Form
+          form={pricingForm}
+          layout="vertical"
+          preserve
+          component={false}
+          onValuesChange={(_, values) => {
+            if (!activeLocale) return;
+            const next = syncDraftFromForm(draftsRef.current, activeLocale, values);
+            draftsRef.current = next;
+            setDrafts(next);
+          }}
+        >
+          <Form.Item
+            label="优惠门槛"
+            name="thresholdAmount"
+            hidden={discountType !== 'fixed_amount'}
+            rules={discountType === 'fixed_amount' ? [{ required: true, message: '请填写门槛' }] : []}
+            extra={discountType === 'fixed_amount' ? '填 0 表示无门槛' : undefined}
+          >
+            <InputNumber
+              min={0}
+              precision={2}
+              style={COUPON_NUMERIC_INPUT_STYLE}
+              addonAfter={currencyCode}
+            />
+          </Form.Item>
 
           <Form.Item
             label={getDiscountValueLabel(discountType)}
@@ -228,16 +306,18 @@ export const CouponPricingLocalePanel = forwardRef<CouponPricingLocalePanelRef, 
             />
           </Form.Item>
 
-          {discountType === 'percent' ? (
-            <Form.Item label="最多抵扣" name="maxDiscountAmount">
-              <InputNumber
-                min={0}
-                precision={2}
-                style={COUPON_NUMERIC_INPUT_STYLE}
-                addonAfter={currencyCode}
-              />
-            </Form.Item>
-          ) : null}
+          <Form.Item
+            label="最多抵扣"
+            name="maxDiscountAmount"
+            hidden={discountType !== 'percent'}
+          >
+            <InputNumber
+              min={0}
+              precision={2}
+              style={COUPON_NUMERIC_INPUT_STYLE}
+              addonAfter={currencyCode}
+            />
+          </Form.Item>
         </Form>
       </div>
     );

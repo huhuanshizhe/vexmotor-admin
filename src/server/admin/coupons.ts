@@ -26,6 +26,7 @@ import {
   type CouponListQuery,
   type CouponLocalePricing,
   type CouponLocalePricingInput,
+  COUPON_CODE_PATTERN,
   couponDiscountTypes,
   couponScopes,
   couponStatuses,
@@ -55,6 +56,7 @@ const localePricingItemSchema = z.object({
 
 export const adminCouponPayloadSchema = z.object({
   name: z.string().trim().min(1),
+  code: z.string().trim().regex(COUPON_CODE_PATTERN, '仅允许英文、数字和横线'),
   couponKey: z.string().trim().optional(),
   scope: z.enum(couponScopes),
   stackable: z.boolean().optional(),
@@ -90,8 +92,11 @@ export const adminCouponPayloadSchema = z.object({
   }
 
   for (const [index, item] of value.localePricing.entries()) {
-    if (value.discountType === 'fixed_amount' && item.thresholdAmount === undefined) {
+    if (value.discountType === 'fixed_amount' && item.thresholdAmount == null) {
       ctx.addIssue({ code: 'custom', message: '满减券需填写优惠门槛', path: ['localePricing', index, 'thresholdAmount'] });
+    }
+    if (value.discountType === 'direct_amount' && item.thresholdAmount != null && item.thresholdAmount > 0) {
+      ctx.addIssue({ code: 'custom', message: '直减券无需填写门槛', path: ['localePricing', index, 'thresholdAmount'] });
     }
     if (value.discountType === 'percent' && (item.discountValue <= 0 || item.discountValue > 100)) {
       ctx.addIssue({ code: 'custom', message: '折扣幅度需在 0-100 之间', path: ['localePricing', index, 'discountValue'] });
@@ -163,6 +168,7 @@ function mapListRow(
   return {
     id: row.id,
     name: row.name,
+    code: row.code,
     couponKey: row.couponKey,
     scope: row.scope,
     discountType: row.discountType,
@@ -259,9 +265,10 @@ async function syncCouponLocalePricing(couponId: string, discountType: CouponDis
   })));
 }
 
-function buildCouponValues(input: AdminCouponPayload, couponKey: string) {
+function buildCouponValues(input: AdminCouponPayload, couponKey: string, code: string) {
   return {
     name: input.name.trim(),
+    code,
     couponKey,
     scope: input.scope,
     stackable: input.stackable ?? false,
@@ -286,7 +293,7 @@ export async function listAdminCoupons(query: CouponListQuery): Promise<AdminCou
   const keyword = query.keyword.trim();
   if (keyword) {
     const pattern = `%${keyword}%`;
-    filters.push(or(ilike(coupons.name, pattern), ilike(coupons.couponKey, pattern)));
+    filters.push(or(ilike(coupons.name, pattern), ilike(coupons.couponKey, pattern), ilike(coupons.code, pattern)));
   }
   if (query.scope) filters.push(eq(coupons.scope, query.scope));
   if (query.discountType) filters.push(eq(coupons.discountType, query.discountType));
@@ -344,6 +351,10 @@ export async function getAdminCouponDetail(id: string): Promise<AdminCouponDetai
 }
 
 export async function createAdminCoupon(input: AdminCouponPayload) {
+  const code = input.code.trim();
+  const [existingCode] = await db.select({ id: coupons.id }).from(coupons).where(eq(coupons.code, code)).limit(1);
+  if (existingCode) throw new Error('优惠券代码已存在');
+
   const couponKey = input.couponKey?.trim()
     ? normalizeBusinessPublicKey(input.couponKey)
     : await generateUniqueCouponKey();
@@ -354,7 +365,7 @@ export async function createAdminCoupon(input: AdminCouponPayload) {
   }
 
   const [created] = await db.insert(coupons).values({
-    ...buildCouponValues(input, couponKey),
+    ...buildCouponValues(input, couponKey, code),
     issuedQuantity: 0,
   }).returning();
 
@@ -384,7 +395,13 @@ export async function updateAdminCoupon(id: string, input: AdminCouponPayload) {
     }
   }
 
-  await db.update(coupons).set(buildCouponValues(input, couponKey)).where(eq(coupons.id, id));
+  const code = input.code.trim();
+  if (code !== existing.code) {
+    const [duplicateCode] = await db.select({ id: coupons.id }).from(coupons).where(eq(coupons.code, code)).limit(1);
+    if (duplicateCode && duplicateCode.id !== id) throw new Error('优惠券代码已存在');
+  }
+
+  await db.update(coupons).set(buildCouponValues(input, couponKey, code)).where(eq(coupons.id, id));
   await Promise.all([
     syncCouponRelations(id, input),
     syncCouponLocalePricing(id, input.discountType, input.localePricing),
