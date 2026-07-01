@@ -88,8 +88,8 @@ export async function checkOrderPaymentGatewayStatus(
   );
 
   const isPaidAtGateway = isIntentPaidAtGateway(intent, order);
-  let sitePaymentStatus = order.paymentStatus;
-  let orderStatus = order.status;
+  let sitePaymentStatus: string = order.paymentStatus;
+  let orderStatus: string = order.status;
   let synced = false;
 
   if (isPaidAtGateway) {
@@ -198,9 +198,7 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
         && airwallexAmountMatchesOrder(existing.amount, input.order.totalAmount, input.order.currencyCode)
         && existing.merchant_order_id === input.order.orderNumber
       ) {
-        if (input.order.paymentStatus !== 'paid') {
-          await confirmAirwallexPaymentForOrder(input.order);
-        }
+        await confirmAirwallexPaymentForOrder(input.order);
         return { ok: false as const, code: 'ORDER_ALREADY_PAID' as const };
       }
 

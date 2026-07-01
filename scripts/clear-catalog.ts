@@ -10,7 +10,7 @@ import {
   products,
 } from '@/server/db/schema';
 
-async function countRows(table: typeof products) {
+async function countRows(table: typeof products | typeof categories | typeof inquiries | typeof orderItems) {
   const [row] = await db!
     .select({ total: sql<number>`count(*)` })
     .from(table);

@@ -384,6 +384,11 @@ export async function getCategories(localeInput?: string | null): Promise<Storef
   }
 }
 
+export async function getCategoryBySlug(slug: string, localeInput?: string | null): Promise<StorefrontCategory | null> {
+  const items = await getCategories(localeInput);
+  return items.find((item) => item.slug === slug) ?? null;
+}
+
 export async function getProductList(input: {
   keyword?: string;
   categorySlug?: string;

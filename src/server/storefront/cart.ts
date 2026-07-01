@@ -1097,8 +1097,8 @@ export async function buildQuoteCartPreview(input: {
       tierApplied: unitPriceAmount < basePriceAmount,
       configurationKey: '',
       featureSelections: [],
-      configurationLabel: quotedLine.leadTime ? `Lead time: ${quotedLine.leadTime}` : null,
-      variantLabel: quotedLine.note || null,
+      configurationLabel: quotedLine.leadTime ? `Lead time: ${quotedLine.leadTime}` : '',
+      variantLabel: quotedLine.note || '',
     });
   }
 
