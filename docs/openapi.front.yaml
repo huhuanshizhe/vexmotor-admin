@@ -29,6 +29,10 @@ tags:
   - name: Compare
   - name: Brands
   - name: Content
+  - name: Meta
+  - name: Commerce
+  - name: Newsletter
+  - name: Sitemap
 components:
   securitySchemes:
     bearerAuth:
@@ -84,10 +88,28 @@ components:
       schema:
         type: string
     InquiryIdParam:
-      name: inquiryId
+      name: id
       in: path
       required: true
       description: 询盘 UUID 或 QT-* 报价编号
+      schema:
+        type: string
+    LegacySlugParam:
+      name: legacySlug
+      in: path
+      required: true
+      schema:
+        type: string
+    GuestOrderTokenQueryParam:
+      name: guestToken
+      in: query
+      description: 访客订单访问令牌（与 Header `x-guest-order-token` 二选一）
+      schema:
+        type: string
+    GuestOrderTokenHeader:
+      name: x-guest-order-token
+      in: header
+      description: 访客订单访问令牌
       schema:
         type: string
     LocaleHeader:
@@ -1656,6 +1678,39 @@ paths:
                     items:
                       $ref: '#/components/schemas/Category'
                 required: [locale, categories]
+  /api/front/categories/{slug}:
+    get:
+      tags: [Categories]
+      summary: 获取单个分类详情
+      parameters:
+        - $ref: '#/components/parameters/CategorySlugParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 分类详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locale:
+                    type: string
+                  category:
+                    $ref: '#/components/schemas/Category'
+                required: [locale, category]
+        '404':
+          description: 分类不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Categories]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/categories/{slug}/products:
     get:
       tags: [Categories]
@@ -1788,6 +1843,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/products:
+    get:
+      tags: [Products]
+      summary: 商品列表（分页）
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [featured, newest, price_asc, price_desc]
+            default: featured
+        - name: purchaseMode
+          in: query
+          schema:
+            type: string
+            enum: [buy, inquiry]
+        - name: inStockOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 商品列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+    options:
+      tags: [Products]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/products/{slug}:
     get:
       tags: [Products]
@@ -1824,6 +1916,49 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProductCard'
+  /api/front/products/{slug}/live:
+    get:
+      tags: [Products]
+      summary: 获取商品实时价格与库存快照（轻量轮询）
+      parameters:
+        - $ref: '#/components/parameters/ProductSlugParam'
+      responses:
+        '200':
+          description: 实时价格与库存
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  price:
+                    type: object
+                    properties:
+                      currency:
+                        type: string
+                      amount:
+                        type: number
+                      formatted:
+                        type: string
+                  stockQuantity:
+                    type: integer
+                  moq:
+                    type: integer
+                  leadTimeMin:
+                    type: integer
+                  leadTimeMax:
+                    type: integer
+                  leadTimeUnit:
+                    type: string
+                  inStock:
+                    type: boolean
+                  purchaseMode:
+                    type: string
+        '404':
+          description: 商品不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/cart:
     get:
       tags: [Cart]
@@ -2149,6 +2284,33 @@ paths:
           description: 无法查询支付网关
         '503':
           description: Airwallex 未配置
+  /api/front/orders/guest/{orderNumber}:
+    get:
+      tags: [Orders]
+      summary: 访客订单详情（凭 guestToken）
+      parameters:
+        - $ref: '#/components/parameters/OrderNumberParam'
+        - $ref: '#/components/parameters/GuestOrderTokenQueryParam'
+        - $ref: '#/components/parameters/GuestOrderTokenHeader'
+      responses:
+        '200':
+          description: 访客订单详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetail'
+        '404':
+          description: 订单不存在或令牌无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Orders]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/orders/{orderNumber}:
     get:
       tags: [Orders]
@@ -2448,6 +2610,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/auth/password-reset:
+    post:
+      tags: [Auth]
+      summary: 请求或完成密码重置
+      description: |
+        `action=request` 时发送重置邮件（开发环境可能返回 `resetUrl`）；
+        `action=reset` 时使用 token 设置新密码。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    action:
+                      type: string
+                      enum: [request]
+                    email:
+                      type: string
+                      format: email
+                  required: [action, email]
+                - type: object
+                  properties:
+                    action:
+                      type: string
+                      enum: [reset]
+                    token:
+                      type: string
+                    password:
+                      type: string
+                      minLength: 8
+                  required: [action, token, password]
+      responses:
+        '200':
+          description: 请求已受理或重置完成
+        '400':
+          description: 校验失败或 token 无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Auth]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
   /api/front/auth/logout:
     post:
       tags: [Auth]
@@ -2465,6 +2675,39 @@ paths:
                   ok:
                     type: boolean
                 required: [ok]
+  /api/front/auth/oauth/{path}:
+    get:
+      tags: [Auth]
+      summary: NextAuth OAuth 路由（signin/callback/session 等）
+      description: |
+        NextAuth `basePath` 为 `/api/front/auth/oauth`。
+        常见路径包括 `signin/google`、`callback/google`、`session` 等，由 `{path}` 捕获。
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: NextAuth 子路径，如 signin/google
+      responses:
+        '302':
+          description: OAuth 重定向
+        '200':
+          description: OAuth 会话或元数据
+    post:
+      tags: [Auth]
+      summary: NextAuth OAuth POST 处理
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 处理成功
+        '302':
+          description: 重定向
   /api/front/profile:
     get:
       tags: [Profile]
@@ -2692,7 +2935,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AccountInquiryListItem'
-  /api/front/inquiries/{inquiryId}:
+  /api/front/inquiries/{id}:
     get:
       tags: [Inquiries]
       summary: 获取询价详情（支持 uuid 或 QT-* quoteNumber）
@@ -2707,7 +2950,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountInquiryDetail'
-  /api/front/inquiries/{inquiryId}/messages:
+  /api/front/inquiries/{id}/messages:
     post:
       tags: [Inquiries]
       summary: 客户发送询盘追问
@@ -2732,7 +2975,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountInquiryDetail'
-  /api/front/inquiries/{inquiryId}/messages/stream:
+  /api/front/inquiries/{id}/messages/stream:
     get:
       tags: [Inquiries]
       summary: 询盘消息 SSE 流（实时推送新消息）
@@ -2936,3 +3179,218 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompareResult'
+  /api/front/commerce:
+    get:
+      tags: [Commerce]
+      summary: 获取结账与商城配置
+      responses:
+        '200':
+          description: 商城配置
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    options:
+      tags: [Commerce]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
+  /api/front/knowledge:
+    get:
+      tags: [Content]
+      summary: 获取知识库目录（术语表、FAQ 等）
+      responses:
+        '200':
+          description: 知识库目录
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    options:
+      tags: [Content]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
+  /api/front/press:
+    get:
+      tags: [Content]
+      summary: 获取新闻稿与媒体资料目录
+      responses:
+        '200':
+          description: 新闻稿目录
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    options:
+      tags: [Content]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
+  /api/front/cms/legacy/{legacySlug}:
+    get:
+      tags: [Content]
+      summary: 按 legacy slug 获取 CMS 页面
+      parameters:
+        - $ref: '#/components/parameters/LegacySlugParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+      responses:
+        '200':
+          description: CMS 页面内容
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: 页面不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    options:
+      tags: [Content]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
+  /api/front/meta/industries:
+    get:
+      tags: [Meta]
+      summary: 客户行业选项（注册/公司资料）
+      parameters:
+        - name: locale
+          in: query
+          schema:
+            type: string
+            enum: [en, zh]
+            default: en
+      responses:
+        '200':
+          description: 行业选项列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                required: [items]
+    options:
+      tags: [Meta]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
+  /api/front/newsletter:
+    post:
+      tags: [Newsletter]
+      summary: 订阅邮件列表
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        '201':
+          description: 订阅成功
+        '400':
+          description: 校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/resource-access:
+    post:
+      tags: [Content]
+      summary: 记录资源下载线索并解锁门控资源
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                resourceSlug:
+                  type: string
+                sourcePath:
+                  type: string
+                company:
+                  type: string
+                utmSource:
+                  type: string
+                utmMedium:
+                  type: string
+                utmCampaign:
+                  type: string
+              required: [email, resourceSlug]
+      responses:
+        '201':
+          description: 资源已解锁
+        '200':
+          description: 资源无需门控
+        '404':
+          description: 资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/front/sitemap:
+    get:
+      tags: [Sitemap]
+      summary: 获取站点地图数据源（分类、商品、博客）
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 站点地图数据
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  products:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  blogPosts:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  supportArticles:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+    options:
+      tags: [Sitemap]
+      summary: CORS 预检
+      responses:
+        '204':
+          description: 预检成功
