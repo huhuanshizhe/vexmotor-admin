@@ -1401,6 +1401,37 @@ components:
           required: [sharedFeatureKeys, uniqueByProduct]
       required: [locale, products, groups, matrix, summary]
       additionalProperties: false
+    CompareListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: compare_items 表主键
+        productId:
+          type: string
+          format: uuid
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        product:
+          $ref: '#/components/schemas/CompareProductSummary'
+      required: [id, productId, sortOrder, createdAt, product]
+      additionalProperties: false
+    CompareItemsResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        items:
+          type: array
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/CompareListItem'
+      required: [locale, items]
+      additionalProperties: false
     AuthLoginRequest:
       type: object
       properties:
@@ -1705,12 +1736,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Categories]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/categories/{slug}/products:
     get:
       tags: [Categories]
@@ -1874,12 +1899,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductListResponse'
-    options:
-      tags: [Products]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/products/{slug}:
     get:
       tags: [Products]
@@ -2305,12 +2324,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Orders]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/orders/{orderNumber}:
     get:
       tags: [Orders]
@@ -2533,12 +2546,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Auth]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/auth/register:
     post:
       tags: [Auth]
@@ -2652,12 +2659,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Auth]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/auth/logout:
     post:
       tags: [Auth]
@@ -2770,12 +2771,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Profile]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/profile/company:
     get:
       tags: [Profile]
@@ -2838,12 +2833,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Profile]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/account/summary:
     get:
       tags: [Profile]
@@ -2864,12 +2853,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Profile]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/languages:
     get:
       tags: [Languages]
@@ -3093,7 +3076,10 @@ paths:
   /api/front/compare/items:
     get:
       tags: [Compare]
-      summary: 获取登录用户对比列表（匿名用户请使用 localStorage）
+      summary: 获取登录用户对比列表
+      description: |
+        登录用户的服务端对比列表（最多 4 个）。匿名用户请在浏览器 localStorage 维护列表；
+        规格矩阵请调用 `POST /api/front/compare`。
       security:
         - bearerAuth: []
       parameters:
@@ -3105,19 +3091,17 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  locale:
-                    type: string
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      additionalProperties: true
-                required: [locale, items]
+                $ref: '#/components/schemas/CompareItemsResponse'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       tags: [Compare]
       summary: 添加商品到对比列表
+      description: 商品已存在时仍返回 201 与当前完整列表（幂等）。列表已满时返回 409。
       security:
         - bearerAuth: []
       parameters:
@@ -3134,11 +3118,38 @@ paths:
                   type: string
                   format: uuid
               required: [productId]
+              additionalProperties: false
       responses:
         '201':
-          description: 添加成功
+          description: 添加成功（或商品已在列表中）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompareItemsResponse'
+        '400':
+          description: 请求体校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 商品不存在或已下架
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: 对比列表已达上限（4 个）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/compare/items/{productId}:
     delete:
       tags: [Compare]
@@ -3150,10 +3161,25 @@ paths:
       responses:
         '204':
           description: 删除成功
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 列表中无此商品
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/compare:
     post:
       tags: [Compare]
-      summary: 执行商品对比矩阵（2-4 个商品，无需先加入列表）
+      summary: 生成商品对比规格矩阵
+      description: |
+        传入 2–4 个商品 ID，返回价格、库存、品牌、分类及 product features 组成的对比矩阵。
+        无需登录，也不要求商品已加入 compare/items 列表。
       parameters:
         - $ref: '#/components/parameters/LocaleHeader'
         - $ref: '#/components/parameters/LocaleQueryParam'
@@ -3172,6 +3198,7 @@ paths:
                     type: string
                     format: uuid
               required: [productIds]
+              additionalProperties: false
       responses:
         '200':
           description: 对比结果
@@ -3179,6 +3206,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompareResult'
+        '400':
+          description: 请求体校验失败，或商品数量不在 2–4 之间（INVALID_PRODUCT_COUNT）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 一个或多个商品不存在或已下架（NOT_FOUND）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/commerce:
     get:
       tags: [Commerce]
@@ -3191,12 +3230,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-    options:
-      tags: [Commerce]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/knowledge:
     get:
       tags: [Content]
@@ -3209,12 +3242,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-    options:
-      tags: [Content]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/press:
     get:
       tags: [Content]
@@ -3227,12 +3254,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-    options:
-      tags: [Content]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/cms/legacy/{legacySlug}:
     get:
       tags: [Content]
@@ -3254,12 +3275,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    options:
-      tags: [Content]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/meta/industries:
     get:
       tags: [Meta]
@@ -3285,12 +3300,6 @@ paths:
                       type: object
                       additionalProperties: true
                 required: [items]
-    options:
-      tags: [Meta]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
   /api/front/newsletter:
     post:
       tags: [Newsletter]
@@ -3388,9 +3397,3 @@ paths:
                     items:
                       type: object
                       additionalProperties: true
-    options:
-      tags: [Sitemap]
-      summary: CORS 预检
-      responses:
-        '204':
-          description: 预检成功
