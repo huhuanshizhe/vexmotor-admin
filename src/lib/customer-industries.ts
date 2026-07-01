@@ -73,3 +73,15 @@ export const customerIndustryFilterOptions = CUSTOMER_INDUSTRY_OPTIONS.map((item
   value: item.value,
   label: `${item.labelEn} — ${item.labelZh}`,
 }));
+
+export type CustomerIndustryListItem = {
+  value: CustomerIndustry;
+  label: string;
+};
+
+export function listCustomerIndustryOptions(locale: 'en' | 'zh' = 'en'): CustomerIndustryListItem[] {
+  return CUSTOMER_INDUSTRY_OPTIONS.map((item) => ({
+    value: item.value,
+    label: locale === 'zh' ? item.labelZh : item.labelEn,
+  }));
+}

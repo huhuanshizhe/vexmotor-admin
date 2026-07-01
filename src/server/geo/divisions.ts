@@ -91,3 +91,26 @@ export async function countryBelongsToContinent(isoAlpha2: string, continentCode
   const country = await getGeoCountryByIso(isoAlpha2);
   return country?.continentCode === continentCode;
 }
+
+export async function resolveGeoCountryIso(value: string | null | undefined): Promise<string | null> {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.length === 2) {
+    const iso = trimmed.toUpperCase();
+    const country = await getGeoCountryByIso(iso);
+    return country ? iso : null;
+  }
+
+  const countries = await listGeoCountries();
+  const normalized = trimmed.toLowerCase();
+  const match = countries.find(
+    (country) =>
+      country.nameEn.toLowerCase() === normalized
+      || country.isoAlpha2.toLowerCase() === normalized,
+  );
+
+  return match?.isoAlpha2 ?? null;
+}

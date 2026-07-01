@@ -976,3 +976,218 @@ export async function getGuestOrderDetailByNumber(orderNumber: string, guestAcce
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
   return { ...order, items };
 }
+
+export async function buildQuoteCartPreview(input: {
+  quoteNumber: string;
+  userId: string;
+  locale?: string | null;
+}) {
+  const { getStorefrontInquiryForQuoteCheckout } = await import('@/server/storefront/inquiries');
+  const locale = cartLocale(input.locale);
+  const inquiry = await getStorefrontInquiryForQuoteCheckout({
+    quoteNumber: input.quoteNumber,
+    userId: input.userId,
+  });
+
+  if (!inquiry) {
+    return { ok: false as const, code: 'QUOTE_NOT_AVAILABLE' as const, message: 'Quote is not available for checkout.' };
+  }
+
+  const commerceConfig = await getCommerceConfig();
+  const productIds = inquiry.quotedLines.map((line) => line.productId);
+  const productRows = await db
+    .select({
+      id: products.id,
+      purchaseMode: products.purchaseMode,
+      productName: productNameSql(products.id, locale),
+      slug: productSlugSql(products.id, locale),
+      spu: products.spu,
+      shortDescription: productShortDescriptionSql(products.id, locale),
+      stockQuantity: productStockQuantitySql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
+      basePrice: productPriceSql(products.id, locale),
+      compareAtPrice: productCompareAtPriceSql(products.id, locale),
+    })
+    .from(products)
+    .where(inArray(products.id, productIds));
+
+  const productById = new Map(productRows.map((row) => [row.id, row]));
+  const imageRows = await db
+    .select({
+      productId: productImages.productId,
+      id: productImages.id,
+      url: productImages.url,
+      alt: productImages.alt,
+      width: productImages.width,
+      height: productImages.height,
+    })
+    .from(productImages)
+    .where(inArray(productImages.productId, productIds))
+    .orderBy(asc(productImages.sortOrder));
+
+  const imageByProductId = new Map<string, (typeof imageRows)[number]>();
+  for (const row of imageRows) {
+    if (!imageByProductId.has(row.productId)) {
+      imageByProductId.set(row.productId, row);
+    }
+  }
+
+  const translationsByProductId = await loadProductTranslationsByProductIds(productIds);
+  let subtotal = 0;
+  let listSubtotal = 0;
+  const currencyCode = inquiry.quotedLines[0]?.currency ?? 'USD';
+  const couponLines: CartLineForCoupon[] = [];
+  const items: NonNullable<Awaited<ReturnType<typeof getCartDetail>>>['items'] = [];
+
+  for (const quotedLine of inquiry.quotedLines) {
+    const product = productById.get(quotedLine.productId);
+    if (!product) {
+      return { ok: false as const, code: 'PRODUCT_NOT_FOUND' as const, message: 'Quoted product is no longer available.' };
+    }
+
+    const quantity = quotedLine.quantity;
+    const unitPriceAmount = quotedLine.unitPrice;
+    const lineSubtotal = Number((unitPriceAmount * quantity).toFixed(2));
+    const basePriceAmount = Number(product.basePrice);
+    subtotal += lineSubtotal;
+    listSubtotal += basePriceAmount * quantity;
+    couponLines.push({ productId: quotedLine.productId, lineSubtotal, unitPrice: unitPriceAmount, quantity });
+
+    const translation = pickProductTranslation(translationsByProductId.get(quotedLine.productId), locale);
+    const imageRow = imageByProductId.get(quotedLine.productId);
+    const coverImage = resolveProductCoverImage(
+      quotedLine.productId,
+      quotedLine.name || product.productName,
+      imageRow ? { id: imageRow.id, url: imageRow.url, alt: imageRow.alt, width: imageRow.width, height: imageRow.height } : undefined,
+      translation?.payload,
+    );
+
+    items.push({
+      id: `quote-${quotedLine.productId}`,
+      productId: quotedLine.productId,
+      product: {
+        id: quotedLine.productId,
+        name: quotedLine.name || product.productName,
+        slug: quotedLine.slug || product.slug,
+        spu: quotedLine.spu || product.spu,
+        shortDescription: product.shortDescription,
+        price: formatMoney(product.basePrice, currencyCode),
+        compareAtPrice: product.compareAtPrice ? formatMoney(product.compareAtPrice, currencyCode) : null,
+        purchaseMode: product.purchaseMode,
+        inStock: product.stockQuantity > 0,
+        brand: null,
+        coverImage,
+      },
+      quantity,
+      listUnitPrice: formatMoney(product.basePrice, currencyCode),
+      unitPrice: formatMoney(unitPriceAmount, currencyCode),
+      subtotal: formatMoney(lineSubtotal, currencyCode),
+      tierApplied: unitPriceAmount < basePriceAmount,
+      configurationKey: '',
+      featureSelections: [],
+      configurationLabel: quotedLine.leadTime ? `Lead time: ${quotedLine.leadTime}` : null,
+      variantLabel: quotedLine.note || null,
+    });
+  }
+
+  const summary = await buildCartPricingSummary({
+    subtotal,
+    listSubtotal,
+    couponCode: null,
+    currencyCode,
+    locale,
+    lines: couponLines,
+    commerceConfig,
+  });
+
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  return {
+    ok: true as const,
+    detail: {
+      id: `quote-${inquiry.quoteNumber}`,
+      locale,
+      quoteNumber: inquiry.quoteNumber,
+      inquiryId: inquiry.id,
+      items,
+      itemCount,
+      couponCode: null,
+      coupon: toPublicCouponSummary(summary.coupon),
+      subtotal: formatMoney(subtotal, currencyCode),
+      volumeDiscount: formatMoney(summary.volumeDiscount, currencyCode),
+      discount: formatMoney(summary.discount, currencyCode),
+      shipping: formatMoney(summary.shippingAmount, currencyCode),
+      tax: formatMoney(summary.taxAmount, currencyCode),
+      total: formatMoney(summary.totalAmount, currencyCode),
+      freeShippingThreshold: formatMoney(summary.freeShippingThreshold, currencyCode),
+      remainingForFreeShipping: formatMoney(summary.remainingForFreeShipping, currencyCode),
+      readOnlyQuantities: true,
+    },
+  };
+}
+
+export async function createOrderFromQuoteLines(input: {
+  userId: string;
+  quoteNumber: string;
+  shippingAddressId: string;
+  billingAddressId: string;
+  shippingMethod: string;
+  paymentMethod: string;
+  customerNote?: string;
+  locale?: string | null;
+}) {
+  const preview = await buildQuoteCartPreview({
+    quoteNumber: input.quoteNumber,
+    userId: input.userId,
+    locale: input.locale,
+  });
+
+  if (!preview.ok) {
+    return null;
+  }
+
+  const [ship, bill] = await Promise.all([
+    db.select().from(addresses).where(eq(addresses.id, input.shippingAddressId)).limit(1),
+    db.select().from(addresses).where(eq(addresses.id, input.billingAddressId)).limit(1),
+  ]);
+
+  const shippingRow = ship[0];
+  const billingRow = bill[0];
+  if (!shippingRow || !billingRow || shippingRow.userId !== input.userId || billingRow.userId !== input.userId) {
+    return null;
+  }
+
+  const commerceConfig = await getCommerceConfig();
+  const pricing = calculateOrderPricing(commerceConfig, {
+    subtotal: preview.detail.subtotal.amount,
+    discountAmount: preview.detail.discount.amount,
+    countryCode: String(shippingRow.countryCode),
+    shippingMethodCode: input.shippingMethod,
+  });
+
+  if (!pricing.selectedShippingOption) {
+    return null;
+  }
+
+  const composedNote = [
+    `Quote checkout: ${input.quoteNumber}`,
+    `Source: quote`,
+    input.customerNote?.trim() || null,
+  ].filter(Boolean).join('\n');
+
+  return insertOrderFromCartDetail({
+    userId: input.userId,
+    cartId: null,
+    shippingAddressId: input.shippingAddressId,
+    billingAddressId: input.billingAddressId,
+    shippingSnapshot: toOrderAddressSnapshot(shippingRow),
+    billingSnapshot: toOrderAddressSnapshot(billingRow),
+    shippingMethod: input.shippingMethod,
+    paymentMethod: input.paymentMethod,
+    customerNote: composedNote,
+    locale: input.locale,
+    currencyCode: preview.detail.subtotal.currency,
+    detail: preview.detail,
+    pricing,
+  });
+}

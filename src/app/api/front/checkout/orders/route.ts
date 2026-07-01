@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { LOCALE_REQUEST_HEADER, normalizeLocale } from '@/lib/i18n';
 import { getCurrentUserId } from '@/server/auth/session';
 import { sendOrderConfirmationEmail } from '@/server/email';
-import { createOrderFromBuyNowLine, createOrderFromCart, getOrCreateCart } from '@/server/storefront/cart';
+import { createOrderFromBuyNowLine, createOrderFromCart, createOrderFromQuoteLines, getOrCreateCart } from '@/server/storefront/cart';
 
 function corsHeaders() {
   const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
@@ -36,6 +36,7 @@ const buyNowSchema = z.object({
 
 const orderSchema = z.object({
   buyNow: buyNowSchema.optional(),
+  fromQuote: z.string().min(1).optional(),
   shippingAddressId: z.string().uuid().optional(),
   billingAddressId: z.string().uuid().optional(),
   shippingAddress: addressSnapshotSchema.optional(),
@@ -85,6 +86,36 @@ export async function POST(request: NextRequest) {
 
   if (!userId && !parsed.data.contactEmail?.trim()) {
     return NextResponse.json({ code: 'CONTACT_EMAIL_REQUIRED', message: 'Guest checkout requires a contact email.' }, { status: 400 });
+  }
+
+  if (parsed.data.fromQuote) {
+    if (!userId) {
+      return NextResponse.json({ code: 'UNAUTHORIZED', message: 'Quote checkout requires authentication.' }, { status: 401 });
+    }
+    if (!parsed.data.shippingAddressId || !parsed.data.billingAddressId) {
+      return NextResponse.json({ code: 'VALIDATION_ERROR', message: 'Shipping and billing addresses are required.' }, { status: 400 });
+    }
+
+    const quoteOrder = await createOrderFromQuoteLines({
+      userId,
+      quoteNumber: parsed.data.fromQuote,
+      shippingAddressId: parsed.data.shippingAddressId,
+      billingAddressId: parsed.data.billingAddressId,
+      shippingMethod: parsed.data.shippingMethod,
+      paymentMethod: parsed.data.paymentMethod,
+      customerNote,
+      locale,
+    });
+
+    if (!quoteOrder) {
+      return NextResponse.json({ code: 'ORDER_CREATE_FAILED', message: 'Unable to create order from quote' }, { status: 400 });
+    }
+
+    const redirectPath = `/account/orders/${quoteOrder.orderNumber}`;
+    return NextResponse.json(
+      { orderNumber: quoteOrder.orderNumber, redirectPath },
+      { status: 201, headers: corsHeaders() },
+    );
   }
 
   const order = parsed.data.buyNow

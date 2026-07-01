@@ -4,6 +4,22 @@ import { isShippingContinentCode } from '@/lib/shipping-continents';
 import { frontCorsHeaders } from '@/lib/front-cors';
 import { listGeoCountries } from '@/server/geo/divisions';
 
+/**
+ * @swagger
+ * /api/front/geo/countries:
+ *   get:
+ *     tags: [Geo]
+ *     summary: Enabled shipping countries
+ *     parameters:
+ *       - in: query
+ *         name: continent
+ *         schema:
+ *           type: string
+ *         description: Optional continent filter
+ *     responses:
+ *       200:
+ *         description: Country list
+ */
 export async function GET(request: NextRequest) {
   const continent = request.nextUrl.searchParams.get('continent')?.trim().toUpperCase();
   if (continent && !isShippingContinentCode(continent)) {

@@ -34,6 +34,7 @@ export default async function AdminInquiryDetailPage({
         lastMessageAt: inquiry.lastMessageAt?.toISOString() ?? null,
         resolvedAt: inquiry.resolvedAt?.toISOString() ?? null,
         terminatedAt: inquiry.terminatedAt?.toISOString() ?? null,
+        expiresAt: inquiry.expiresAt?.toISOString() ?? null,
         messages: inquiry.messages.map((item) => ({
           ...item,
           createdAt: item.createdAt.toISOString(),

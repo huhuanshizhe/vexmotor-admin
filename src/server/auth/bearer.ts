@@ -6,7 +6,10 @@ import { extractBearerToken, verifyFrontAccessToken } from '@/lib/auth/jwt';
 
 export async function getFrontUserIdFromRequest(request?: NextRequest | Request) {
   const authHeader = request?.headers.get('authorization') ?? (await headers()).get('authorization');
-  const token = extractBearerToken(authHeader);
+  let token = extractBearerToken(authHeader);
+  if (!token && request && 'nextUrl' in request) {
+    token = request.nextUrl.searchParams.get('access_token');
+  }
   if (!token) {
     return null;
   }

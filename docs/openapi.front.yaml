@@ -87,9 +87,9 @@ components:
       name: inquiryId
       in: path
       required: true
+      description: 询盘 UUID 或 QT-* 报价编号
       schema:
         type: string
-        format: uuid
     LocaleHeader:
       name: x-vex-locale
       in: header
@@ -1136,36 +1136,111 @@ components:
           additionalProperties: false
     Inquiry:
       type: object
+      description: 遗留简化询盘结构（创建响应字段子集）
       properties:
         id:
           type: string
           format: uuid
-        productId:
+        quoteNumber:
           type: string
-          format: uuid
-        productName:
+          nullable: true
+        fullName:
           type: string
         email:
           type: string
           format: email
-        fullName:
+        redirectPath:
           type: string
-        phone:
+      required: [id, fullName, email]
+    InquiryMessage:
+      type: object
+      properties:
+        id:
           type: string
-        company:
+          format: uuid
+        senderType:
           type: string
-        country:
+          enum: [customer, admin]
+        body:
           type: string
-        message:
-          type: string
-        status:
-          type: string
-          enum: [new, contacted, quoted, closed]
         createdAt:
           type: string
           format: date-time
-      required: [id, productId, productName, email, fullName, message, status, createdAt]
-      additionalProperties: false
+        adminName:
+          type: string
+          nullable: true
+      required: [id, senderType, body, createdAt]
+    AccountInquiryListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quoteNumber:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [new, contacted, quoted, closed]
+        projectName:
+          type: string
+        lineCount:
+          type: integer
+        valueLabel:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        quotedLines:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/InquiryQuotedLine'
+      required: [id, status, projectName, lineCount, valueLabel, createdAt]
+    AccountInquiryDetail:
+      allOf:
+        - $ref: '#/components/schemas/AccountInquiryListItem'
+        - type: object
+          properties:
+            fullName:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+              nullable: true
+            company:
+              type: string
+              nullable: true
+            country:
+              type: string
+              nullable: true
+            message:
+              type: string
+            rfqPayload:
+              $ref: '#/components/schemas/InquiryRfqPayload'
+              nullable: true
+            quotedLines:
+              type: array
+              nullable: true
+              items:
+                $ref: '#/components/schemas/InquiryQuotedLine'
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/InquiryMessage'
+            productName:
+              type: string
+            productSlug:
+              type: string
+            productSpu:
+              type: string
+          required: [fullName, email, message, messages, productName, productSlug, productSpu]
     WishlistItem:
       type: object
       properties:
@@ -1481,8 +1556,36 @@ components:
           type: string
         message:
           type: string
-      required: [productId, fullName, email, message]
+        rfqPayload:
+          $ref: '#/components/schemas/InquiryRfqPayload'
+      required: [productId, fullName, email]
       additionalProperties: false
+    InquiryRfqPayload:
+      type: object
+      additionalProperties: true
+    InquiryQuotedLine:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        spu:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        currency:
+          type: string
+        leadTime:
+          type: string
+        note:
+          type: string
+      required: [productId, spu, name, slug, quantity, unitPrice, currency]
 paths:
   /api/front/home:
     get:
@@ -2373,11 +2476,11 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Inquiry'
+                  $ref: '#/components/schemas/AccountInquiryListItem'
   /api/front/inquiries/{inquiryId}:
     get:
       tags: [Inquiries]
-      summary: 获取询价详情
+      summary: 获取询价详情（支持 uuid 或 QT-* quoteNumber）
       security:
         - bearerAuth: []
       parameters:
@@ -2388,7 +2491,94 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Inquiry'
+                $ref: '#/components/schemas/AccountInquiryDetail'
+  /api/front/inquiries/{inquiryId}/messages:
+    post:
+      tags: [Inquiries]
+      summary: 客户发送询盘追问
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InquiryIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+              required: [body]
+      responses:
+        '200':
+          description: 更新后的询盘详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountInquiryDetail'
+  /api/front/inquiries/{inquiryId}/messages/stream:
+    get:
+      tags: [Inquiries]
+      summary: 询盘消息 SSE 流（实时推送新消息）
+      description: |
+        Server-Sent Events 端点。连接后发送 `ready` 事件，随后在有新消息时推送 `message` 事件。
+        可选查询参数 `after` 为上一消息 id，用于断点续传。
+        浏览器 EventSource 无法携带 Authorization 头时，可传 `access_token` 查询参数。
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InquiryIdParam'
+        - in: query
+          name: after
+          schema:
+            type: string
+            format: uuid
+          description: 仅推送该消息之后的新消息
+        - in: query
+          name: access_token
+          schema:
+            type: string
+          description: 前台 JWT（EventSource 备用鉴权）
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /api/front/upload/inquiry:
+    post:
+      tags: [Inquiries]
+      summary: 上传询盘附件
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上传成功
+  /api/front/checkout/quote-preview:
+    get:
+      tags: [Checkout]
+      summary: 议价报价结账预览
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: quoteNumber
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 合成购物车快照
   /api/front/wishlist:
     get:
       tags: [Wishlist]

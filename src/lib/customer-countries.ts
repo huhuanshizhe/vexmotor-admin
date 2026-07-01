@@ -8,6 +8,12 @@ const REGISTER_COUNTRY_ISO_MAP: Record<string, string> = {
   Mexico: 'MX',
   China: 'CN',
   Japan: 'JP',
+  'South Korea': 'KR',
+  Singapore: 'SG',
+  Australia: 'AU',
+  India: 'IN',
+  Brazil: 'BR',
+  'United Arab Emirates': 'AE',
 };
 
 export function normalizeCompanyCountryCode(value: string | null | undefined): string | null {
@@ -15,4 +21,14 @@ export function normalizeCompanyCountryCode(value: string | null | undefined): s
   if (!trimmed || trimmed === 'Other') return null;
   if (trimmed.length === 2) return trimmed.toUpperCase();
   return REGISTER_COUNTRY_ISO_MAP[trimmed] ?? null;
+}
+
+export async function normalizeCompanyCountryCodeAsync(value: string | null | undefined): Promise<string | null> {
+  const sync = normalizeCompanyCountryCode(value);
+  if (sync) {
+    return sync;
+  }
+
+  const { resolveGeoCountryIso } = await import('@/server/geo/divisions');
+  return resolveGeoCountryIso(value);
 }

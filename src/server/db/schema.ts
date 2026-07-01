@@ -48,6 +48,7 @@ export const returnTypeEnum = pgEnum('return_type', ['return_goods', 'no_return'
 export const orderActionTypeEnum = pgEnum('order_action_type', ['status_change', 'shipment_added', 'refund_processed', 'terminated', 'note_updated', 'completed']);
 export const inquiryStatusEnum = pgEnum('inquiry_status', ['new', 'contacted', 'quoted', 'closed']);
 export const inquiryQueueKindEnum = pgEnum('inquiry_queue_kind', ['new_inquiry', 'customer_replied']);
+export const inquirySalesStatusEnum = pgEnum('inquiry_sales_status', ['unset', 'following', 'negotiating', 'won', 'lost']);
 export const inquiryMessageSenderTypeEnum = pgEnum('inquiry_message_sender_type', ['customer', 'admin']);
 export const contentStatusEnum = pgEnum('content_status', ['active', 'inactive']);
 export const cmsStatusEnum = pgEnum('cms_status', ['draft', 'published', 'archived']);
@@ -836,6 +837,7 @@ export const inquiries = pgTable(
     country: varchar('country', { length: 100 }),
     message: text('message').notNull(),
     status: inquiryStatusEnum('status').notNull().default('new'),
+    salesStatus: inquirySalesStatusEnum('sales_status').notNull().default('unset'),
     awaitingAdmin: boolean('awaiting_admin').notNull().default(true),
     queueKind: inquiryQueueKindEnum('queue_kind'),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
@@ -846,12 +848,17 @@ export const inquiries = pgTable(
     handledBy: uuid('handled_by').references(() => users.id, { onDelete: 'set null' }),
     handledAt: timestamp('handled_at', { withTimezone: true }),
     internalNote: text('internal_note'),
+    quoteNumber: varchar('quote_number', { length: 32 }),
+    rfqPayload: jsonb('rfq_payload').$type<Record<string, unknown>>(),
+    quotedLines: jsonb('quoted_lines').$type<Record<string, unknown>[]>(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     awaitingAdminIdx: index('inquiries_awaiting_admin_idx').on(table.awaitingAdmin),
     lastMessageAtIdx: index('inquiries_last_message_at_idx').on(table.lastMessageAt),
+    quoteNumberUnique: uniqueIndex('inquiries_quote_number_unique').on(table.quoteNumber),
   }),
 );
 

@@ -94,7 +94,7 @@ export const inquiryStatusLabels = {
 
 export const inquiryQueueKindLabels = {
   new_inquiry: '新询盘',
-  customer_replied: '新回复',
+  customer_replied: '客户新回复',
 } as const;
 
 export const inquiryResolutionLabels = {

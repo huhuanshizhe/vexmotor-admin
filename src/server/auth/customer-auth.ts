@@ -4,7 +4,7 @@ import { and, eq, gt } from 'drizzle-orm';
 
 import { md5Hash, compareMd5 } from '@/lib/auth/password';
 import type { RegistrationDocumentInput } from '@/lib/customer-profile';
-import { normalizeCompanyCountryCode } from '@/lib/customer-countries';
+import { normalizeCompanyCountryCode, normalizeCompanyCountryCodeAsync } from '@/lib/customer-countries';
 import { normalizeCustomerIndustry } from '@/lib/customer-industries';
 import {
   isValidRegistrationDocumentInput,
@@ -142,7 +142,7 @@ export async function registerBusinessAccount(input: RegisterBusinessAccountInpu
       jobTitle: input.jobTitle?.trim() || null,
       company: input.companyName.trim() || null,
       industry: normalizeCustomerIndustry(input.industry),
-      companyCountryCode: normalizeCompanyCountryCode(input.country),
+      companyCountryCode: await normalizeCompanyCountryCodeAsync(input.country),
       website: input.website.trim() || null,
       taxId: input.taxId.trim() || null,
       companySize: input.companySize.trim() || null,
@@ -226,7 +226,7 @@ export async function registerEmailAccount(input: RegisterEmailAccountInput): Pr
       phone: input.phone?.trim() || null,
       company: companyName || null,
       industry: normalizeCustomerIndustry(input.industry ?? null),
-      companyCountryCode: normalizeCompanyCountryCode(input.country ?? null),
+      companyCountryCode: await normalizeCompanyCountryCodeAsync(input.country ?? null),
       website: input.website?.trim() || null,
       taxId: input.taxId?.trim() || null,
       companySize: input.companySize?.trim() || null,

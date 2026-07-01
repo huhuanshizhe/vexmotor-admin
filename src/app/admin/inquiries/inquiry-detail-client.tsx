@@ -1,18 +1,20 @@
 'use client';
 
+import { Image, message } from 'antd';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 
 import { InquiryDetailBack } from '@/components/inquiries/inquiry-detail-back';
+import { InquiryRfqPayloadPanel, type InquiryQuotedLine } from '@/components/inquiries/inquiry-rfq-payload-panel';
 import {
   formatAdminDate,
   getInquiryResolutionLabel,
   inquiryQueueKindLabels,
   inquiryStatusLabels,
-  inquiryFollowUpStatusOptions,
 } from '@/lib/admin-display';
-import { parseInquiryMessage } from '@/lib/inquiry-message';
+import { formatInquirySalesStatus, INQUIRY_SALES_STATUS_OPTIONS, type InquirySalesStatus } from '@/lib/inquiry-sales-status';
+import type { InquiryRfqPayload } from '@/lib/inquiry-rfq';
 
 type InquiryMessageItem = {
   id: string;
@@ -26,7 +28,9 @@ type InquiryMessageItem = {
 
 type InquiryDetail = {
   id: string;
+  quoteNumber: string | null;
   status: 'new' | 'contacted' | 'quoted' | 'closed';
+  salesStatus: InquirySalesStatus;
   awaitingAdmin: boolean;
   queueKind: 'new_inquiry' | 'customer_replied' | null;
   fullName: string;
@@ -42,10 +46,14 @@ type InquiryDetail = {
   lastMessageAt: string | null;
   resolvedAt: string | null;
   terminatedAt: string | null;
+  expiresAt: string | null;
   productName: string;
   productSlug: string;
   productSpu: string;
+  productId?: string;
   handledByEmail: string | null;
+  rfqPayload: InquiryRfqPayload | null;
+  quotedLines: InquiryQuotedLine[] | null;
   messages: InquiryMessageItem[];
 };
 
@@ -74,46 +82,90 @@ export function InquiryDetailClient({
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [inquiry, setInquiry] = useState(initialInquiry);
-  const [status, setStatus] = useState(initialInquiry.status);
+  const [salesStatus, setSalesStatus] = useState<InquirySalesStatus>(initialInquiry.salesStatus ?? 'unset');
   const [internalNote, setInternalNote] = useState(initialInquiry.internalNote ?? '');
+  const [quotedLines, setQuotedLines] = useState<InquiryQuotedLine[]>(initialInquiry.quotedLines ?? []);
+  const [expiresAt, setExpiresAt] = useState(initialInquiry.expiresAt?.slice(0, 10) ?? '');
   const [replyDraft, setReplyDraft] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const firstCustomerMessage = inquiry.messages.find((item) => item.senderType === 'customer')?.body ?? inquiry.message;
-  const parsedMessage = parseInquiryMessage(firstCustomerMessage);
+  function scrollMessagesToBottom() {
+    requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      if (!container) {
+        return;
+      }
+      container.scrollTop = container.scrollHeight;
+    });
+  }
+
+  const messageScrollKey = inquiry.messages.map((item) => item.id).join(',');
+
+  useEffect(() => {
+    scrollMessagesToBottom();
+  }, [messageScrollKey]);
+
   const resolutionLabel = getInquiryResolutionLabel({
     resolvedAt: inquiry.resolvedAt,
     terminatedAt: inquiry.terminatedAt,
     status: inquiry.status,
   });
 
-  function saveMeta() {
+  function saveQuote() {
     startTransition(async () => {
-      setMessage(null);
       const response = await fetch(`/api/admin/inquiries/${inquiry.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, internalNote }),
+        body: JSON.stringify({
+          quotedLines: quotedLines.length ? quotedLines : null,
+          expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59.000Z`).toISOString() : null,
+        }),
       });
 
       if (!response.ok) {
-        setMessage('询盘状态更新失败。');
+        void message.error('报价单保存失败');
         return;
       }
 
       const nextInquiry = (await response.json()) as InquiryDetail;
       setInquiry(nextInquiry);
-      setStatus(nextInquiry.status);
-      setInternalNote(nextInquiry.internalNote ?? '');
-      setMessage('询盘已更新。');
+      setQuotedLines(nextInquiry.quotedLines ?? []);
+      setExpiresAt(nextInquiry.expiresAt?.slice(0, 10) ?? '');
+      void message.success('报价单已保存');
     });
+  }
+
+  function saveSalesFollowUp() {
+    startTransition(async () => {
+      const response = await fetch(`/api/admin/inquiries/${inquiry.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          salesStatus,
+          internalNote,
+        }),
+      });
+
+      if (!response.ok) {
+        void message.error('销售跟进保存失败');
+        return;
+      }
+
+      const nextInquiry = (await response.json()) as InquiryDetail;
+      setInquiry(nextInquiry);
+      setSalesStatus(nextInquiry.salesStatus ?? 'unset');
+      setInternalNote(nextInquiry.internalNote ?? '');
+      void message.success('销售跟进已保存');
+    });
+  }
+
+  function updateQuotedLine(index: number, patch: Partial<InquiryQuotedLine>) {
+    setQuotedLines((current) => current.map((line, lineIndex) => (lineIndex === index ? { ...line, ...patch } : line)));
   }
 
   function sendReply() {
     if (!replyDraft.trim()) return;
     startTransition(async () => {
-      setMessage(null);
       const response = await fetch(`/api/admin/inquiries/${inquiry.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,17 +173,14 @@ export function InquiryDetailClient({
       });
 
       if (!response.ok) {
-        setMessage('回复发送失败。');
+        void message.error('回复发送失败');
         return;
       }
 
       const nextInquiry = (await response.json()) as InquiryDetail;
       setInquiry(nextInquiry);
       setReplyDraft('');
-      setMessage('回复已发送，询盘已移出待处理队列。');
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
+      void message.success('回复已发送，询盘已移出待处理队列');
     });
   }
 
@@ -139,10 +188,9 @@ export function InquiryDetailClient({
     if (!window.confirm('确定将该询盘标记为已终止吗？终止后将不再出现在待处理列表。')) return;
 
     startTransition(async () => {
-      setMessage(null);
       const response = await fetch(`/api/admin/inquiries/${inquiry.id}/terminate`, { method: 'POST' });
       if (!response.ok) {
-        setMessage('标记已终止失败。');
+        void message.error('标记已终止失败');
         return;
       }
       router.push(backTarget.href);
@@ -152,67 +200,36 @@ export function InquiryDetailClient({
 
   return (
     <main style={{ display: 'grid', gap: 20 }}>
-      <InquiryDetailBack href={backTarget.href} label={backTarget.label} />
-
-      <h1 style={{ margin: 0 }}>询盘详情</h1>
-
-      <div className="info-grid">
-        <article className="info-card">
-          <h2 style={{ marginTop: 0 }}>客户信息</h2>
-          <p>客户姓名：{inquiry.fullName}</p>
-          <p>联系邮箱：{inquiry.email}</p>
-          <p>公司名称：{inquiry.company ?? '未填写'}</p>
-          <p>联系电话：{inquiry.phone ?? '未填写'}</p>
-          <p style={{ marginBottom: 0 }}>国家地区：{inquiry.country ?? '未填写'}</p>
-        </article>
-        <article className="info-card">
-          <h2 style={{ marginTop: 0 }}>产品信息</h2>
-          <p>{inquiry.productName}</p>
-          <p>{inquiry.productSpu}</p>
-          <Link href={`/products/${inquiry.productSlug}`} className="nav-link">查看前台产品页</Link>
-          {inquiry.sourcePageUrl ? <p style={{ wordBreak: 'break-all', marginBottom: 0 }}>来源页面：{inquiry.sourcePageUrl}</p> : null}
-        </article>
-      </div>
-
-      {parsedMessage.estimatedQuantity || parsedMessage.targetLeadTime ? (
-        <div className="info-grid">
-          {parsedMessage.estimatedQuantity ? (
-            <article className="info-card">
-              <h2 style={{ marginTop: 0 }}>预计数量</h2>
-              <p style={{ marginBottom: 0 }}>{parsedMessage.estimatedQuantity}</p>
-            </article>
-          ) : null}
-          {parsedMessage.targetLeadTime ? (
-            <article className="info-card">
-              <h2 style={{ marginTop: 0 }}>目标交期</h2>
-              <p style={{ marginBottom: 0 }}>{parsedMessage.targetLeadTime}</p>
-            </article>
-          ) : null}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <InquiryDetailBack href={backTarget.href} label={backTarget.label} />
+          <h1 style={{ margin: 0 }}>询盘详情{inquiry.quoteNumber ? ` · ${inquiry.quoteNumber}` : ''}</h1>
         </div>
-      ) : null}
+        {!inquiry.terminatedAt ? (
+          <button
+            type="button"
+            className="button-outline-danger"
+            disabled={isPending}
+            onClick={terminateInquiry}
+          >
+            标记已终止
+          </button>
+        ) : null}
+      </div>
 
       <article className="info-card inquiry-status-card">
         <div className="inquiry-status-card__header">
           <h2>处理状态</h2>
-          {!inquiry.terminatedAt ? (
-            <button
-              type="button"
-              className="button-outline-danger"
-              disabled={isPending}
-              onClick={terminateInquiry}
-            >
-              标记已终止
-            </button>
-          ) : null}
         </div>
         <div className="inquiry-status-card__grid">
-          <InquiryStatusField label="销售状态" value={inquiryStatusLabels[inquiry.status]} />
+          <InquiryStatusField label="询盘阶段" value={inquiryStatusLabels[inquiry.status]} />
           <InquiryStatusField
-            label="队列类型"
+            label="待办原因"
             value={inquiry.queueKind ? inquiryQueueKindLabels[inquiry.queueKind] : '—'}
             muted={!inquiry.queueKind}
           />
           <InquiryStatusField label="待处理" value={inquiry.awaitingAdmin ? '是' : '否'} />
+          <InquiryStatusField label="销售状态" value={formatInquirySalesStatus(inquiry.salesStatus)} />
           <InquiryStatusField label="结束原因" value={resolutionLabel} muted={resolutionLabel === '—'} />
           <InquiryStatusField label="提交时间" value={formatAdminDate(inquiry.createdAt)} />
           <InquiryStatusField
@@ -231,6 +248,131 @@ export function InquiryDetailClient({
           />
         </div>
       </article>
+
+      <section className="inquiry-detail-body">
+        <div>
+          <h2 className="inquiry-detail-workspace__heading">客户 RFQ</h2>
+          <InquiryRfqPayloadPanel rfqPayload={inquiry.rfqPayload} fallbackMessage={inquiry.message} />
+        </div>
+
+        <article className="info-card inquiry-detail-quote-card">
+          <div className="inquiry-detail-section-head">
+            <h2 className="inquiry-detail-section-title">报价单</h2>
+            <span className="inquiry-detail-section-meta">{quotedLines.length} 行</span>
+          </div>
+          <p className="inquiry-detail-quote-card__desc">基于客户询盘行项填写报价；保存后前台可见，并自动将询盘阶段更新为已报价。</p>
+
+          <div className="inquiry-quote-editor-list">
+            {quotedLines.map((line, index) => {
+              const rfqLine = inquiry.rfqPayload?.lines.find(
+                (item) => (item.productId && item.productId === line.productId) || item.spu === line.spu,
+              ) ?? inquiry.rfqPayload?.lines[index];
+
+              return (
+                <div key={`${line.productId}-${index}`} className="inquiry-quote-editor">
+                  <div className="inquiry-quote-editor__layout">
+                    <div className="inquiry-quote-editor__thumb">
+                      {rfqLine?.coverImage?.url ? (
+                        <Image
+                          src={rfqLine.coverImage.url}
+                          alt={rfqLine.coverImage.alt || line.name}
+                          width={72}
+                          height={72}
+                          style={{ objectFit: 'cover', borderRadius: 8 }}
+                          preview={{ mask: '预览' }}
+                        />
+                      ) : (
+                        <span className="inquiry-quote-editor__thumb-fallback">{line.spu.slice(0, 2)}</span>
+                      )}
+                    </div>
+
+                    <div className="inquiry-quote-editor__main">
+                      <div className="inquiry-quote-editor__head">
+                        <div className="inquiry-quote-editor__product">
+                          {line.slug ? (
+                            <Link href={`/products/${line.slug}`} className="inquiry-quote-editor__name nav-link">
+                              {line.name}
+                            </Link>
+                          ) : (
+                            <span className="inquiry-quote-editor__name">{line.name}</span>
+                          )}
+                          <strong className="inquiry-quote-editor__spu">{line.spu}</strong>
+                        </div>
+                        {rfqLine?.requiredBy ? (
+                          <span className="inquiry-quote-editor__rfq-hint">客户需求日期：{rfqLine.requiredBy}</span>
+                        ) : null}
+                      </div>
+                      <div className="inquiry-quote-editor__fields">
+                        <label className="inquiry-quote-editor__field">
+                          <span>数量</span>
+                          <input
+                            type="number"
+                            className="inquiry-input--readonly"
+                            readOnly
+                            value={line.quantity}
+                            tabIndex={-1}
+                          />
+                        </label>
+                        <label className="inquiry-quote-editor__field">
+                          <span>单价</span>
+                          <div className="inquiry-input-append">
+                            <input
+                              type="number"
+                              className="inquiry-input-append__price"
+                              min={0}
+                              step="0.01"
+                              value={line.unitPrice}
+                              onChange={(event) => updateQuotedLine(index, { unitPrice: Number(event.target.value) || 0 })}
+                            />
+                            <input
+                              type="text"
+                              className="inquiry-input-append__suffix"
+                              value={line.currency}
+                              maxLength={3}
+                              aria-label="币种"
+                              onChange={(event) => updateQuotedLine(index, { currency: event.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3) })}
+                            />
+                          </div>
+                        </label>
+                        <label className="inquiry-quote-editor__field inquiry-quote-editor__field--wide">
+                          <span>交期</span>
+                          <input
+                            value={line.leadTime}
+                            onChange={(event) => updateQuotedLine(index, { leadTime: event.target.value })}
+                            placeholder="例如 4-6 weeks"
+                          />
+                        </label>
+                        <label className="inquiry-quote-editor__field inquiry-quote-editor__field--full">
+                          <span>备注</span>
+                          <input
+                            value={line.note}
+                            onChange={(event) => updateQuotedLine(index, { note: event.target.value })}
+                            placeholder={rfqLine?.notes || undefined}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {!quotedLines.length ? (
+            <p className="inquiry-detail-quote-card__empty">暂无行项，请确认询盘包含有效产品行。</p>
+          ) : null}
+
+          <label className="inquiry-quote-editor__expires">
+            <span>报价有效期</span>
+            <input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+          </label>
+          <div className="inquiry-detail-quote-card__actions">
+            <button type="button" className="button-primary" disabled={isPending || !quotedLines.length} onClick={saveQuote}>
+              {isPending ? '保存中...' : '保存报价单'}
+            </button>
+          </div>
+        </article>
+      </section>
 
       <article className="info-card" style={{ display: 'grid', gap: 12 }}>
         <h2 style={{ marginTop: 0 }}>对话记录</h2>
@@ -293,19 +435,15 @@ export function InquiryDetailClient({
       <article className="info-card" style={{ display: 'grid', gap: 12 }}>
         <h2 style={{ marginTop: 0 }}>销售跟进</h2>
         <label style={{ display: 'grid', gap: 8 }}>
-          <span>询盘状态</span>
+          <span>销售状态</span>
           <select
-            value={status}
-            disabled={status === 'closed'}
-            onChange={(event) => setStatus(event.target.value as InquiryDetail['status'])}
+            value={salesStatus}
+            onChange={(event) => setSalesStatus(event.target.value as InquirySalesStatus)}
             style={{ minHeight: 44, borderRadius: 12, border: '1px solid var(--color-border)', padding: '0 12px' }}
           >
-            {inquiryFollowUpStatusOptions.map((option) => (
+            {INQUIRY_SALES_STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
-            {status === 'closed' ? (
-              <option value="closed">{inquiryStatusLabels.closed}</option>
-            ) : null}
           </select>
         </label>
         <label style={{ display: 'grid', gap: 8 }}>
@@ -313,11 +451,10 @@ export function InquiryDetailClient({
           <textarea rows={5} value={internalNote} onChange={(event) => setInternalNote(event.target.value)} style={{ borderRadius: 16, border: '1px solid var(--color-border)', padding: 14, font: 'inherit' }} />
         </label>
         <div>
-          <button type="button" className="button-primary" disabled={isPending} onClick={saveMeta}>
+          <button type="button" className="button-primary" disabled={isPending} onClick={saveSalesFollowUp}>
             {isPending ? '保存中...' : '保存跟进信息'}
           </button>
         </div>
-        {message ? <p style={{ margin: 0, color: '#677489' }}>{message}</p> : null}
       </article>
     </main>
   );
