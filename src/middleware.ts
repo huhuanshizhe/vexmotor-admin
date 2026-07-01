@@ -2,13 +2,24 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const corsOrigin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
+function trimUrl(value: string | undefined) {
+  return value?.trim().replace(/\/$/, '') || null;
+}
+
+function resolveSiteCorsOrigin() {
+  return (
+    trimUrl(process.env.CORS_ALLOWED_ORIGINS?.split(',')[0])
+    ?? trimUrl(process.env.SITE_URL)
+    ?? trimUrl(process.env.APP_URL)
+    ?? 'http://localhost:5000'
+  );
+}
 
 function corsHeaders() {
   return {
-    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Origin': resolveSiteCorsOrigin(),
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cart-Token, x-vex-locale',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cart-Token, X-Guest-Order-Token, x-vex-locale',
   };
 }
 

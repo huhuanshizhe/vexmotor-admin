@@ -1,24 +1,8 @@
-function normalizeSiteUrl(value: string | undefined) {
-  return value?.trim().replace(/\/$/, '') || null;
-}
-
-function resolveSiteUrl() {
-  const explicitSiteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
-  if (explicitSiteUrl) {
-    return explicitSiteUrl;
-  }
-
-  const vercelProductionUrl = normalizeSiteUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL);
-  if (vercelProductionUrl) {
-    return vercelProductionUrl.startsWith('http') ? vercelProductionUrl : `https://${vercelProductionUrl}`;
-  }
-
-  return process.env.NODE_ENV === 'production' ? 'https://www.stepmotech.online' : 'http://localhost:4000';
-}
+import { getSiteUrl } from '@/lib/app-urls';
 
 export const SITE_NAME = 'STEPMOTECH';
 export const SITE_LEGACY_NAME = 'VexMotor';
-export const SITE_URL = resolveSiteUrl();
+export const SITE_URL = getSiteUrl();
 
 export const DEFAULT_SEO_TITLE = 'STEPMOTECH — Precision Stepper, BLDC & Servo Motors';
 export const DEFAULT_SEO_DESCRIPTION =

@@ -595,6 +595,18 @@ export async function deleteCartItem(itemId: string) {
   return getCartDetail(deleted.cartId);
 }
 
+/** Mark the source cart converted only after checkout payment succeeds. */
+export async function convertCartAfterOrderPaid(cartId: string | null | undefined) {
+  if (!cartId) {
+    return;
+  }
+
+  await db
+    .update(carts)
+    .set({ status: 'converted', updatedAt: new Date() })
+    .where(and(eq(carts.id, cartId), eq(carts.status, 'active')));
+}
+
 function toOrderAddressSnapshot(input: OrderAddressSnapshot | typeof addresses.$inferSelect): OrderAddressSnapshot {
   return {
     firstName: input.firstName,
@@ -725,10 +737,6 @@ async function insertOrderFromCartDetail(input: {
         scopeSummary: fullCoupon.scopeSummary,
       });
     }
-  }
-
-  if (input.cartId) {
-    await db.update(carts).set({ status: 'converted', updatedAt: new Date() }).where(eq(carts.id, input.cartId));
   }
 
   if (!input.userId) {
@@ -974,7 +982,11 @@ export async function getGuestOrderDetailByNumber(orderNumber: string, guestAcce
   }
 
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-  return { ...order, items };
+  const { enrichOrderItemsWithCoverImages } = await import('@/server/storefront/order-payment');
+  return {
+    ...order,
+    items: await enrichOrderItemsWithCoverImages(items),
+  };
 }
 
 export async function buildQuoteCartPreview(input: {

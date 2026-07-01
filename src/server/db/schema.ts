@@ -727,6 +727,7 @@ export const orders = pgTable(
     totalAmount: numeric('total_amount', { precision: 12, scale: 2 }).notNull().default('0'),
     shippingMethod: varchar('shipping_method', { length: 100 }),
     paymentMethod: varchar('payment_method', { length: 100 }),
+    airwallexPaymentIntentId: varchar('airwallex_payment_intent_id', { length: 64 }),
     customerNote: text('customer_note'),
     shippingAddressId: uuid('shipping_address_id').references(() => addresses.id, { onDelete: 'set null' }),
     billingAddressId: uuid('billing_address_id').references(() => addresses.id, { onDelete: 'set null' }),
@@ -741,6 +742,7 @@ export const orders = pgTable(
   },
   (table) => ({
     orderNumberUnique: uniqueIndex('orders_number_unique').on(table.orderNumber),
+    airwallexPaymentIntentIdx: index('orders_airwallex_payment_intent_idx').on(table.airwallexPaymentIntentId),
   }),
 );
 

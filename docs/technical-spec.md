@@ -98,8 +98,9 @@
 - `DATABASE_URL`
 - `DB_ENABLE_IN_DEV`
 - `AUTH_SECRET`
-- `AUTH_URL`
-- `NEXT_PUBLIC_SITE_URL`
+- `ADMIN_URL` — 后台自身地址（NextAuth 同步 `AUTH_URL` / `NEXTAUTH_URL`）
+- `SITE_URL` — 前台商城地址（CORS、邮件、支付回跳）
+- `CORS_ALLOWED_ORIGINS` — 可选，多域名逗号分隔
 - `APP_ENV`
 
 ### 5.3 数据库连接

@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { getKnowledgeCatalog } from '@/server/content/knowledge';
+import { frontCorsHeaders } from '@/lib/front-cors';
 
-function corsHeaders() {
-  const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
-  return { 'Access-Control-Allow-Origin': origin };
-}
+import { getKnowledgeCatalog } from '@/server/content/knowledge';
 
 export async function GET() {
   const data = await getKnowledgeCatalog();
-  return NextResponse.json(data, { headers: corsHeaders() });
+  return NextResponse.json(data, { headers: frontCorsHeaders() });
 }
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+  return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }

@@ -4,6 +4,8 @@ import path from 'node:path';
 import { createSwaggerSpec } from 'next-swagger-doc';
 import { load } from 'js-yaml';
 
+import { getAdminUrl } from '@/lib/app-urls';
+
 type OpenApiSpec = Record<string, unknown>;
 
 function loadYamlSpec(): OpenApiSpec {
@@ -13,7 +15,7 @@ function loadYamlSpec(): OpenApiSpec {
 }
 
 function resolveServerUrl(): string {
-  return process.env.APP_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:5100';
+  return getAdminUrl();
 }
 
 export function getSwaggerSpec(): OpenApiSpec {

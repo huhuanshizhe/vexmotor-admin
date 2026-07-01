@@ -491,7 +491,7 @@ async function main() {
         discountAmount: '0.00',
         totalAmount: '37.81',
         shippingMethod: 'Standard',
-        paymentMethod: 'Stripe',
+        paymentMethod: 'Credit Card (Airwallex)',
         customerNote: 'Demo refund request for admin review.',
         shippingAddressSnapshot: address,
         billingAddressSnapshot: address,

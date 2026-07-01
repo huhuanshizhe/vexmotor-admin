@@ -3,6 +3,8 @@
  * Wire a real provider here when outbound email is needed.
  */
 
+import { getSiteUrl } from '@/lib/app-urls';
+
 type SendEmailInput = {
   to: string | string[];
   subject: string;
@@ -56,7 +58,7 @@ export async function sendWelcomeEmail(input: {
           ` : `
             <p style="margin:0 0 12px">Your account is active. You can now sign in to access pricing, order history, and saved addresses.</p>
           `}
-          <a href="${process.env.APP_URL ?? 'http://localhost:4000'}/login"
+          <a href="${getSiteUrl()}/login"
              style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin-top:16px">
             Sign In to Your Account
           </a>
@@ -125,7 +127,7 @@ export async function sendOrderConfirmationEmail(input: {
             <p style="margin:8px 0 0"><strong>Total:</strong> ${formatted}</p>
           </div>
           <p style="margin:0 0 12px">Your order has been received. You will receive updates as it moves through processing and shipping.</p>
-          <a href="${process.env.APP_URL ?? 'http://localhost:4000'}/account/orders/${input.orderNumber}"
+          <a href="${getSiteUrl()}/account/orders/${input.orderNumber}"
              style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin-top:8px">
             View Order Details
           </a>

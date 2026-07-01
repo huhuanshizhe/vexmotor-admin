@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { frontCorsHeaders } from '@/lib/front-cors';
 import { LOCALE_REQUEST_HEADER, normalizeLocale } from '@/lib/i18n';
 import { buildBuyNowCartPreview } from '@/server/storefront/cart';
 
-function corsHeaders() {
-  const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cart-Token, x-vex-locale',
-  };
-}
+
 
 const previewSchema = z.object({
   productId: z.string().uuid(),
@@ -19,7 +14,7 @@ const previewSchema = z.object({
 });
 
 export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+  return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }
 
 export async function POST(request: NextRequest) {
@@ -28,7 +23,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { code: 'VALIDATION_ERROR', message: 'Invalid buy-now preview payload', details: parsed.error.flatten() },
-      { status: 400, headers: corsHeaders() },
+      { status: 400, headers: frontCorsHeaders() },
     );
   }
 
@@ -43,9 +38,9 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json(
       { code: result.code, message: result.message },
-      { status: 400, headers: corsHeaders() },
+      { status: 400, headers: frontCorsHeaders() },
     );
   }
 
-  return NextResponse.json(result.detail, { headers: corsHeaders() });
+  return NextResponse.json(result.detail, { headers: frontCorsHeaders() });
 }

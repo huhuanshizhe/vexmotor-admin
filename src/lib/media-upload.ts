@@ -54,7 +54,7 @@ export function defaultUploadFolder(kind: MediaUploadKind) {
 }
 
 export function getPublicOssDomain() {
-  return process.env.NEXT_PUBLIC_ALIYUN_OSS_DOMAIN?.replace(/\/$/, '') ?? '';
+  return process.env.ALIYUN_OSS_DOMAIN?.replace(/\/$/, '') ?? '';
 }
 
 export function isOssCdnUrl(url: string) {

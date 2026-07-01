@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gt } from 'drizzle-orm';
 
 import { md5Hash, compareMd5 } from '@/lib/auth/password';
+import { getSiteUrl } from '@/lib/app-urls';
 import type { RegistrationDocumentInput } from '@/lib/customer-profile';
 import { normalizeCompanyCountryCode, normalizeCompanyCountryCodeAsync } from '@/lib/customer-countries';
 import { normalizeCustomerIndustry } from '@/lib/customer-industries';
@@ -307,8 +308,7 @@ export async function createPasswordResetRequest(email: string): Promise<Passwor
 
   const token = randomUUID();
   const expires = new Date(Date.now() + 1000 * 60 * 60);
-  const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:4000';
-  const fullResetUrl = `${appUrl}/password-reset?token=${encodeURIComponent(token)}`;
+  const fullResetUrl = `${getSiteUrl()}/password-reset?token=${encodeURIComponent(token)}`;
 
   sendPasswordResetEmail({ to: normalizedEmail, resetUrl: fullResetUrl })
     .catch((err) => console.error('[auth] Password reset email error:', err));

@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getCmsPageByLegacySlug } from '@/server/storefront/content';
+import { frontCorsHeaders } from '@/lib/front-cors';
 
-function corsHeaders() {
-  const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cart-Token, x-vex-locale',
-  };
-}
+import { getCmsPageByLegacySlug } from '@/server/storefront/content';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ legacySlug: string }> }) {
   const { legacySlug } = await params;
@@ -16,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const page = await getCmsPageByLegacySlug(legacySlug, locale);
 
   if (!page) {
-    return NextResponse.json({ code: 'NOT_FOUND', message: 'Page not found' }, { status: 404, headers: corsHeaders() });
+    return NextResponse.json({ code: 'NOT_FOUND', message: 'Page not found' }, { status: 404, headers: frontCorsHeaders() });
   }
 
   return NextResponse.json(
@@ -24,6 +18,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...page,
       publishedAt: page.publishedAt ? page.publishedAt.toISOString() : null,
     },
-    { headers: corsHeaders() },
+    { headers: frontCorsHeaders() },
   );
 }

@@ -556,7 +556,7 @@ export function OrderDetailClient({
         </div>
       </article>
 
-      {(parsedNote.poNumber || parsedNote.taxId || parsedNote.requestedShipDate) ? (
+      {(parsedNote.poNumber || parsedNote.taxId) ? (
         <div className="info-grid">
           {parsedNote.poNumber ? (
             <article className="info-card">
@@ -568,12 +568,6 @@ export function OrderDetailClient({
             <article className="info-card">
               <h2 style={{ marginTop: 0 }}>税号 / VAT</h2>
               <p style={{ marginBottom: 0 }}>{parsedNote.taxId}</p>
-            </article>
-          ) : null}
-          {parsedNote.requestedShipDate ? (
-            <article className="info-card">
-              <h2 style={{ marginTop: 0 }}>要求发货日期</h2>
-              <p style={{ marginBottom: 0 }}>{parsedNote.requestedShipDate}</p>
             </article>
           ) : null}
         </div>

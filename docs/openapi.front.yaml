@@ -1496,14 +1496,14 @@ components:
           type: string
         customerNote:
           type: string
+        orderComment:
+          type: string
         purchaseOrderNumber:
           type: string
+          description: Optional PO reference
         taxId:
           type: string
-        requestedShipDate:
-          type: string
-        tradeTerm:
-          type: string
+          description: Optional tax identifier
         buyNow:
           type: object
           properties:
@@ -1963,21 +1963,192 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/front/orders:
-    get:
-      tags: [Orders]
-      summary: 获取当前用户订单列表
-      security:
-        - bearerAuth: []
+  /api/front/checkout/payment-intent:
+    post:
+      tags: [Checkout]
+      summary: 为订单创建 Airwallex PaymentIntent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNumber]
+              properties:
+                orderNumber:
+                  type: string
+                customerEmail:
+                  type: string
+                  format: email
       responses:
         '200':
-          description: 订单列表
+          description: PaymentIntent 创建成功
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/OrderSummary'
+                type: object
+                required: [intentId, clientSecret, currency, env]
+                properties:
+                  intentId:
+                    type: string
+                  clientSecret:
+                    type: string
+                  currency:
+                    type: string
+                  env:
+                    type: string
+                    enum: [demo, prod]
+        '503':
+          description: Airwallex 未配置
+  /api/front/checkout/payment/confirm:
+    post:
+      tags: [Checkout]
+      summary: 服务端确认 Airwallex 支付结果并更新订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNumber]
+              properties:
+                orderNumber:
+                  type: string
+      responses:
+        '200':
+          description: 支付已确认
+        '409':
+          description: 支付尚未完成
+  /api/front/checkout/payment/status:
+    get:
+      tags: [Checkout]
+      summary: 查询订单支付状态（可轮询）
+      parameters:
+        - name: orderNumber
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 支付状态
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentStatus:
+                    type: string
+                  intentStatus:
+                    type: string
+                    nullable: true
+                  orderStatus:
+                    type: string
+  /api/front/orders:
+    get:
+      tags: [Orders]
+      summary: 分页获取当前用户订单列表（支持筛选）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: 订单号模糊搜索
+        - name: paymentStatus
+          in: query
+          schema:
+            type: string
+            enum: [all, unpaid, paid]
+        - name: orderStatus
+          in: query
+          schema:
+            type: string
+            enum: [all, pending_processing, partially_shipped, shipped, completed, cancelled]
+      responses:
+        '200':
+          description: 分页订单列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderSummary'
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  totalPages:
+                    type: integer
+  /api/front/orders/{orderNumber}/payment-gateway-status:
+    get:
+      tags: [Orders]
+      summary: 查询订单在支付网关（Airwallex）的支付状态，并在网关已成功时同步站内订单
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderNumberParam'
+        - name: guestToken
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 访客订单访问令牌（也可通过 x-guest-order-token 请求头传递）
+      responses:
+        '200':
+          description: 支付网关状态
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderNumber:
+                    type: string
+                  sitePaymentStatus:
+                    type: string
+                  orderStatus:
+                    type: string
+                  gatewayConfigured:
+                    type: boolean
+                  gatewayIntentId:
+                    type: string
+                    nullable: true
+                  gatewayStatus:
+                    type: string
+                    nullable: true
+                  isPaidAtGateway:
+                    type: boolean
+                  synced:
+                    type: boolean
+                    description: 本次请求是否将站内订单从 unpaid 同步为 paid
+                  redirectPath:
+                    type: string
+        '401':
+          description: 未授权
+        '403':
+          description: 无权访问该订单
+        '404':
+          description: 订单不存在
+        '502':
+          description: 无法查询支付网关
+        '503':
+          description: Airwallex 未配置
   /api/front/orders/{orderNumber}:
     get:
       tags: [Orders]
@@ -1999,6 +2170,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/orders/{orderNumber}/cancel:
+    post:
+      tags: [Orders]
+      summary: 取消未支付订单
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderNumberParam'
+      responses:
+        '200':
+          description: 订单已取消
+        '409':
+          description: 订单当前不可取消
+  /api/front/orders/{orderNumber}/refund-requests:
+    post:
+      tags: [Orders]
+      summary: 提交退款申请
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrderNumberParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refundType, returnType, reason]
+              properties:
+                refundType:
+                  type: string
+                  enum: [full_refund, partial_refund]
+                returnType:
+                  type: string
+                  enum: [return_goods, no_return]
+                reason:
+                  type: string
+                requestedAmount:
+                  type: string
+      responses:
+        '201':
+          description: 退款申请已提交
+        '409':
+          description: 当前不可申请退款
   /api/front/geo/countries:
     get:
       tags: [Geo]

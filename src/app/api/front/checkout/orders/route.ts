@@ -2,18 +2,13 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { frontCorsHeaders } from '@/lib/front-cors';
 import { LOCALE_REQUEST_HEADER, normalizeLocale } from '@/lib/i18n';
 import { getCurrentUserId } from '@/server/auth/session';
 import { sendOrderConfirmationEmail } from '@/server/email';
 import { createOrderFromBuyNowLine, createOrderFromCart, createOrderFromQuoteLines, getOrCreateCart } from '@/server/storefront/cart';
 
-function corsHeaders() {
-  const origin = process.env.CORS_ALLOWED_ORIGINS?.split(',')[0]?.trim() ?? 'http://localhost:5000';
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Cart-Token, x-vex-locale',
-  };
-}
+
 
 const addressSnapshotSchema = z.object({
   firstName: z.string().trim().min(1).max(80),
@@ -45,13 +40,10 @@ const orderSchema = z.object({
   paymentMethod: z.string().min(1),
   customerNote: z.string().optional(),
   orderComment: z.string().max(2000).optional(),
-  purchaseOrderNumber: z.string().max(80).optional(),
-  taxId: z.string().max(80).optional(),
-  requestedShipDate: z.string().max(40).optional(),
-  tradeTerm: z.string().max(40).optional(),
+  purchaseOrderNumber: z.string().trim().max(80).optional(),
+  taxId: z.string().trim().max(80).optional(),
   contactEmail: z.string().trim().email().max(160).optional(),
   subscribeToUpdates: z.boolean().optional(),
-  exportComplianceConfirmed: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -70,19 +62,12 @@ export async function POST(request: NextRequest) {
     parsed.data.contactEmail ? `Contact Email: ${parsed.data.contactEmail}` : null,
     parsed.data.purchaseOrderNumber ? `PO Number: ${parsed.data.purchaseOrderNumber}` : null,
     parsed.data.taxId ? `Tax ID / VAT: ${parsed.data.taxId}` : null,
-    parsed.data.requestedShipDate ? `Requested Ship Date: ${parsed.data.requestedShipDate}` : null,
-    parsed.data.tradeTerm ? `Trade Term: ${parsed.data.tradeTerm}` : null,
     parsed.data.subscribeToUpdates ? 'Engineering Updates: Yes' : null,
-    parsed.data.exportComplianceConfirmed ? 'Restricted End Use Confirmed: Yes' : null,
     parsed.data.orderComment?.trim() ? `Order Comment: ${parsed.data.orderComment.trim()}` : null,
     parsed.data.customerNote?.trim() || null,
   ]
     .filter(Boolean)
     .join('\n');
-
-  if (!parsed.data.exportComplianceConfirmed) {
-    return NextResponse.json({ code: 'EXPORT_COMPLIANCE_REQUIRED', message: 'Confirm restricted end-use compliance before placing the order.' }, { status: 400 });
-  }
 
   if (!userId && !parsed.data.contactEmail?.trim()) {
     return NextResponse.json({ code: 'CONTACT_EMAIL_REQUIRED', message: 'Guest checkout requires a contact email.' }, { status: 400 });
@@ -114,7 +99,7 @@ export async function POST(request: NextRequest) {
     const redirectPath = `/account/orders/${quoteOrder.orderNumber}`;
     return NextResponse.json(
       { orderNumber: quoteOrder.orderNumber, redirectPath },
-      { status: 201, headers: corsHeaders() },
+      { status: 201, headers: frontCorsHeaders() },
     );
   }
 
@@ -177,12 +162,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ code: 'ORDER_CREATE_FAILED', message: 'Unable to create order' }, { status: 400 });
   }
 
-  const redirectPath = userId ? `/account/orders/${order.orderNumber}` : `/checkout/confirmation/${order.orderNumber}`;
+  const redirectPath = `/checkout/pay/${order.orderNumber}`;
   const guestAccessTokenCandidate = !userId ? (order as unknown as { guestAccessToken?: string }).guestAccessToken : undefined;
   const guestAccessToken = typeof guestAccessTokenCandidate === 'string' ? guestAccessTokenCandidate : undefined;
   const response = NextResponse.json(
     { orderNumber: order.orderNumber, redirectPath, guestAccessToken },
-    { status: 201, headers: corsHeaders() },
+    { status: 201, headers: frontCorsHeaders() },
   );
 
   if (guestAccessToken) {

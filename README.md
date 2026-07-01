@@ -37,8 +37,9 @@ pnpm dev               # http://localhost:5100
 见 [`.env.example`](./.env.example)。关键项：
 
 - `DATABASE_URL` — 仅 admin 持有
-- `CORS_ALLOWED_ORIGINS` — 默认 `http://localhost:5000`
-- `FRONT_CALLBACK_URL` — OAuth/JWT 回调，默认 `http://localhost:5000/auth/callback`
+- `ADMIN_URL` — 后台自身地址（默认 `http://localhost:5100`），NextAuth 会同步 `AUTH_URL` / `NEXTAUTH_URL`
+- `SITE_URL` — 前台商城地址（默认 `http://localhost:5000`），用于 CORS、邮件链接、支付回跳、OAuth 回调
+- `CORS_ALLOWED_ORIGINS` — 可选，多域名时用逗号分隔；未设置时等于 `SITE_URL`
 - `JWT_SECRET` — 前台 Bearer token 签发
 
 ## API 文档

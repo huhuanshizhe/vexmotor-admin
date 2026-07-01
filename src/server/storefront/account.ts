@@ -260,10 +260,11 @@ export async function getOrderDetailByNumber(userId: string, orderNumber: string
   }
 
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id)).orderBy(desc(orderItems.createdAt));
+  const { enrichOrderItemsWithCoverImages } = await import('@/server/storefront/order-payment');
 
   return {
     ...order,
-    items,
+    items: await enrichOrderItemsWithCoverImages(items),
   };
 }
 

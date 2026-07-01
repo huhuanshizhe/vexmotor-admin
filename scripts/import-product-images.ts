@@ -40,11 +40,7 @@ function safeKeySegment(value: string) {
 }
 
 function getOssDomain() {
-  return (
-    process.env.ALIYUN_OSS_DOMAIN?.replace(/\/$/, '')
-    ?? process.env.NEXT_PUBLIC_ALIYUN_OSS_DOMAIN?.replace(/\/$/, '')
-    ?? ''
-  );
+  return process.env.ALIYUN_OSS_DOMAIN?.replace(/\/$/, '') ?? '';
 }
 
 function isAlreadyOnOss(url: string | null | undefined) {
