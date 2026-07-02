@@ -15,7 +15,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 
-import type { ShippingCountryRateConfig, ShippingMethodConfig, VolumePricingRuleConfig } from '@/lib/commerce-config';
+import type { ShippingCountryRateConfig, VolumePricingRuleConfig } from '@/lib/commerce-config';
 import type { EditorialContentPayload } from '@/lib/editorial-content';
 import type { VerificationDocument } from '@/lib/customer-profile';
 import type { AdminProductPayload } from '@/lib/product-content';
@@ -373,13 +373,48 @@ export const productBoardAssignments = pgTable(
   }),
 );
 
+export const shippingMethods = pgTable(
+  'shipping_methods',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    code: varchar('code', { length: 100 }).notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    codeUnique: uniqueIndex('shipping_methods_code_unique').on(table.code),
+    enabledIdx: index('shipping_methods_enabled_idx').on(table.enabled),
+  }),
+);
+
+export const shippingMethodTranslations = pgTable(
+  'shipping_method_translations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    shippingMethodId: uuid('shipping_method_id')
+      .notNull()
+      .references(() => shippingMethods.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    name: varchar('name', { length: 150 }).notNull(),
+    etaLabel: varchar('eta_label', { length: 100 }).notNull().default(''),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    methodLocaleUnique: uniqueIndex('shipping_method_translations_method_locale_unique').on(table.shippingMethodId, table.locale),
+    localeIdx: index('shipping_method_translations_locale_idx').on(table.locale),
+  }),
+);
+
 export const commerceSettings = pgTable('commerce_settings', {
   id: varchar('id', { length: 32 }).primaryKey(),
   currencyCode: varchar('currency_code', { length: 3 }).notNull().default('USD'),
   defaultCountryCode: varchar('default_country_code', { length: 16 }).notNull().default('US'),
   defaultShippingMethodCode: varchar('default_shipping_method_code', { length: 100 }).notNull().default('dhl-express'),
   volumePricingRules: jsonb('volume_pricing_rules').$type<VolumePricingRuleConfig[]>().notNull().default([]),
-  shippingMethods: jsonb('shipping_methods').$type<ShippingMethodConfig[]>().notNull().default([]),
   shippingCountryRates: jsonb('shipping_country_rates').$type<ShippingCountryRateConfig[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -1076,6 +1111,39 @@ export const newsletterSubscribers = pgTable(
   },
   (table) => ({
     emailUnique: uniqueIndex('newsletter_subscribers_email_unique').on(table.email),
+  }),
+);
+
+export const uiStrings = pgTable(
+  'ui_strings',
+  {
+    key: varchar('key', { length: 200 }).primaryKey(),
+    defaultText: text('default_text').notNull(),
+    group: varchar('group', { length: 64 }).notNull(),
+    context: text('context'),
+    status: varchar('status', { length: 16 }).notNull().default('active'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    groupIdx: index('ui_strings_group_idx').on(table.group),
+    statusIdx: index('ui_strings_status_idx').on(table.status),
+  }),
+);
+
+export const uiStringTranslations = pgTable(
+  'ui_string_translations',
+  {
+    key: varchar('key', { length: 200 })
+      .notNull()
+      .references(() => uiStrings.key, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 16 }).notNull(),
+    value: text('value').notNull(),
+    source: varchar('source', { length: 16 }).notNull().default('manual'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.key, table.locale] }),
+    localeIdx: index('ui_string_translations_locale_idx').on(table.locale),
   }),
 );
 

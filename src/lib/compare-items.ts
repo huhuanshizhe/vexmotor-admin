@@ -5,7 +5,7 @@ export type CompareItem = {
   id: string;
   name: string;
   slug: string;
-  sku: string;
+  spu: string;
   priceLabel: string;
   purchaseMode: 'buy' | 'inquiry';
   inStock: boolean;

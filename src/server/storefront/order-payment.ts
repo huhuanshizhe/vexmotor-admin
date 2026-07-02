@@ -68,7 +68,7 @@ export async function enrichOrderItemsWithCoverImages(
       id: item.id,
       productId: item.productId,
       productName: item.productName,
-      sku: item.spu,
+      spu: item.spu,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,

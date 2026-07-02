@@ -112,60 +112,14 @@ export const defaultCommerceConfig: CommerceConfig = {
     { id: 'tier-4', label: 'Tier 50', minQuantity: 50, priceFactor: 0.9, note: '适合项目批量与区域库存补货。', enabled: true },
     { id: 'tier-5', label: 'Tier 100', minQuantity: 100, priceFactor: 0.87, note: '适合年度框架与持续放货计划。', enabled: true },
   ],
-  shippingMethods: [
-    {
-      id: 'method-1',
-      code: 'dhl-express',
-      name: 'DHL Express',
-      etaLabel: '2-5 个工作日',
-      note: '适合样品、急单与维保备件。',
-      enabled: true,
-      sortOrder: 1,
-    },
-    {
-      id: 'method-2',
-      code: 'fedex-priority',
-      name: 'FedEx Priority',
-      etaLabel: '3-6 个工作日',
-      note: '适合需要更稳定清关可视性的国际商业件。',
-      enabled: true,
-      sortOrder: 2,
-    },
-    {
-      id: 'method-3',
-      code: 'ups-worldwide',
-      name: 'UPS Worldwide',
-      etaLabel: '3-7 个工作日',
-      note: '适合已有 UPS 收货偏好的仓库与进口渠道。',
-      enabled: true,
-      sortOrder: 3,
-    },
-    {
-      id: 'method-4',
-      code: 'sea-lcl',
-      name: 'Sea-LCL',
-      etaLabel: '18-28 天',
-      note: '适合较重货物与更关注到岸成本的补货场景。',
-      enabled: true,
-      sortOrder: 4,
-    },
-    {
-      id: 'method-5',
-      code: 'warehouse-pickup',
-      name: 'Warehouse Pickup',
-      etaLabel: '预约提货',
-      note: '适合已安排货代或本地自提。',
-      enabled: true,
-      sortOrder: 5,
-    },
-  ],
+  shippingMethods: [],
   shippingCountryRates: [
-    buildDefaultShippingRate({ id: 'rate-us-dhl', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'dhl-express', rate: 26, freeShippingThreshold: 299, taxRate: 0.08, note: '美国主力快递方案。' }),
-    buildDefaultShippingRate({ id: 'rate-us-fedex', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'fedex-priority', rate: 29, freeShippingThreshold: null, taxRate: 0.08, note: '适合北美商务交付。' }),
+    buildDefaultShippingRate({ id: 'rate-us-dhl', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'dhl-express', rate: 26, freeShippingThreshold: 299, taxRate: 0.08, note: 'Primary express option for the United States.' }),
+    buildDefaultShippingRate({ id: 'rate-us-fedex', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'fedex-priority', rate: 29, freeShippingThreshold: null, taxRate: 0.08, note: 'Suitable for North American business deliveries.' }),
     buildDefaultShippingRate({ id: 'rate-us-ups', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'ups-worldwide', rate: 32, freeShippingThreshold: null, taxRate: 0.08, note: null }),
-    buildDefaultShippingRate({ id: 'rate-us-sea', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'sea-lcl', rate: 18, freeShippingThreshold: null, taxRate: 0.08, note: '低时效拼箱方案。' }),
-    buildDefaultShippingRate({ id: 'rate-us-pickup', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'warehouse-pickup', rate: 0, freeShippingThreshold: null, taxRate: 0.08, note: '自提不收取平台运费。' }),
-    buildDefaultShippingRate({ id: 'rate-de-dhl', legacyCode: 'DE', countryName: 'Germany', shippingMethodCode: 'dhl-express', rate: 32, freeShippingThreshold: 399, taxRate: 0.19, note: '欧盟常用快递方案。' }),
+    buildDefaultShippingRate({ id: 'rate-us-sea', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'sea-lcl', rate: 18, freeShippingThreshold: null, taxRate: 0.08, note: 'Lower-cost LCL option with extended transit time.' }),
+    buildDefaultShippingRate({ id: 'rate-us-pickup', legacyCode: 'US', countryName: 'United States', shippingMethodCode: 'warehouse-pickup', rate: 0, freeShippingThreshold: null, taxRate: 0.08, note: 'No platform shipping fee for warehouse pickup.' }),
+    buildDefaultShippingRate({ id: 'rate-de-dhl', legacyCode: 'DE', countryName: 'Germany', shippingMethodCode: 'dhl-express', rate: 32, freeShippingThreshold: 399, taxRate: 0.19, note: 'Primary express option for the European Union.' }),
     buildDefaultShippingRate({ id: 'rate-de-fedex', legacyCode: 'DE', countryName: 'Germany', shippingMethodCode: 'fedex-priority', rate: 36, freeShippingThreshold: null, taxRate: 0.19, note: null }),
     buildDefaultShippingRate({ id: 'rate-de-ups', legacyCode: 'DE', countryName: 'Germany', shippingMethodCode: 'ups-worldwide', rate: 39, freeShippingThreshold: null, taxRate: 0.19, note: null }),
     buildDefaultShippingRate({ id: 'rate-de-sea', legacyCode: 'DE', countryName: 'Germany', shippingMethodCode: 'sea-lcl', rate: 24, freeShippingThreshold: null, taxRate: 0.19, note: null }),
@@ -178,11 +132,11 @@ export const defaultCommerceConfig: CommerceConfig = {
     buildDefaultShippingRate({ id: 'rate-au-dhl', legacyCode: 'AU', countryName: 'Australia', shippingMethodCode: 'dhl-express', rate: 36, freeShippingThreshold: 429, taxRate: 0.1, note: null }),
     buildDefaultShippingRate({ id: 'rate-au-fedex', legacyCode: 'AU', countryName: 'Australia', shippingMethodCode: 'fedex-priority', rate: 39, freeShippingThreshold: null, taxRate: 0.1, note: null }),
     buildDefaultShippingRate({ id: 'rate-au-ups', legacyCode: 'AU', countryName: 'Australia', shippingMethodCode: 'ups-worldwide', rate: 42, freeShippingThreshold: null, taxRate: 0.1, note: null }),
-    buildDefaultShippingRate({ id: 'rate-other-dhl', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'dhl-express', rate: 44, freeShippingThreshold: 499, taxRate: 0.08, note: '默认出口快递方案。' }),
+    buildDefaultShippingRate({ id: 'rate-other-dhl', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'dhl-express', rate: 44, freeShippingThreshold: 499, taxRate: 0.08, note: 'Default export express lane.' }),
     buildDefaultShippingRate({ id: 'rate-other-fedex', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'fedex-priority', rate: 48, freeShippingThreshold: null, taxRate: 0.08, note: null }),
     buildDefaultShippingRate({ id: 'rate-other-ups', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'ups-worldwide', rate: 52, freeShippingThreshold: null, taxRate: 0.08, note: null }),
     buildDefaultShippingRate({ id: 'rate-other-sea', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'sea-lcl', rate: 28, freeShippingThreshold: null, taxRate: 0.08, note: null }),
-    buildDefaultShippingRate({ id: 'rate-other-pickup', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'warehouse-pickup', rate: 0, freeShippingThreshold: null, taxRate: 0.08, note: '自提不收取平台运费。' }),
+    buildDefaultShippingRate({ id: 'rate-other-pickup', legacyCode: 'OTHER', countryName: 'Other', shippingMethodCode: 'warehouse-pickup', rate: 0, freeShippingThreshold: null, taxRate: 0.08, note: 'No platform shipping fee for warehouse pickup.' }),
   ],
 };
 
@@ -378,6 +332,7 @@ export function getShippingOptions(
       }
 
       const qualifiesForFreeShipping = rate.freeShippingThreshold != null && subtotal >= rate.freeShippingThreshold;
+      const laneNote = method.note.trim() || rate.note || '';
       return {
         id: method.code,
         methodCode: method.code,
@@ -385,8 +340,8 @@ export function getShippingOptions(
         title: method.name,
         eta: method.etaLabel,
         note: qualifiesForFreeShipping
-          ? `已满足 ${formatMoney(rate.freeShippingThreshold ?? 0, config.currencyCode)} 免运门槛，当前线路运费为 0。`
-          : rate.note ?? method.note,
+          ? `Free shipping applied for orders over ${formatMoney(rate.freeShippingThreshold ?? 0, config.currencyCode)} on this lane.`
+          : laneNote,
         price: qualifiesForFreeShipping ? 0 : roundMoney(rate.rate),
         baseRate: roundMoney(rate.rate),
         countryCode: normalizeCommerceCountryCode(rate.countryCode),

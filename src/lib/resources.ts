@@ -21,7 +21,7 @@ export type ResourceItem = {
   format: string;
   gated: boolean;
   summary: string;
-  sku?: string;
+  spu?: string;
   duration?: string;
   webinarStatus?: WebinarStatus;
   eventDate?: string;
@@ -193,7 +193,7 @@ export const resourceItems: ResourceItem[] = [
     format: 'STEP / DXF',
     gated: false,
     summary: '3D body, mounting outline, shaft geometry, and lead exit notes for bracket and enclosure validation.',
-    sku: 'VXM-17-45NCM',
+    spu: 'VXM-17-45NCM',
     downloadKind: 'zip',
     downloadFileName: 'stepmotech-vxm-17-45ncm-cad-pack.zip',
   },
@@ -207,7 +207,7 @@ export const resourceItems: ResourceItem[] = [
     format: 'STEP / PDF',
     gated: true,
     summary: 'Controller envelope, DIN-rail interface, connector keep-outs, and panel spacing notes for cabinet planning.',
-    sku: 'DRV-450-EC',
+    spu: 'DRV-450-EC',
     downloadKind: 'zip',
     downloadFileName: 'stepmotech-drv-450-ethercat-cad-pack.zip',
   },
@@ -221,7 +221,7 @@ export const resourceItems: ResourceItem[] = [
     format: 'PDF',
     gated: false,
     summary: 'Holding torque, winding data, thermal limits, shaft drawing, and ordering notes for the VXM-17-45NCM platform.',
-    sku: 'VXM-17-45NCM',
+    spu: 'VXM-17-45NCM',
     downloadKind: 'pdf',
     downloadFileName: 'stepmotech-vxm-17-45ncm-datasheet-en.pdf',
   },
@@ -235,7 +235,7 @@ export const resourceItems: ResourceItem[] = [
     format: 'PDF',
     gated: false,
     summary: 'Covers electrical data, recommended driver pairing, dimensions, inertia, and matching gearbox options.',
-    sku: 'VXM-23-240NCM',
+    spu: 'VXM-23-240NCM',
     downloadKind: 'pdf',
     downloadFileName: 'stepmotech-vxm-23-240ncm-datasheet-en.pdf',
   },
@@ -249,7 +249,7 @@ export const resourceItems: ResourceItem[] = [
     format: 'PDF',
     gated: false,
     summary: 'Chinese-language export of the same VXM-23-240NCM data pack for local engineering and sourcing review.',
-    sku: 'VXM-23-240NCM',
+    spu: 'VXM-23-240NCM',
     downloadKind: 'pdf',
     downloadFileName: 'stepmotech-vxm-23-240ncm-datasheet-zh.pdf',
   },

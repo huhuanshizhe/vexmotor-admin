@@ -8,12 +8,12 @@ import {
   normalizeCommerceCountryCode,
   type CommerceConfig,
   type ShippingCountryRateConfig,
-  type ShippingMethodConfig,
   type VolumePricingRuleConfig,
 } from '@/lib/commerce-config';
 import { normalizeShippingCountryRateConfig } from '@/lib/commerce-shipping-rate';
 import { validateShippingRateScope } from '@/lib/shipping-rate-uniqueness';
 import { validateVolumePricingDiscountPercent, validateVolumePricingMinQuantity, MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
+import { getResolvedShippingMethods, getShippingMethodCodes } from '@/server/admin/shipping-methods';
 import { db } from '@/server/db';
 import { commerceSettings } from '@/server/db/schema';
 
@@ -77,20 +77,6 @@ function dedupeVolumePricingRules(rules: VolumePricingRuleConfig[]) {
   return result.sort((left, right) => left.minQuantity - right.minQuantity || left.label.localeCompare(right.label));
 }
 
-function normalizeShippingMethod(method: ShippingMethodConfig, index: number): ShippingMethodConfig {
-  const name = sanitizeText(method.name) ?? `物流方式 ${index + 1}`;
-
-  return {
-    id: sanitizeText(method.id) ?? randomUUID(),
-    code: normalizeMethodCode(method.code || name, `method-${index + 1}`),
-    name,
-    etaLabel: sanitizeText(method.etaLabel) ?? '',
-    note: sanitizeText(method.note) ?? '',
-    enabled: method.enabled !== false,
-    sortOrder: Math.max(0, Math.trunc(Number(method.sortOrder) || 0)),
-  };
-}
-
 function normalizeShippingCountryRate(
   rate: ShippingCountryRateConfig,
   methodCodes: Set<string>,
@@ -134,19 +120,19 @@ function dedupeShippingRates(rates: ShippingCountryRateConfig[]) {
   return result;
 }
 
-function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
+async function sanitizeCommerceConfig(input: Omit<CommerceConfig, 'shippingMethods'>, methodCodes: Set<string>): Promise<CommerceConfig> {
   const volumePricingRules = dedupeVolumePricingRules(input.volumePricingRules);
   const normalizedVolumePricingRules = volumePricingRules.length
     ? volumePricingRules
     : cloneCommerceConfig(defaultCommerceConfig).volumePricingRules;
 
-  const shippingMethods = input.shippingMethods.map(normalizeShippingMethod).sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
-  const normalizedShippingMethods = shippingMethods.length ? shippingMethods : cloneCommerceConfig(defaultCommerceConfig).shippingMethods;
-  const methodCodes = new Set(normalizedShippingMethods.map((method) => method.code));
+  const shippingMethods = await getResolvedShippingMethods();
+  const resolvedMethodCodes = new Set(shippingMethods.map((method) => method.code));
+  const effectiveMethodCodes = methodCodes.size ? methodCodes : resolvedMethodCodes;
 
   const shippingCountryRates = dedupeShippingRates(
     input.shippingCountryRates
-      .map((rate) => normalizeShippingCountryRate(rate, methodCodes))
+      .map((rate) => normalizeShippingCountryRate(rate, effectiveMethodCodes))
       .filter((rate): rate is ShippingCountryRateConfig => Boolean(rate))
       .sort(
         (left, right) =>
@@ -162,65 +148,71 @@ function sanitizeCommerceConfig(input: CommerceConfig): CommerceConfig {
   const normalizedDefaultCountryCode = normalizeCommerceCountryCode(input.defaultCountryCode || defaultCommerceConfig.defaultCountryCode);
 
   const normalizedDefaultShippingMethodCode = normalizeMethodCode(input.defaultShippingMethodCode, '');
-  const defaultShippingMethodCode = methodCodes.has(normalizedDefaultShippingMethodCode)
+  const defaultShippingMethodCode = effectiveMethodCodes.has(normalizedDefaultShippingMethodCode)
     ? normalizedDefaultShippingMethodCode
-    : normalizedShippingMethods[0]?.code || defaultCommerceConfig.defaultShippingMethodCode;
+    : shippingMethods[0]?.code ?? '';
 
   return {
     currencyCode: normalizeCurrencyCode(input.currencyCode),
     defaultCountryCode: normalizedDefaultCountryCode,
     defaultShippingMethodCode,
     volumePricingRules: normalizedVolumePricingRules,
-    shippingMethods: normalizedShippingMethods,
+    shippingMethods,
     shippingCountryRates: normalizedShippingCountryRates,
   };
 }
 
-function mapDbConfig(row: {
+async function mapDbConfig(row: {
   currencyCode: string;
   defaultCountryCode: string;
   defaultShippingMethodCode: string;
   volumePricingRules: VolumePricingRuleConfig[];
-  shippingMethods: ShippingMethodConfig[];
   shippingCountryRates: ShippingCountryRateConfig[];
-}) {
+}, locale?: string) {
+  const shippingMethods = await getResolvedShippingMethods(locale);
   return sanitizeCommerceConfig({
     currencyCode: row.currencyCode,
     defaultCountryCode: row.defaultCountryCode,
     defaultShippingMethodCode: row.defaultShippingMethodCode,
     volumePricingRules: row.volumePricingRules,
-    shippingMethods: row.shippingMethods,
     shippingCountryRates: row.shippingCountryRates,
-  });
+  }, new Set(shippingMethods.map((method) => method.code)));
 }
 
-async function ensureCommerceConfig() {
+async function ensureCommerceConfig(locale?: string) {
   const [row] = await db.select().from(commerceSettings).where(eq(commerceSettings.id, COMMERCE_SETTINGS_ROW_ID)).limit(1);
   if (row) {
-    return mapDbConfig(row);
+    return mapDbConfig(row, locale);
   }
 
-  const seeded = sanitizeCommerceConfig(cloneCommerceConfig(defaultCommerceConfig));
+  const seeded = await mapDbConfig({
+    currencyCode: defaultCommerceConfig.currencyCode,
+    defaultCountryCode: defaultCommerceConfig.defaultCountryCode,
+    defaultShippingMethodCode: defaultCommerceConfig.defaultShippingMethodCode,
+    volumePricingRules: cloneCommerceConfig(defaultCommerceConfig).volumePricingRules,
+    shippingCountryRates: cloneCommerceConfig(defaultCommerceConfig).shippingCountryRates,
+  }, locale);
+
   await db.insert(commerceSettings).values({
     id: COMMERCE_SETTINGS_ROW_ID,
     currencyCode: seeded.currencyCode,
     defaultCountryCode: seeded.defaultCountryCode,
     defaultShippingMethodCode: seeded.defaultShippingMethodCode,
     volumePricingRules: seeded.volumePricingRules,
-    shippingMethods: seeded.shippingMethods,
     shippingCountryRates: seeded.shippingCountryRates,
     updatedAt: new Date(),
   });
   return seeded;
 }
 
-export async function getCommerceConfig() {
-  const config = await ensureCommerceConfig();
+export async function getCommerceConfig(locale?: string) {
+  const config = await ensureCommerceConfig(locale);
   return cloneCommerceConfig(config);
 }
 
-export async function updateCommerceConfig(input: CommerceConfig) {
-  const normalized = sanitizeCommerceConfig(input);
+export async function updateCommerceConfig(input: Omit<CommerceConfig, 'shippingMethods'>) {
+  const methodCodes = new Set(await getShippingMethodCodes());
+  const normalized = await sanitizeCommerceConfig(input, methodCodes);
   const now = new Date();
   const [row] = await db
     .insert(commerceSettings)
@@ -230,7 +222,6 @@ export async function updateCommerceConfig(input: CommerceConfig) {
       defaultCountryCode: normalized.defaultCountryCode,
       defaultShippingMethodCode: normalized.defaultShippingMethodCode,
       volumePricingRules: normalized.volumePricingRules,
-      shippingMethods: normalized.shippingMethods,
       shippingCountryRates: normalized.shippingCountryRates,
       updatedAt: now,
     })
@@ -241,14 +232,13 @@ export async function updateCommerceConfig(input: CommerceConfig) {
         defaultCountryCode: normalized.defaultCountryCode,
         defaultShippingMethodCode: normalized.defaultShippingMethodCode,
         volumePricingRules: normalized.volumePricingRules,
-        shippingMethods: normalized.shippingMethods,
         shippingCountryRates: normalized.shippingCountryRates,
         updatedAt: now,
       },
     })
     .returning();
 
-  const saved = row ? mapDbConfig(row) : normalized;
+  const saved = row ? await mapDbConfig(row) : normalized;
   return cloneCommerceConfig(saved);
 }
 
@@ -256,6 +246,7 @@ export async function getAdminCommerceConfig() {
   return getCommerceConfig();
 }
 
-export async function updateAdminCommerceConfig(input: CommerceConfig) {
-  return updateCommerceConfig(input);
+export async function updateAdminCommerceConfig(input: Omit<CommerceConfig, 'shippingMethods'> & { shippingMethods?: CommerceConfig['shippingMethods'] }) {
+  const { shippingMethods: _ignored, ...rest } = input;
+  return updateCommerceConfig(rest);
 }

@@ -6,7 +6,8 @@ export type ContentTranslateType =
   | 'brand'
   | 'category'
   | 'product'
-  | 'feature';
+  | 'feature'
+  | 'shippingMethod';
 
 type ContentTranslateProfile = {
   sourceFields: readonly string[];
@@ -96,6 +97,12 @@ export const CONTENT_TRANSLATE_PROFILES: Record<ContentTranslateType, ContentTra
     plainTextFields: ['name', 'unit', 'textOptionsText'],
     serverLabel: 'product feature definition',
     tooltip: '将默认语言已保存的特性名称、单位与可选值翻译到当前语言，Key 与值类型不会翻译',
+  },
+  shippingMethod: {
+    sourceFields: ['name', 'etaLabel', 'note'],
+    plainTextFields: ['name', 'etaLabel', 'note'],
+    serverLabel: 'shipping method',
+    tooltip: '将默认语言已保存的物流方式名称、时效与说明翻译到当前语言；编码不会翻译，翻译后请校对',
   },
 };
 

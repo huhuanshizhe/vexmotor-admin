@@ -156,7 +156,7 @@ async function loadStorefrontShipments(orderId: string) {
   const itemsByShipment = new Map<string, Array<{
     orderItemId: string;
     productName: string;
-    sku: string;
+    spu: string;
     quantity: number | null;
   }>>();
 
@@ -165,7 +165,7 @@ async function loadStorefrontShipments(orderId: string) {
     list.push({
       orderItemId: row.orderItemId,
       productName: row.productName,
-      sku: row.spu,
+      spu: row.spu,
       quantity: row.quantity,
     });
     itemsByShipment.set(row.shipmentId, list);

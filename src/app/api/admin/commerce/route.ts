@@ -15,16 +15,6 @@ const volumePricingRuleSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
-const shippingMethodSchema = z.object({
-  id: z.string().default(''),
-  code: z.string().trim().min(1),
-  name: z.string().trim().min(1),
-  etaLabel: z.string().trim().optional().transform((value) => value ?? ''),
-  note: z.string().trim().optional().transform((value) => value ?? ''),
-  enabled: z.boolean().default(true),
-  sortOrder: z.coerce.number().int().min(0).default(0),
-});
-
 const shippingCountryRateSchema = z.object({
   id: z.string().default(''),
   regionCode: z.string().trim().refine((value) => isShippingContinentCode(value), 'Invalid region code'),
@@ -45,7 +35,6 @@ const commerceConfigSchema = z.object({
   defaultCountryCode: z.string().trim().min(2).max(16),
   defaultShippingMethodCode: z.string().trim().min(1),
   volumePricingRules: z.array(volumePricingRuleSchema).min(1),
-  shippingMethods: z.array(shippingMethodSchema).min(1),
   shippingCountryRates: z.array(shippingCountryRateSchema).min(1),
 });
 
@@ -67,7 +56,7 @@ export async function PUT(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({
       code: 'VALIDATION_ERROR',
-      message: '配置校验失败，请检查阶梯规则、物流方式与运费配置',
+      message: '配置校验失败，请检查阶梯规则与运费配置',
       details: parsed.error.flatten(),
     }, { status: 400 });
   }

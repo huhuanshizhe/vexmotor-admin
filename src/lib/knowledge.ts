@@ -7,7 +7,7 @@ export type StorefrontFaq = {
 export type KnowledgeLinkedProduct = {
   slug: string;
   name: string;
-  sku: string;
+  spu: string;
   purchaseMode: 'buy' | 'inquiry';
   priceLabel: string;
   shortDescription?: string;

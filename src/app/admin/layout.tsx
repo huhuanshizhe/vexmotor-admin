@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 
 import { AdminShell } from '@/components/layout/admin-shell';
+import { getSiteUrl } from '@/lib/app-urls';
 import { getServerSitePreferences } from '@/lib/i18n-server';
 import { buildMetadata } from '@/lib/seo';
 
@@ -16,5 +17,5 @@ export async function generateMetadata() {
 }
 
 export default function AdminLayout({ children }: PropsWithChildren) {
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell siteUrl={getSiteUrl()}>{children}</AdminShell>;
 }

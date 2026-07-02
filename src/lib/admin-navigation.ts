@@ -59,6 +59,7 @@ export const adminNavItems: AdminNavItem[] = [
     title: '站点管理',
     children: [
       { key: '/admin/languages', title: '多语言', href: '/admin/languages' },
+      { key: '/admin/ui-strings', title: '文案翻译', href: '/admin/ui-strings' },
       { key: '/admin/site/exchange-rates', title: '汇率管理', href: '/admin/site/exchange-rates' },
     ],
   },

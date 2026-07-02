@@ -74,10 +74,9 @@ export function normalizeInquiryQuotedLines(
       const line = raw as InquiryQuotedLine & {
         unit_price?: number | string;
         product_id?: string;
-        sku?: string;
       };
       const productId = String(line.productId ?? line.product_id ?? '').trim();
-      const spu = String(line.spu ?? line.sku ?? '').trim();
+      const spu = String(line.spu ?? '').trim();
       if (!productId && !spu) {
         return null;
       }
@@ -213,10 +212,9 @@ export function buildRfqMessageText(payload: InquiryRfqPayload): string {
 }
 
 export function normalizeRfqLine(line: InquiryRfqLine): InquiryRfqLine {
-  const legacy = line as InquiryRfqLine & { sku?: string };
   return {
     ...line,
-    spu: line.spu || legacy.sku || '',
+    spu: line.spu.trim(),
     quantity: typeof line.quantity === 'number' ? line.quantity : Number(line.quantity) || 1,
   };
 }

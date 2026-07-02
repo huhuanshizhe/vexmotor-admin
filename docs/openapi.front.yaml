@@ -1213,6 +1213,110 @@ components:
           description: 收藏商品数
       required: [orders, addresses, inquiries, wishlist]
       additionalProperties: false
+    ShippingMethod:
+      type: object
+      description: 物流方式（name/etaLabel/note 按 x-vex-locale 本地化；code 为跨语言稳定业务键）
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        etaLabel:
+          type: string
+        note:
+          type: string
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
+      required: [id, code, name, etaLabel, note, enabled, sortOrder]
+      additionalProperties: false
+    ShippingCountryRate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        regionCode:
+          type: string
+        countryIsoCode:
+          type: string
+          nullable: true
+        regionName:
+          type: string
+        countryName:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+        shippingMethodCode:
+          type: string
+        rate:
+          type: number
+        freeShippingThreshold:
+          type: number
+          nullable: true
+        taxRate:
+          type: number
+        enabled:
+          type: boolean
+        note:
+          type: string
+          nullable: true
+      required: [id, regionCode, countryCode, shippingMethodCode, rate, taxRate, enabled]
+      additionalProperties: false
+    VolumePricingRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        minQuantity:
+          type: integer
+        priceFactor:
+          type: number
+        note:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+      required: [id, label, minQuantity, priceFactor, enabled]
+      additionalProperties: false
+    CommerceConfig:
+      type: object
+      description: 结账与商城配置；物流方式文案随请求语言解析
+      properties:
+        currencyCode:
+          type: string
+        defaultCountryCode:
+          type: string
+        defaultShippingMethodCode:
+          type: string
+        volumePricingRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/VolumePricingRule'
+        shippingMethods:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingMethod'
+        shippingCountryRates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingCountryRate'
+      required:
+        - currencyCode
+        - defaultCountryCode
+        - defaultShippingMethodCode
+        - volumePricingRules
+        - shippingMethods
+        - shippingCountryRates
+      additionalProperties: false
     OrderItem:
       type: object
       properties:
@@ -3053,6 +3157,53 @@ paths:
                     currencyCode: EUR
                     isDefault: false
                     sortOrder: 10
+  /api/front/ui-strings:
+    get:
+      tags: [Languages]
+      summary: 获取前台 UI 静态文案（按 locale / keys / groups）
+      description: |
+        返回站点壳层 UI 文案。`locale=en` 时全部来自 `ui_strings.default_text`（英文范本）；
+        其他语言优先返回 `ui_string_translations`，缺失时 fallback 英文范本。
+        物流方式名称等实体文案不在此接口范围内。
+      parameters:
+        - name: locale
+          in: query
+          required: true
+          schema:
+            type: string
+            example: de
+        - name: keys
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 逗号分隔的 key 列表
+        - name: groups
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 逗号分隔的分组名，如 navigation,header,footer
+      responses:
+        '200':
+          description: UI 文案映射
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [locale, strings]
+                properties:
+                  locale:
+                    type: string
+                  strings:
+                    type: object
+                    additionalProperties:
+                      type: string
+              example:
+                locale: de
+                strings:
+                  navigation.home: Startseite
+                  navigation.products: Produkte
   /api/front/inquiries:
     post:
       tags: [Inquiries]
@@ -3388,14 +3539,16 @@ paths:
     get:
       tags: [Commerce]
       summary: 获取结账与商城配置
+      description: 返回币种、默认国家/物流、批量定价规则、物流方式及国家费率。物流方式的 name、etaLabel、note 按 `x-vex-locale` 本地化；`code` 为稳定业务键。
+      parameters:
+        - $ref: '#/components/parameters/LocaleHeader'
       responses:
         '200':
           description: 商城配置
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/CommerceConfig'
   /api/front/knowledge:
     get:
       tags: [Content]

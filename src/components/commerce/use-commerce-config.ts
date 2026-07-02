@@ -13,10 +13,12 @@ async function saveCommerceConfig(snapshot: CommerceConfig) {
     };
   }
 
+  const { shippingMethods: _ignored, ...payload } = snapshot;
+
   const response = await fetch('/api/admin/commerce', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(snapshot),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

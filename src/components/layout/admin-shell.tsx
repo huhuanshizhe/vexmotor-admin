@@ -15,6 +15,7 @@ import {
   ShoppingOutlined,
   TagsOutlined,
   TeamOutlined,
+  TranslationOutlined,
 } from '@ant-design/icons';
 import { Button, Layout, Menu, Space, Typography } from 'antd';
 import type { MenuProps } from 'antd';
@@ -56,6 +57,7 @@ const iconByKey: Record<string, React.ReactNode> = {
   '/admin/editorial': <FileTextOutlined />,
   'site-management': <SettingOutlined />,
   '/admin/languages': <GlobalOutlined />,
+  '/admin/ui-strings': <TranslationOutlined />,
   '/admin/site/exchange-rates': <DollarOutlined />,
 };
 
@@ -70,7 +72,7 @@ function toMenuItems(items: AdminNavItem[]): NonNullable<MenuProps['items']> {
 
 const menuItems = toMenuItems(adminNavItems);
 
-export function AdminShell({ children }: PropsWithChildren) {
+export function AdminShell({ children, siteUrl }: PropsWithChildren<{ siteUrl: string }>) {
   const pathname = usePathname();
   const pageTitle = getAdminPageTitle(pathname);
   const selected = getAdminNavSelectedKey(pathname);
@@ -110,7 +112,7 @@ export function AdminShell({ children }: PropsWithChildren) {
             {pageTitle}
           </Typography.Title>
           <Space size="middle">
-            <Button href="/" type="default">
+            <Button href={siteUrl} type="default" target="_blank" rel="noreferrer">
               查看商城前台
             </Button>
             <AdminProfileMenu />
