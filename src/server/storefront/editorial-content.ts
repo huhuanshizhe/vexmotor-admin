@@ -177,6 +177,81 @@ export async function getStorefrontBoardBlogs(boardKeyInput: string, localeInput
   return { locale, boardKey, items };
 }
 
+export type StorefrontBoardContentModule = 'editorial' | 'faq';
+
+export type StorefrontBoardContentItem = {
+  id: string;
+  title: string;
+  module: StorefrontBoardContentModule;
+  summary: string | null;
+  slug: string | null;
+  body: string | null;
+  category: string | null;
+  categorySlug: string | null;
+  coverStyle: number | null;
+  author: StorefrontBlogAuthor | null;
+  tags: string[];
+  publishedAt: string | null;
+};
+
+export async function getStorefrontBoardContent(
+  boardKeyInput: string,
+  localeInput?: string | null,
+  moduleInput: StorefrontBoardContentModule = 'editorial',
+) {
+  const locale = normalizeLocale(localeInput);
+  const boardKey = boardKeyInput.trim();
+  const module = moduleInput === 'faq' ? 'faq' : 'editorial';
+
+  if (!boardKey) {
+    return { locale, boardKey, module, items: [] as StorefrontBoardContentItem[] };
+  }
+
+  if (module === 'faq') {
+    const faqs = await getStorefrontBoardFaqs(boardKey, locale);
+    return {
+      locale: faqs.locale,
+      boardKey: faqs.boardKey,
+      module,
+      items: faqs.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        module,
+        summary: null,
+        slug: null,
+        body: item.body,
+        category: null,
+        categorySlug: null,
+        coverStyle: null,
+        author: null,
+        tags: [],
+        publishedAt: null,
+      })),
+    };
+  }
+
+  const blogs = await getStorefrontBoardBlogs(boardKey, locale);
+  return {
+    locale: blogs.locale,
+    boardKey: blogs.boardKey,
+    module,
+    items: blogs.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      module,
+      summary: item.summary,
+      slug: item.slug,
+      body: null,
+      category: item.category,
+      categorySlug: item.categorySlug,
+      coverStyle: item.coverStyle,
+      author: item.author,
+      tags: item.tags,
+      publishedAt: item.publishedAt,
+    })),
+  };
+}
+
 export async function getStorefrontBlogDetailBySlug(slugInput: string, localeInput?: string | null) {
   const locale = normalizeLocale(localeInput);
   const slug = normalizeSlug(slugInput);

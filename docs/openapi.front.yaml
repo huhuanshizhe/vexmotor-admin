@@ -146,7 +146,22 @@ components:
       required: true
       schema:
         type: string
-        description: 看板 key（如 faq、tech-faq、blog 类看板）
+        description: 内容看板 key（如 blog、press、faq）
+    ProductBoardKeyParam:
+      name: boardKey
+      in: path
+      required: true
+      schema:
+        type: string
+        description: 产品看板 key（如 featured、newest、hot-sale）
+    ContentModuleParam:
+      name: module
+      in: query
+      description: 内容模块类型；默认 editorial（博客类内容）
+      schema:
+        type: string
+        enum: [editorial, faq]
+        default: editorial
   schemas:
     ErrorResponse:
       type: object
@@ -498,6 +513,98 @@ components:
           items:
             $ref: '#/components/schemas/BlogListItem'
       required: [locale, boardKey, items]
+      additionalProperties: false
+    ContentListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        module:
+          type: string
+          enum: [editorial, faq]
+        summary:
+          type:
+            - string
+            - 'null'
+        slug:
+          type:
+            - string
+            - 'null'
+          description: 博客 slug；module=editorial 时有值
+        body:
+          type:
+            - string
+            - 'null'
+          description: FAQ 正文 HTML；module=faq 时有值
+        category:
+          type:
+            - string
+            - 'null'
+        categorySlug:
+          type:
+            - string
+            - 'null'
+        coverStyle:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          maximum: 10
+        author:
+          oneOf:
+            - $ref: '#/components/schemas/BlogAuthor'
+            - type: 'null'
+        tags:
+          type: array
+          items:
+            type: string
+        publishedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      required: [id, title, module, summary, slug, body, category, categorySlug, coverStyle, author, tags, publishedAt]
+      additionalProperties: false
+    ContentListResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        boardKey:
+          type: string
+        module:
+          type: string
+          enum: [editorial, faq]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentListItem'
+      required: [locale, boardKey, module, items]
+      additionalProperties: false
+    ProductBoardProductListResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+        boardKey:
+          type: string
+        boardTitle:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductCard'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+        facets:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      required: [locale, boardKey, boardTitle, items, meta, facets]
       additionalProperties: false
     BlogDetail:
       type: object
@@ -1832,6 +1939,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BlogListResponse'
+  /api/front/boards/{boardKey}/content:
+    get:
+      tags: [Content]
+      summary: 按内容看板获取已发布内容列表
+      description: |
+        统一的内容看板列表接口。通过 `module` 区分博客（editorial）与 FAQ（faq）。
+        与 `/boards/{boardKey}/blogs`、`/boards/{boardKey}/faqs` 数据来源一致，返回结构统一为 `ContentListResponse`。
+      parameters:
+        - $ref: '#/components/parameters/BoardKeyParam'
+        - $ref: '#/components/parameters/ContentModuleParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+      responses:
+        '200':
+          description: 看板内容列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentListResponse'
+  /api/front/product-boards/{boardKey}/products:
+    get:
+      tags: [Products]
+      summary: 按产品看板获取商品列表
+      description: |
+        返回指定产品看板下已上架商品，分页与卡片字段与 `GET /api/front/categories/{slug}/products` 一致。
+        内置看板默认排序：`newest` 按上新时间，`featured` / `hot-sale` 按推荐权重。
+      parameters:
+        - $ref: '#/components/parameters/ProductBoardKeyParam'
+        - $ref: '#/components/parameters/LocaleHeader'
+        - $ref: '#/components/parameters/LocaleQueryParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [featured, name-asc, price-asc, price-desc, newest]
+        - name: purchaseMode
+          in: query
+          schema:
+            type: string
+            enum: [buy, inquiry]
+        - name: inStockOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 产品看板商品列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductBoardProductListResponse'
+        '404':
+          description: 产品看板不存在或已停用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/blog/categories:
     get:
       tags: [Content]

@@ -13,6 +13,7 @@ type AdminProductsClientProps = {
   initialList: ProductListState;
   initialQuery: ProductListQuery;
   brandOptions: Array<{ label: string; value: string }>;
+  boardOptions: Array<{ key: string; title: string }>;
   categoryTree: AdminCategoryTreeNode[];
   activeLanguages: AdminSiteLanguageRow[];
 };
@@ -21,6 +22,7 @@ export function AdminProductsClient({
   initialList,
   initialQuery,
   brandOptions,
+  boardOptions,
   categoryTree,
   activeLanguages,
 }: AdminProductsClientProps) {
@@ -30,6 +32,7 @@ export function AdminProductsClient({
       initialQuery={initialQuery}
       activeLanguages={activeLanguages}
       brandOptions={brandOptions}
+      boardOptions={boardOptions}
       categoryTree={categoryTree}
       renderEditorModal={({ open, editingEntry, onClose, onSaved }) => (
         <ProductEditorModal

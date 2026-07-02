@@ -13,6 +13,8 @@ function mapProductError(error: unknown) {
   switch (error.message) {
     case 'DUPLICATE_SPU':
       return { status: 409, code: 'DUPLICATE_SPU', message: 'SPU 已存在' };
+    case 'INVALID_BOARD_KEY':
+      return { status: 400, code: 'INVALID_BOARD_KEY', message: '无效的看板 Key' };
     default:
       return null;
   }

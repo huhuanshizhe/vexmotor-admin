@@ -40,6 +40,7 @@ export async function listAdminProductsForPicker(
     keyword: query.keyword?.trim() ?? '',
     brandId: query.brandId ?? '',
     categoryId: query.categoryId ?? '',
+    boardKey: '',
     purchaseMode: '',
     paidSample: '',
     status: '',

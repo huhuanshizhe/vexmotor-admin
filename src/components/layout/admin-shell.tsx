@@ -37,6 +37,7 @@ const iconByKey: Record<string, React.ReactNode> = {
   '/admin': <DashboardOutlined />,
   'product-management': <ShoppingOutlined />,
   '/admin/products': <ShoppingOutlined />,
+  '/admin/products/boards': <AppstoreOutlined />,
   '/admin/categories': <AppstoreOutlined />,
   '/admin/brands': <TagsOutlined />,
   '/admin/product-features': <AppstoreOutlined />,

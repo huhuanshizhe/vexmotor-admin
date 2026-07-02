@@ -8,6 +8,7 @@ import {
   categoryTranslations,
   contentBlocks,
   productCategories,
+  productBoardAssignments,
   productImages,
   productRelations,
   products,
@@ -392,6 +393,7 @@ export async function getCategoryBySlug(slug: string, localeInput?: string | nul
 export async function getProductList(input: {
   keyword?: string;
   categorySlug?: string;
+  productBoardKey?: string;
   purchaseMode?: 'buy' | 'inquiry';
   page?: number;
   pageSize?: number;
@@ -451,76 +453,127 @@ export async function getProductList(input: {
       facetFilters.push(drizzleSql`${productStockQuantitySql(products.id, locale)} > 0`);
     }
 
+    if (input.productBoardKey) {
+      filters.push(eq(productBoardAssignments.boardKey, input.productBoardKey));
+      facetFilters.push(eq(productBoardAssignments.boardKey, input.productBoardKey));
+    }
+
     const baseWhere = and(...filters);
     const facetWhere = and(...facetFilters);
 
-    const rows = categoryId
-      ? await db
-          .select({
-            id: products.id,
-            name: productNameSql(products.id, locale),
-            slug: productSlugSql(products.id, locale),
-            spu: products.spu,
-            shortDescription: productShortDescriptionSql(products.id, locale),
-            purchaseMode: products.purchaseMode,
-            stockQuantity: productStockQuantitySql(products.id, locale),
-            price: productPriceSql(products.id, locale),
-            compareAtPrice: productCompareAtPriceSql(products.id, locale),
-            currencyCode: productCurrencyCodeSql(products.id, locale),
-            brandId: brands.id,
-            brandName: brandNameSql(brands.id, locale),
-            brandSlug: brandSlugSql(brands.id, locale),
-          })
-          .from(products)
-          .innerJoin(productCategories, eq(productCategories.productId, products.id))
-          .leftJoin(brands, eq(products.brandId, brands.id))
-          .where(and(baseWhere, eq(productCategories.categoryId, categoryId)))
-            .orderBy(...orderBy)
-          .limit(pageSize)
-          .offset(offset)
-      : await db
-          .select({
-            id: products.id,
-            name: productNameSql(products.id, locale),
-            slug: productSlugSql(products.id, locale),
-            spu: products.spu,
-            shortDescription: productShortDescriptionSql(products.id, locale),
-            purchaseMode: products.purchaseMode,
-            stockQuantity: productStockQuantitySql(products.id, locale),
-            price: productPriceSql(products.id, locale),
-            compareAtPrice: productCompareAtPriceSql(products.id, locale),
-            currencyCode: productCurrencyCodeSql(products.id, locale),
-            brandId: brands.id,
-            brandName: brandNameSql(brands.id, locale),
-            brandSlug: brandSlugSql(brands.id, locale),
-          })
-          .from(products)
-          .leftJoin(brands, eq(products.brandId, brands.id))
-          .where(baseWhere)
-          .orderBy(...orderBy)
-          .limit(pageSize)
-          .offset(offset);
+    const productListSelect = {
+      id: products.id,
+      name: productNameSql(products.id, locale),
+      slug: productSlugSql(products.id, locale),
+      spu: products.spu,
+      shortDescription: productShortDescriptionSql(products.id, locale),
+      purchaseMode: products.purchaseMode,
+      stockQuantity: productStockQuantitySql(products.id, locale),
+      price: productPriceSql(products.id, locale),
+      compareAtPrice: productCompareAtPriceSql(products.id, locale),
+      currencyCode: productCurrencyCodeSql(products.id, locale),
+      brandId: brands.id,
+      brandName: brandNameSql(brands.id, locale),
+      brandSlug: brandSlugSql(brands.id, locale),
+    };
 
-    const countRows = categoryId
-      ? await db
-          .select({ total: count() })
-          .from(products)
-          .innerJoin(productCategories, eq(productCategories.productId, products.id))
-          .where(and(baseWhere, eq(productCategories.categoryId, categoryId)))
-      : await db.select({ total: count() }).from(products).where(baseWhere);
+    let rows;
+    if (categoryId && input.productBoardKey) {
+      rows = await db
+        .select(productListSelect)
+        .from(products)
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)))
+        .orderBy(...orderBy)
+        .limit(pageSize)
+        .offset(offset);
+    } else if (categoryId) {
+      rows = await db
+        .select(productListSelect)
+        .from(products)
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)))
+        .orderBy(...orderBy)
+        .limit(pageSize)
+        .offset(offset);
+    } else if (input.productBoardKey) {
+      rows = await db
+        .select(productListSelect)
+        .from(products)
+        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(baseWhere)
+        .orderBy(...orderBy)
+        .limit(pageSize)
+        .offset(offset);
+    } else {
+      rows = await db
+        .select(productListSelect)
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(baseWhere)
+        .orderBy(...orderBy)
+        .limit(pageSize)
+        .offset(offset);
+    }
 
-    const facetCountRows = categoryId
-      ? await db
-          .select({ purchaseMode: products.purchaseMode, total: count() })
-          .from(products)
-          .innerJoin(productCategories, eq(productCategories.productId, products.id))
-          .where(and(facetWhere, eq(productCategories.categoryId, categoryId)))
-          .groupBy(products.purchaseMode)
-      : await db
-          .select({ purchaseMode: products.purchaseMode, total: count() })
-          .from(products)
-          .where(facetWhere)
-          .groupBy(products.purchaseMode);
+    let countRows;
+    if (categoryId && input.productBoardKey) {
+      countRows = await db
+        .select({ total: count() })
+        .from(products)
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)));
+    } else if (categoryId) {
+      countRows = await db
+        .select({ total: count() })
+        .from(products)
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)));
+    } else if (input.productBoardKey) {
+      countRows = await db
+        .select({ total: count() })
+        .from(products)
+        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+        .where(baseWhere);
+    } else {
+      countRows = await db.select({ total: count() }).from(products).where(baseWhere);
+    }
+
+    let facetCountRows;
+    if (categoryId && input.productBoardKey) {
+      facetCountRows = await db
+        .select({ purchaseMode: products.purchaseMode, total: count() })
+        .from(products)
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+        .where(and(facetWhere, eq(productCategories.categoryId, categoryId)))
+        .groupBy(products.purchaseMode);
+    } else if (categoryId) {
+      facetCountRows = await db
+        .select({ purchaseMode: products.purchaseMode, total: count() })
+        .from(products)
+        .innerJoin(productCategories, eq(productCategories.productId, products.id))
+        .where(and(facetWhere, eq(productCategories.categoryId, categoryId)))
+        .groupBy(products.purchaseMode);
+    } else if (input.productBoardKey) {
+      facetCountRows = await db
+        .select({ purchaseMode: products.purchaseMode, total: count() })
+        .from(products)
+        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+        .where(facetWhere)
+        .groupBy(products.purchaseMode);
+    } else {
+      facetCountRows = await db
+        .select({ purchaseMode: products.purchaseMode, total: count() })
+        .from(products)
+        .where(facetWhere)
+        .groupBy(products.purchaseMode);
+    }
 
     const listImageRows = rows.length
       ? await db

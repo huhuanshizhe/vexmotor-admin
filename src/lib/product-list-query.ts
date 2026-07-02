@@ -12,6 +12,7 @@ export type ProductListQuery = {
   keyword: string;
   brandId: string;
   categoryId: string;
+  boardKey: string;
   purchaseMode: ProductPurchaseMode | '';
   paidSample: '' | 'true' | 'false';
   status: ProductStatus | '';
@@ -57,6 +58,7 @@ export function parseProductListQuery(
     keyword: pick('keyword'),
     brandId: pick('brand_id'),
     categoryId: pick('category_id'),
+    boardKey: pick('board_key'),
     purchaseMode: purchaseMode === 'buy' || purchaseMode === 'inquiry' ? purchaseMode : '',
     paidSample: paidSample === 'true' || paidSample === 'false' ? paidSample : '',
     status: status === 'active' || status === 'inactive' ? status : '',
@@ -75,6 +77,7 @@ export function buildProductListQueryString(params: Partial<ProductListQuery>) {
   if (params.keyword) query.set('keyword', params.keyword);
   if (params.brandId) query.set('brand_id', params.brandId);
   if (params.categoryId) query.set('category_id', params.categoryId);
+  if (params.boardKey) query.set('board_key', params.boardKey);
   if (params.purchaseMode) query.set('purchase_mode', params.purchaseMode);
   if (params.paidSample) query.set('paid_sample', params.paidSample);
   if (params.status) query.set('status', params.status);

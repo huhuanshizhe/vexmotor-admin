@@ -19,6 +19,7 @@ import type { ShippingCountryRateConfig, ShippingMethodConfig, VolumePricingRule
 import type { EditorialContentPayload } from '@/lib/editorial-content';
 import type { VerificationDocument } from '@/lib/customer-profile';
 import type { AdminProductPayload } from '@/lib/product-content';
+import type { ProductCoverageBoard } from '@/lib/product-boards';
 import {
   defaultEditorialAutomationConfig,
   type EditorialAiTemplate,
@@ -340,6 +341,7 @@ export const products = pgTable(
     featured: boolean('featured').notNull().default(false),
     featuredSortOrder: integer('featured_sort_order').notNull().default(0),
     hasMultipleSpecs: boolean('has_multiple_specs').notNull().default(false),
+    boardKey: varchar('board_key', { length: 100 }),
     configurationRules: jsonb('configuration_rules'),
     torqueCurveData: jsonb('torque_curve_data'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -348,6 +350,26 @@ export const products = pgTable(
   (table) => ({
     spuUnique: uniqueIndex('products_spu_unique').on(table.spu),
     featuredIdx: index('products_featured_idx').on(table.featured, table.status),
+  }),
+);
+
+export const productSettings = pgTable('product_settings', {
+  id: varchar('id', { length: 32 }).primaryKey(),
+  coverageBoards: jsonb('coverage_boards').$type<ProductCoverageBoard[]>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const productBoardAssignments = pgTable(
+  'product_board_assignments',
+  {
+    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+    boardKey: varchar('board_key', { length: 100 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.productId, table.boardKey], name: 'product_board_assignments_pk' }),
+    boardKeyIdx: index('product_board_assignments_board_key_idx').on(table.boardKey),
   }),
 );
 

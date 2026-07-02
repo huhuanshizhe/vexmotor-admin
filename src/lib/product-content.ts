@@ -61,6 +61,9 @@ export type AdminProductListItem = {
   primaryLocale: string;
   localeCount: number;
   locales: string[];
+  boardKey: string | null;
+  boardKeys: string[];
+  boardLabels: string[];
   createdAt: string;
   updatedAt: string;
 };

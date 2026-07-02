@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
     page_size: params.get('page_size') ?? params.get('pageSize') ?? undefined,
     brand_id: params.get('brand_id') ?? undefined,
     category_id: params.get('category_id') ?? undefined,
+    board_key: params.get('board_key') ?? undefined,
     purchase_mode: params.get('purchase_mode') ?? undefined,
     paid_sample: params.get('paid_sample') ?? undefined,
     status: params.get('status') ?? undefined,

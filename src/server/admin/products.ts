@@ -29,6 +29,7 @@ import {
   productStatuses,
   type ProductStatus,
 } from '@/lib/product-content';
+import { normalizeEntityKeyForSave } from '@/lib/admin-entity-key';
 import type { ProductListQuery } from '@/lib/product-list-query';
 import { pickTranslationForDisplay } from '@/lib/pick-translation-for-display';
 import { resolveSlugForSave } from '@/lib/slug';
@@ -36,8 +37,9 @@ import { getAdminBrandOptions } from '@/server/admin/brands';
 import { getAdminCategoryOptions } from '@/server/admin/categories';
 import { countProductFeatureAssignmentsByProductIds } from '@/server/admin/product-features';
 import { getDefaultSiteLanguageCode } from '@/server/admin/site-locale';
+import { validateProductBoardKeys, getEnabledProductBoardOptions } from '@/server/admin/product-boards';
 import { db } from '@/server/db';
-import { brands, categories, productCategories, productTranslations, products } from '@/server/db/schema';
+import { brands, categories, productBoardAssignments, productCategories, productTranslations, products } from '@/server/db/schema';
 import { brandNameSql } from '@/server/brands/resolve-brand-translation';
 import { categoryNameSql } from '@/server/categories/resolve-category-translation';
 import { DEFAULT_PRODUCT_LOCALE, normalizeProductSlug } from '@/server/products/resolve-product-translation';
@@ -108,6 +110,7 @@ export const adminProductPatchSchema = z.object({
   featured: z.boolean().optional(),
   featuredSortOrder: z.coerce.number().int().min(0).optional(),
   status: z.enum(productStatuses).optional(),
+  boardKeys: z.array(z.string().trim().min(1)).optional(),
 });
 
 type TranslationCreateInput = z.infer<typeof adminProductTranslationSchema>;
@@ -193,6 +196,61 @@ async function syncProductCategories(productId: string, categoryIds: string[]) {
   await db.insert(productCategories).values(
     uniqueIds.map((categoryId) => ({ productId, categoryId })),
   );
+}
+
+function normalizeProductBoardKey(value: string | null | undefined) {
+  return normalizeEntityKeyForSave(value ?? '') ?? '';
+}
+
+async function loadBoardKeysByProductIds(productIds: string[]) {
+  if (!productIds.length) return new Map<string, string[]>();
+
+  const rows = await db
+    .select()
+    .from(productBoardAssignments)
+    .where(inArray(productBoardAssignments.productId, productIds))
+    .orderBy(asc(productBoardAssignments.boardKey));
+
+  const grouped = new Map<string, string[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(row.productId) ?? [];
+    bucket.push(normalizeProductBoardKey(row.boardKey));
+    grouped.set(row.productId, bucket);
+  }
+  return grouped;
+}
+
+export async function syncProductBoards(productId: string, boardKeysInput?: string[]) {
+  if (boardKeysInput === undefined) return;
+
+  const boardKeys = boardKeysInput.length
+    ? await validateProductBoardKeys(boardKeysInput)
+    : [];
+
+  await db.transaction(async (tx) => {
+    await tx.delete(productBoardAssignments).where(eq(productBoardAssignments.productId, productId));
+    if (boardKeys.length) {
+      await tx.insert(productBoardAssignments).values(
+        boardKeys.map((boardKey) => ({ productId, boardKey })),
+      );
+    }
+    await tx
+      .update(products)
+      .set({ boardKey: boardKeys[0] ?? null, updatedAt: new Date() })
+      .where(eq(products.id, productId));
+  });
+}
+
+async function findProductIdsByBoardKey(boardKey: string) {
+  const normalized = normalizeProductBoardKey(boardKey);
+  if (!normalized) return [];
+
+  const rows = await db
+    .selectDistinct({ productId: productBoardAssignments.productId })
+    .from(productBoardAssignments)
+    .where(eq(productBoardAssignments.boardKey, normalized));
+
+  return rows.map((row) => row.productId);
 }
 
 function sanitizeTranslationInput(input: TranslationCreateInput) {
@@ -288,6 +346,8 @@ function toListItem(
   displayLocale: string,
   featureCount = 0,
   categoryIds?: string[],
+  boardKeys: string[] = [],
+  boardLabels: string[] = [],
 ): AdminProductListItem | null {
   const primary = pickTranslationForDisplay(translations, displayLocale);
   if (!primary) return null;
@@ -317,6 +377,9 @@ function toListItem(
     primaryLocale: primary.locale,
     localeCount: translations.length,
     locales: translations.map((item) => item.locale).sort(),
+    boardKey: product.boardKey,
+    boardKeys,
+    boardLabels,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   };
@@ -393,7 +456,12 @@ async function findProductIdsByTranslationFilters(query: ProductListQuery) {
   return rows.map((row) => row.productId);
 }
 
-function buildProductWhere(query: ProductListQuery, matchingIds?: string[], translationFilterIds?: string[]) {
+function buildProductWhere(
+  query: ProductListQuery,
+  matchingIds?: string[],
+  translationFilterIds?: string[],
+  boardFilterIds?: string[],
+) {
   const conditions = [];
 
   if (matchingIds?.length) {
@@ -407,6 +475,12 @@ function buildProductWhere(query: ProductListQuery, matchingIds?: string[], tran
   } else if (translationFilterIds && !translationFilterIds.length) {
       return null;
     }
+
+  if (boardFilterIds?.length) {
+    conditions.push(inArray(products.id, boardFilterIds));
+  } else if (boardFilterIds && !boardFilterIds.length) {
+    return null;
+  }
 
   if (query.brandId) conditions.push(eq(products.brandId, query.brandId));
   if (query.categoryId) conditions.push(eq(products.defaultCategoryId, query.categoryId));
@@ -446,7 +520,8 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
 
   const matchingIds = keyword ? await findProductIdsBySearch(keyword) : undefined;
   const translationFilterIds = await findProductIdsByTranslationFilters(query);
-  const whereClause = buildProductWhere(query, matchingIds, translationFilterIds);
+  const boardFilterIds = query.boardKey ? await findProductIdsByBoardKey(query.boardKey) : undefined;
+  const whereClause = buildProductWhere(query, matchingIds, translationFilterIds, boardFilterIds);
   const displayLocale = await getDefaultSiteLanguageCode();
 
   if (whereClause === null) {
@@ -472,21 +547,32 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
     .limit(pageSize)
     .offset(offset);
 
-  const [translationMap, featureCountMap, stats] = await Promise.all([
+  const [translationMap, featureCountMap, boardKeysMap, stats] = await Promise.all([
     loadTranslationsByProductIds(productRows.map((row) => row.product.id)),
     countProductFeatureAssignmentsByProductIds(productRows.map((row) => row.product.id)),
+    loadBoardKeysByProductIds(productRows.map((row) => row.product.id)),
     getAdminProductStats(),
   ]);
 
+  const boardOptions = await getEnabledProductBoardOptions();
+  const boardTitleByKey = new Map(boardOptions.map((board) => [board.key, board.title]));
+
   const items = productRows
-    .map(({ product, brandName, categoryName }) => toListItem(
-      product,
-      translationMap.get(product.id) ?? [],
-      brandName,
-      categoryName,
-      displayLocale,
-      featureCountMap.get(product.id) ?? 0,
-    ))
+    .map(({ product, brandName, categoryName }) => {
+      const boardKeys = boardKeysMap.get(product.id) ?? [];
+      const boardLabels = boardKeys.map((key) => boardTitleByKey.get(key) ?? key);
+      return toListItem(
+        product,
+        translationMap.get(product.id) ?? [],
+        brandName,
+        categoryName,
+        displayLocale,
+        featureCountMap.get(product.id) ?? 0,
+        undefined,
+        boardKeys,
+        boardLabels,
+      );
+    })
     .filter((item): item is AdminProductListItem => Boolean(item));
 
   return { items, total, activeCount: stats.activeCount, page, pageSize };
@@ -519,9 +605,15 @@ export async function getAdminProductListItem(productId: string) {
     ? categoryIdRows
     : (row.product.defaultCategoryId ? [row.product.defaultCategoryId] : []);
 
-  const [featureCountMap] = await Promise.all([
+  const [featureCountMap, boardKeysMap] = await Promise.all([
     countProductFeatureAssignmentsByProductIds([productId]),
+    loadBoardKeysByProductIds([productId]),
   ]);
+  const boardKeys = boardKeysMap.get(productId) ?? [];
+  const boardOptions = await getEnabledProductBoardOptions();
+  const boardTitleByKey = new Map(boardOptions.map((board) => [board.key, board.title]));
+  const boardLabels = boardKeys.map((key) => boardTitleByKey.get(key) ?? key);
+
   return toListItem(
     row.product,
     translations,
@@ -530,6 +622,8 @@ export async function getAdminProductListItem(productId: string) {
     displayLocale,
     featureCountMap.get(productId) ?? 0,
     categoryIds,
+    boardKeys,
+    boardLabels,
   );
 }
 
@@ -811,7 +905,7 @@ export async function updateAdminProductShared(productId: string, input: Product
 
   const resolved = resolveCategoryFields(parsed);
   const shouldSyncCategories = parsed.categoryIds !== undefined || parsed.defaultCategoryId !== undefined;
-  const { categoryIds: _categoryIds, ...productFields } = parsed;
+  const { categoryIds: _categoryIds, boardKeys, ...productFields } = parsed;
 
   const [product] = await db
     .update(products)
@@ -825,6 +919,17 @@ export async function updateAdminProductShared(productId: string, input: Product
 
   if (product && shouldSyncCategories) {
     await syncProductCategories(productId, resolved.categoryIds);
+  }
+
+  if (product && boardKeys !== undefined) {
+    try {
+      await syncProductBoards(productId, boardKeys);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'INVALID_BOARD_KEY') {
+        throw new Error('INVALID_BOARD_KEY');
+      }
+      throw error;
+    }
   }
 
   return product ?? null;
@@ -847,6 +952,7 @@ export async function getAdminProducts(search = '') {
       pageSize: 100,
       brandId: '',
       categoryId: '',
+      boardKey: '',
       purchaseMode: '',
       paidSample: '',
       status: '',

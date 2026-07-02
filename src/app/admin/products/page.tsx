@@ -1,5 +1,6 @@
 import { getAdminCategoryTree } from '@/server/admin/categories';
 import { getAdminSiteLanguages } from '@/server/admin/languages';
+import { getEnabledProductBoardOptions } from '@/server/admin/product-boards';
 import { getAdminProductOptions, getAdminProductsPaginated } from '@/server/admin/products';
 
 import { parseProductListQuery } from '@/lib/product-list-query';
@@ -14,11 +15,12 @@ export default async function AdminProductsPage({
   const params = await searchParams;
   const query = parseProductListQuery(params);
 
-  const [listResult, options, categoryTree, activeLanguages] = await Promise.all([
+  const [listResult, options, categoryTree, activeLanguages, boardOptions] = await Promise.all([
     getAdminProductsPaginated(query),
     getAdminProductOptions(),
     getAdminCategoryTree(),
     getAdminSiteLanguages(),
+    getEnabledProductBoardOptions(),
   ]);
 
   return (
@@ -32,6 +34,7 @@ export default async function AdminProductsPage({
       }}
       initialQuery={query}
       brandOptions={options.brands}
+      boardOptions={boardOptions}
       categoryTree={categoryTree}
       activeLanguages={activeLanguages}
     />

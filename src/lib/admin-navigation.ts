@@ -15,6 +15,7 @@ export const adminNavItems: AdminNavItem[] = [
     title: '产品管理',
     children: [
       { key: '/admin/products', title: '产品管理', href: '/admin/products' },
+      { key: '/admin/products/boards', title: '产品看板', href: '/admin/products/boards' },
       { key: '/admin/categories', title: '分类管理', href: '/admin/categories' },
       { key: '/admin/brands', title: '品牌管理', href: '/admin/brands' },
       { key: '/admin/product-features', title: '产品特性', href: '/admin/product-features' },
@@ -48,7 +49,7 @@ export const adminNavItems: AdminNavItem[] = [
     key: 'content-management',
     title: '内容管理',
     children: [
-      { key: '/admin/editorial/boards', title: '看板管理', href: '/admin/editorial/boards' },
+      { key: '/admin/editorial/boards', title: '内容看板', href: '/admin/editorial/boards' },
       { key: '/admin/faq', title: 'FAQ管理', href: '/admin/faq' },
       { key: '/admin/editorial', title: '博客管理', href: '/admin/editorial' },
     ],

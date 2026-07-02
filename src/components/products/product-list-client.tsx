@@ -36,6 +36,7 @@ import {
   parseProductListQuery,
 } from '@/lib/product-list-query';
 import type { AdminProductListItem, AdminProductTranslation } from '@/lib/product-content';
+import type { ProductBoardOption } from '@/components/products/product-board-multi-select';
 import type { AdminSiteLanguageRow } from '@/server/admin/languages';
 
 export type ProductListState = {
@@ -51,6 +52,7 @@ type ProductListClientProps = {
   initialQuery: ProductListQuery;
   activeLanguages: AdminSiteLanguageRow[];
   brandOptions: Array<{ label: string; value: string }>;
+  boardOptions: ProductBoardOption[];
   categoryTree: AdminCategoryTreeNode[];
   renderEditorModal: (props: {
     open: boolean;
@@ -67,6 +69,7 @@ async function fetchProductList(query: ProductListQuery) {
   if (query.keyword) params.set('keyword', query.keyword);
   if (query.brandId) params.set('brand_id', query.brandId);
   if (query.categoryId) params.set('category_id', query.categoryId);
+  if (query.boardKey) params.set('board_key', query.boardKey);
   if (query.purchaseMode) params.set('purchase_mode', query.purchaseMode);
   if (query.paidSample) params.set('paid_sample', query.paidSample);
   if (query.status) params.set('status', query.status);
@@ -98,6 +101,7 @@ export function ProductListClient({
   initialQuery,
   activeLanguages,
   brandOptions,
+  boardOptions,
   categoryTree,
   renderEditorModal,
 }: ProductListClientProps) {
@@ -262,6 +266,18 @@ export function ProductListClient({
     },
     { title: 'SPU', dataIndex: 'spu', width: 140, ...adminTableNowrapHeader() },
     {
+      title: '看板',
+      key: 'boards',
+      width: 160,
+      ellipsis: true,
+      ...adminTableNowrapHeader(),
+      render: (_: unknown, row: AdminProductListItem) => (
+        row.boardKeys.length
+          ? row.boardKeys.map((key, index) => <Tag key={key}>{row.boardLabels[index] ?? key}</Tag>)
+          : <Typography.Text type="secondary">—</Typography.Text>
+      ),
+    },
+    {
       title: '产品特性',
       key: 'features',
       width: 96,
@@ -382,6 +398,14 @@ export function ProductListClient({
             value={query.categoryId || undefined}
             options={categoryOptions}
             onChange={(value) => applyQueryChange({ categoryId: value ?? '', page: 1 })}
+          />
+          <Select
+            allowClear
+            placeholder="看板"
+            style={{ width: 160 }}
+            value={query.boardKey || undefined}
+            options={boardOptions.map((board) => ({ value: board.key, label: board.title }))}
+            onChange={(value) => applyQueryChange({ boardKey: value ?? '', page: 1 })}
           />
           <Select
             allowClear

@@ -9,13 +9,13 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { ContentTranslateButton } from '@/components/admin/content-translate-button';
 import { ContentEditorLocaleTab } from '@/components/admin/content-editor-locale-tab';
 import { AdminDateTimePicker } from '@/components/admin/admin-datetime-picker';
-import { BrandPickerField } from '@/components/brands/brand-picker-field';
-import { CategoryPickerField } from '@/components/categories/category-picker-field';
 import { CoverImageField } from '@/components/editorial/cover-image-field';
 import { RichTextEditor } from '@/components/editorial/rich-text-editor';
 import { hasMeaningfulHtmlBody } from '@/lib/editorial-html';
 import { ProductAttachmentsField } from '@/components/products/product-attachments-field';
 import { ProductGalleryField } from '@/components/products/product-gallery-field';
+import { ProductGeneralConfigPanel } from '@/components/products/product-general-config-panel';
+import type { ProductBoardOption } from '@/components/products/product-board-multi-select';
 import { productLifecycleOptions } from '@/lib/admin-display';
 import { confirmProductListingChange } from '@/lib/confirm-product-listing';
 import type { AdminCategoryTreeNode } from '@/lib/category-content';
@@ -211,6 +211,8 @@ export function ProductEditorModal({
   const [purchaseMode, setPurchaseMode] = useState<ProductPurchaseMode>('buy');
   const [paidSampleEnabled, setPaidSampleEnabled] = useState(false);
   const [status, setStatus] = useState<ProductStatus>('inactive');
+  const [boardKeys, setBoardKeys] = useState<string[]>([]);
+  const [boardOptions, setBoardOptions] = useState<ProductBoardOption[]>([]);
   const [activeLocale, setActiveLocale] = useState('');
   const [sectionTab, setSectionTab] = useState<SectionTabKey>('content');
   const [drafts, setDrafts] = useState<Record<string, LocaleDraft>>({});
@@ -255,6 +257,22 @@ export function ProductEditorModal({
 
   useEffect(() => {
     if (!open) return;
+    void fetch('/api/admin/products/boards')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!payload) return;
+        const dashboard = payload as { coverage?: Array<{ key: string; title: string; enabled: boolean }> };
+        setBoardOptions(
+          (dashboard.coverage ?? [])
+            .filter((board) => board.enabled)
+            .map((board) => ({ key: board.key, title: board.title })),
+        );
+      })
+      .catch(() => setBoardOptions([]));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
 
     if (!activeLanguages.length) {
       setProductId(undefined);
@@ -278,6 +296,7 @@ export function ProductEditorModal({
       setPurchaseMode('buy');
       setPaidSampleEnabled(false);
       setStatus('inactive');
+      setBoardKeys([]);
       const emptyDrafts = Object.fromEntries(
         activeLanguages.map((language) => [language.code, makeEmptyDraft(language.code)]),
       );
@@ -301,6 +320,7 @@ export function ProductEditorModal({
     setPaidSampleEnabled(editingEntry.paidSampleEnabled);
     setPurchaseMode(editingEntry.purchaseMode);
     setStatus(editingEntry.status);
+    setBoardKeys(editingEntry.boardKeys ?? []);
     setLoadingGroup(true);
 
     void (async () => {
@@ -325,6 +345,7 @@ export function ProductEditorModal({
               : [],
         );
         setBrandId(payload.item.brandId);
+        setBoardKeys(payload.item.boardKeys ?? []);
 
         const nextDrafts = Object.fromEntries(
           activeLanguages.map((language) => {
@@ -579,6 +600,7 @@ export function ProductEditorModal({
         purchaseMode,
         paidSampleEnabled,
         status,
+        boardKeys,
       };
 
       if (nextProductId) {
@@ -622,6 +644,19 @@ export function ProductEditorModal({
         savedEntries.push(saved);
       }
 
+      if (nextProductId && !productId) {
+        const patchResponse = await fetch(`/api/admin/products/${nextProductId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(shared),
+        });
+        if (!patchResponse.ok) {
+          const payload = await patchResponse.json().catch(() => null) as { message?: string } | null;
+          void messageApi.error(payload?.message ?? '产品基础信息保存失败');
+          return;
+        }
+      }
+
       setDrafts(nextDrafts);
       setProductId(nextProductId);
       loadDraft(activeLocale, nextDrafts);
@@ -632,78 +667,31 @@ export function ProductEditorModal({
   }
 
   const sharedFieldsPanel = (
-    <div className="content-editor-shared-section">
-      <Row gutter={[16, 0]}>
-        <Col xs={24} md={8}>
-          <Form.Item label="SPU" layout="vertical" required style={{ marginBottom: 16 }}>
-            <Input value={spu} onChange={(event) => setSpu(event.target.value)} placeholder="全局唯一 SPU" />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={8}>
-          <Form.Item label="所属分类" layout="vertical" required style={{ marginBottom: 16 }}>
-            <CategoryPickerField
-              mode="multiple"
-              categoryTree={categoryTree}
-              value={categoryIds}
-              onChange={setCategoryIds}
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={8}>
-          <Form.Item label="所属品牌" layout="vertical" required style={{ marginBottom: 16 }}>
-            <BrandPickerField
-              mode="single"
-              value={brandId ?? ''}
-              onChange={(value) => setBrandId(value || null)}
-              addButtonLabel="选择品牌"
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item label="推荐到首页" layout="vertical" style={{ marginBottom: 16 }}>
-            <Switch checked={featured} onChange={setFeatured} />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item label="首页展示顺序" layout="vertical" style={{ marginBottom: 16 }}>
-            <InputNumber min={0} style={{ width: '100%' }} disabled={!featured} value={featuredSortOrder} onChange={(value) => setFeaturedSortOrder(Number(value ?? 0))} />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item label="购买模式" layout="vertical" style={{ marginBottom: 16 }}>
-            <Select
-              value={purchaseMode}
-              onChange={setPurchaseMode}
-              options={[
-                { value: 'buy', label: '直接下单' },
-                { value: 'inquiry', label: '询价模式' },
-              ]}
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item label="付邮拿样" layout="vertical" style={{ marginBottom: 16 }}>
-            <Switch checked={paidSampleEnabled} onChange={setPaidSampleEnabled} />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item label="上架状态" layout="vertical" style={{ marginBottom: 16 }}>
-            <Switch
-              checked={status === 'active'}
-              checkedChildren="上架"
-              unCheckedChildren="下架"
-              onChange={(checked) => {
-                const nextStatus: ProductStatus = checked ? 'active' : 'inactive';
-                if (nextStatus === status) {
-                  return;
-                }
-                confirmProductListingChange(nextStatus, () => setStatus(nextStatus));
-              }}
-            />
-          </Form.Item>
-        </Col>
-      </Row>
-    </div>
+    <ProductGeneralConfigPanel
+      spu={spu}
+      onSpuChange={setSpu}
+      categoryTree={categoryTree}
+      categoryIds={categoryIds}
+      onCategoryIdsChange={setCategoryIds}
+      brandId={brandId}
+      onBrandIdChange={setBrandId}
+      boardOptions={boardOptions}
+      boardKeys={boardKeys}
+      onBoardKeysChange={setBoardKeys}
+      featured={featured}
+      onFeaturedChange={setFeatured}
+      featuredSortOrder={featuredSortOrder}
+      onFeaturedSortOrderChange={setFeaturedSortOrder}
+      purchaseMode={purchaseMode}
+      onPurchaseModeChange={setPurchaseMode}
+      paidSampleEnabled={paidSampleEnabled}
+      onPaidSampleEnabledChange={setPaidSampleEnabled}
+      status={status}
+      onStatusChange={(nextStatus) => {
+        if (nextStatus === status) return;
+        confirmProductListingChange(nextStatus, () => setStatus(nextStatus));
+      }}
+    />
   );
 
   return (
