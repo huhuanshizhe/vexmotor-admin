@@ -4,7 +4,6 @@ import {
   getAdminUiStrings,
   resetUiStringTranslations,
   syncUiStringsFromManifest,
-  translateMissingUiStringsBatch,
   translateSingleUiString,
   updateAdminUiStringTranslation,
 } from '@/server/admin/ui-strings';
@@ -78,16 +77,12 @@ export async function PUT(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json() as {
-    action?: 'sync-manifest' | 'reset' | 'translate-batch' | 'translate-one';
+    action?: 'sync-manifest' | 'reset' | 'translate-one';
     manifestUrl?: string;
     scope?: UiStringResetScope;
     locale?: string;
-    group?: string;
-    locales?: string[];
-    keys?: string[];
     key?: string;
     targetLocale?: string;
-    limit?: number;
   };
 
   try {
@@ -104,16 +99,6 @@ export async function POST(request: NextRequest) {
         scope: body.scope,
         locale: body.locale,
         manifestUrl: body.manifestUrl,
-      });
-      return NextResponse.json(result);
-    }
-
-    if (body.action === 'translate-batch') {
-      const result = await translateMissingUiStringsBatch({
-        group: body.group,
-        locales: body.locales,
-        keys: body.keys,
-        limit: body.limit,
       });
       return NextResponse.json(result);
     }
