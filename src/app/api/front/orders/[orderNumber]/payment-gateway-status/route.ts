@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { assertCheckoutOrderAccess } from '@/server/payments/airwallex/order-access';
-import { checkOrderPaymentGatewayStatus } from '@/server/payments/airwallex/checkout-payment';
-import { isAirwallexConfigured } from '@/server/payments/airwallex/config';
+import {
+  buildCheckoutPaymentRedirectPath,
+  checkOrderPaymentGatewayStatus,
+  isPaymentGatewayConfigured,
+} from '@/server/payments/checkout-gateway';
+import { assertCheckoutOrderAccess } from '@/server/payments/order-access';
 
 import { frontCorsHeaders } from '@/lib/front-cors';
 
@@ -20,22 +23,20 @@ export async function GET(
     );
   }
 
-  if (!isAirwallexConfigured()) {
+  if (!isPaymentGatewayConfigured(access.order)) {
     return NextResponse.json(
       {
-        code: 'AIRWALLEX_NOT_CONFIGURED',
-        message: 'Airwallex is not configured',
+        code: 'PAYMENT_GATEWAY_NOT_CONFIGURED',
+        message: 'Payment gateway is not configured',
         orderNumber,
         sitePaymentStatus: access.order.paymentStatus,
         orderStatus: access.order.status,
         gatewayConfigured: false,
-        gatewayIntentId: access.order.airwallexPaymentIntentId ?? null,
+        gatewayIntentId: access.order.stripePaymentIntentId ?? access.order.airwallexPaymentIntentId ?? null,
         gatewayStatus: null,
         isPaidAtGateway: false,
         synced: false,
-        redirectPath: access.userId
-          ? `/account/orders/${orderNumber}`
-          : `/checkout/confirmation/${orderNumber}`,
+        redirectPath: buildCheckoutPaymentRedirectPath(orderNumber, access.userId),
       },
       { status: 503, headers: frontCorsHeaders() },
     );

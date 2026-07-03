@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { assertCheckoutOrderAccess } from '@/server/payments/airwallex/order-access';
-import { confirmAirwallexPaymentForOrder } from '@/server/payments/airwallex/checkout-payment';
-import { isAirwallexConfigured } from '@/server/payments/airwallex/config';
+import {
+  buildCheckoutPaymentRedirectPath,
+  confirmPaymentForOrder,
+} from '@/server/payments/checkout-gateway';
+import { assertCheckoutOrderAccess } from '@/server/payments/order-access';
 
 import { frontCorsHeaders } from '@/lib/front-cors';
 
@@ -12,13 +14,6 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  if (!isAirwallexConfigured()) {
-    return NextResponse.json(
-      { code: 'AIRWALLEX_NOT_CONFIGURED', message: 'Airwallex is not configured' },
-      { status: 503, headers: frontCorsHeaders() },
-    );
-  }
-
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
@@ -35,22 +30,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await confirmAirwallexPaymentForOrder(access.order);
+  const result = await confirmPaymentForOrder(access.order);
   if (!result.ok) {
     return NextResponse.json(
       {
         code: result.code,
         message: 'Payment is not completed yet',
-        intentStatus: result.intentStatus ?? null,
-        paymentStatus: result.paymentStatus ?? access.order.paymentStatus,
+        intentStatus: 'intentStatus' in result ? result.intentStatus ?? null : null,
+        paymentStatus: 'paymentStatus' in result ? result.paymentStatus ?? access.order.paymentStatus : access.order.paymentStatus,
       },
       { status: 409, headers: frontCorsHeaders() },
     );
   }
 
-  const redirectPath = access.userId
-    ? `/account/orders/${parsed.data.orderNumber}`
-    : `/checkout/confirmation/${parsed.data.orderNumber}`;
+  const redirectPath = buildCheckoutPaymentRedirectPath(parsed.data.orderNumber, access.userId);
 
   return NextResponse.json(
     {
@@ -61,4 +54,8 @@ export async function POST(request: NextRequest) {
     },
     { headers: frontCorsHeaders() },
   );
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: frontCorsHeaders() });
 }

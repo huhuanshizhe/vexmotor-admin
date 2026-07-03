@@ -30,6 +30,10 @@ import {
   retrieveAirwallexPaymentIntent,
   withAirwallexAuthRetry,
 } from '@/server/payments/airwallex/client';
+import {
+  cancelStripePaymentIntent,
+  retrieveStripePaymentIntent,
+} from '@/server/payments/stripe/client';
 import { getOrderByNumber } from '@/server/storefront/account';
 import { enrichOrderItemsWithCoverImages } from '@/server/storefront/order-payment';
 
@@ -37,6 +41,11 @@ const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 
 const REUSABLE_INTENT_STATUSES = new Set(['REQUIRES_PAYMENT_METHOD', 'REQUIRES_CUSTOMER_ACTION']);
+const REUSABLE_STRIPE_INTENT_STATUSES = new Set([
+  'requires_payment_method',
+  'requires_confirmation',
+  'requires_action',
+]);
 
 export type StorefrontOrderListQuery = {
   page?: number;
@@ -324,6 +333,22 @@ export async function cancelOrderForUser(userId: string, orderNumber: string) {
         await withAirwallexAuthRetry(() =>
           cancelAirwallexPaymentIntent(intent.id, randomUUID()),
         ).catch(() => undefined);
+      }
+    } catch {
+      // Continue cancelling the order even if gateway cancel fails.
+    }
+  }
+
+  if (order.stripePaymentIntentId) {
+    try {
+      const intent = await retrieveStripePaymentIntent(order.stripePaymentIntentId);
+
+      if (
+        intent.status !== 'succeeded'
+        && intent.status !== 'canceled'
+        && REUSABLE_STRIPE_INTENT_STATUSES.has(intent.status)
+      ) {
+        await cancelStripePaymentIntent(intent.id).catch(() => undefined);
       }
     } catch {
       // Continue cancelling the order even if gateway cancel fails.
