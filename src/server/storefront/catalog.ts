@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, or, sql as drizzleSql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, ilike, inArray, or, sql as drizzleSql } from 'drizzle-orm';
 
 import { db } from '@/server/db';
 import {
@@ -14,6 +14,8 @@ import {
   products,
   productTranslations,
   productVariants,
+  orderItems,
+  orders,
 } from '@/server/db/schema';
 
 import {
@@ -110,8 +112,57 @@ function emptyProductListResult(page: number, pageSize: number): ProductListResu
           { label: 'Inquiry', value: 'inquiry', count: 0 },
         ],
       },
+      {
+        key: 'category',
+        label: 'Category',
+        options: [],
+      },
     ],
   };
+}
+
+async function getCategorySubtreeIds(categoryId: string): Promise<string[]> {
+  const rows = await db.execute<{ id: string }>(drizzleSql`
+    WITH RECURSIVE subtree AS (
+      SELECT id FROM categories WHERE id = ${categoryId}
+      UNION ALL
+      SELECT child.id
+      FROM categories child
+      INNER JOIN subtree ON child.parent_id = subtree.id
+      WHERE child.status = 'active'
+    )
+    SELECT id FROM subtree
+  `);
+  return (Array.isArray(rows) ? rows : []).map((row) => row.id);
+}
+
+function productInCategorySubtreeCondition(categoryIds: string[]) {
+  if (!categoryIds.length) {
+    return drizzleSql`false`;
+  }
+
+  return or(
+    inArray(products.defaultCategoryId, categoryIds),
+    exists(
+      db
+        .select({ productId: productCategories.productId })
+        .from(productCategories)
+        .where(and(
+          eq(productCategories.productId, products.id),
+          inArray(productCategories.categoryId, categoryIds),
+        )),
+    ),
+  );
+}
+
+function productSoldQuantitySql(productIdColumn: typeof products.id) {
+  return drizzleSql<number>`COALESCE((
+    SELECT SUM(${orderItems.quantity})::int
+    FROM ${orderItems}
+    INNER JOIN ${orders} ON ${orders.id} = ${orderItems.orderId}
+    WHERE ${orderItems.productId} = ${productIdColumn}
+      AND ${orders.status} IN ('pending_processing', 'partially_shipped', 'shipped', 'completed')
+  ), 0)`;
 }
 
 function getProductOrderBy(sort: ProductListSort, locale: string) {
@@ -123,10 +174,14 @@ function getProductOrderBy(sort: ProductListSort, locale: string) {
     case 'price-desc':
       return [desc(productPriceSql(products.id, locale)), asc(productNameSql(products.id, locale))];
     case 'newest':
-      return [desc(products.updatedAt), desc(products.createdAt), asc(productNameSql(products.id, locale))];
+      return [desc(products.createdAt), desc(products.updatedAt), asc(productNameSql(products.id, locale))];
     case 'featured':
     default:
-      return [desc(products.featured), desc(products.updatedAt), asc(productNameSql(products.id, locale))];
+      return [
+        desc(productSoldQuantitySql(products.id)),
+        desc(products.createdAt),
+        asc(productNameSql(products.id, locale)),
+      ];
   }
 }
 
@@ -342,7 +397,7 @@ export async function getNavigationData(localeInput?: string | null): Promise<Na
 export async function getCategories(localeInput?: string | null): Promise<StorefrontCategory[]> {
   const locale = catalogLocale(localeInput);
   try {
-    const [rows, countRows] = await Promise.all([
+    const [rows, countRows, rollupRows] = await Promise.all([
       db
         .select({
           id: categories.id,
@@ -357,30 +412,85 @@ export async function getCategories(localeInput?: string | null): Promise<Storef
         .from(categories)
         .where(eq(categories.status, 'active'))
         .orderBy(asc(categories.sortOrder), asc(categories.id)),
-      db
-        .select({ categoryId: products.defaultCategoryId, total: count() })
-        .from(products)
-        .where(and(eq(products.status, 'active'), drizzleSql`${products.defaultCategoryId} is not null`))
-        .groupBy(products.defaultCategoryId),
+      db.execute<{ category_id: string; total: number }>(drizzleSql`
+        SELECT category_id, count(DISTINCT product_id)::int AS total
+        FROM (
+          SELECT default_category_id AS category_id, id AS product_id
+          FROM products
+          WHERE status = 'active' AND default_category_id IS NOT NULL
+          UNION
+          SELECT category_id, product_id
+          FROM product_categories
+          INNER JOIN products ON products.id = product_categories.product_id
+          WHERE products.status = 'active'
+        ) AS linked
+        WHERE category_id IS NOT NULL
+        GROUP BY category_id
+      `),
+      db.execute<{ root_id: string; total: number }>(drizzleSql`
+        WITH RECURSIVE category_tree AS (
+          SELECT id, parent_id, id AS root_id
+          FROM categories
+          WHERE status = 'active' AND parent_id IS NULL
+          UNION ALL
+          SELECT child.id, child.parent_id, category_tree.root_id
+          FROM categories child
+          INNER JOIN category_tree ON child.parent_id = category_tree.id
+          WHERE child.status = 'active'
+        ),
+        product_links AS (
+          SELECT category_id, product_id
+          FROM (
+            SELECT default_category_id AS category_id, id AS product_id
+            FROM products
+            WHERE status = 'active' AND default_category_id IS NOT NULL
+            UNION
+            SELECT category_id, product_id
+            FROM product_categories
+            INNER JOIN products ON products.id = product_categories.product_id
+            WHERE products.status = 'active'
+          ) AS linked
+          WHERE category_id IS NOT NULL
+        )
+        SELECT category_tree.root_id, count(DISTINCT product_links.product_id)::int AS total
+        FROM category_tree
+        LEFT JOIN product_links ON product_links.category_id = category_tree.id
+        GROUP BY category_tree.root_id
+      `),
     ]);
     if (!rows.length) {
       return [];
     }
 
-    const productCountByCategoryId = new Map(countRows.map((item) => [item.categoryId, Number(item.total)]));
+    const productCountByCategoryId = new Map(
+      (Array.isArray(countRows) ? countRows : []).map((item) => [item.category_id, Number(item.total)]),
+    );
+    const rollupCountByRootId = new Map(
+      (Array.isArray(rollupRows) ? rollupRows : []).map((item) => [item.root_id, Number(item.total)]),
+    );
 
-    return rows.map((item) => ({
-      id: item.id,
-      name: item.name ?? '',
-      slug: item.slug ?? '',
-      description: item.description,
-      parentId: item.parentId,
-      productCount: productCountByCategoryId.get(item.id) ?? 0,
-      image: item.imageUrl ? { id: `${item.id}-img`, url: item.imageUrl, alt: item.name ?? '' } : null,
-      isFeatured: item.isFeatured,
-      featuredOrder: item.featuredOrder,
-    }));
-  } catch {
+    return rows.map((item) => {
+      const slug = item.slug ?? '';
+      const directCount = productCountByCategoryId.get(item.id) ?? 0;
+      const rollupProductCount = item.parentId
+        ? undefined
+        : (rollupCountByRootId.get(item.id) ?? directCount);
+
+      return {
+        id: item.id,
+        name: item.name ?? '',
+        slug,
+        description: item.description,
+        parentId: item.parentId,
+        productCount: directCount,
+        rollupProductCount,
+        image: item.imageUrl ? { id: `${item.id}-img`, url: item.imageUrl, alt: item.name ?? '' } : null,
+        isFeatured: item.isFeatured,
+        featuredOrder: item.featuredOrder,
+      };
+    });
+  } catch (error) {
+    console.error('getCategories failed', error);
     return [];
   }
 }
@@ -429,8 +539,10 @@ export async function getProductList(input: {
       categoryId = category.id;
     }
 
-    const filters = [eq(products.status, 'active')];
-    const facetFilters = [eq(products.status, 'active')];
+    const categorySubtreeIds = categoryId ? await getCategorySubtreeIds(categoryId) : [];
+    const categoryFilter = categoryId ? productInCategorySubtreeCondition(categorySubtreeIds) : undefined;
+
+    const sharedFacetFilters = [eq(products.status, 'active')];
     if (input.keyword) {
       const keywordFilter = or(
         ilike(productNameSql(products.id, locale), `%${input.keyword}%`),
@@ -439,27 +551,34 @@ export async function getProductList(input: {
       );
 
       if (keywordFilter) {
-        filters.push(keywordFilter);
-        facetFilters.push(keywordFilter);
+        sharedFacetFilters.push(keywordFilter);
       }
     }
+
+    if (input.inStockOnly) {
+      sharedFacetFilters.push(drizzleSql`${productStockQuantitySql(products.id, locale)} > 0`);
+    }
+
+    if (input.productBoardKey) {
+      sharedFacetFilters.push(eq(productBoardAssignments.boardKey, input.productBoardKey));
+    }
+
+    const filters = [...sharedFacetFilters];
+    const purchaseModeFacetWhere = and(...sharedFacetFilters, categoryFilter);
+    const categoryFacetWhere = and(
+      ...sharedFacetFilters,
+      input.purchaseMode ? eq(products.purchaseMode, input.purchaseMode) : undefined,
+    );
 
     if (input.purchaseMode) {
       filters.push(eq(products.purchaseMode, input.purchaseMode));
     }
 
-    if (input.inStockOnly) {
-      filters.push(drizzleSql`${productStockQuantitySql(products.id, locale)} > 0`);
-      facetFilters.push(drizzleSql`${productStockQuantitySql(products.id, locale)} > 0`);
-    }
-
-    if (input.productBoardKey) {
-      filters.push(eq(productBoardAssignments.boardKey, input.productBoardKey));
-      facetFilters.push(eq(productBoardAssignments.boardKey, input.productBoardKey));
+    if (categoryFilter) {
+      filters.push(categoryFilter);
     }
 
     const baseWhere = and(...filters);
-    const facetWhere = and(...facetFilters);
 
     const productListSelect = {
       id: products.id,
@@ -477,103 +596,84 @@ export async function getProductList(input: {
       brandSlug: brandSlugSql(brands.id, locale),
     };
 
-    let rows;
-    if (categoryId && input.productBoardKey) {
-      rows = await db
-        .select(productListSelect)
-        .from(products)
-        .innerJoin(productCategories, eq(productCategories.productId, products.id))
-        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
-        .leftJoin(brands, eq(products.brandId, brands.id))
-        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)))
-        .orderBy(...orderBy)
-        .limit(pageSize)
-        .offset(offset);
-    } else if (categoryId) {
-      rows = await db
-        .select(productListSelect)
-        .from(products)
-        .innerJoin(productCategories, eq(productCategories.productId, products.id))
-        .leftJoin(brands, eq(products.brandId, brands.id))
-        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)))
-        .orderBy(...orderBy)
-        .limit(pageSize)
-        .offset(offset);
-    } else if (input.productBoardKey) {
-      rows = await db
-        .select(productListSelect)
-        .from(products)
-        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
-        .leftJoin(brands, eq(products.brandId, brands.id))
-        .where(baseWhere)
-        .orderBy(...orderBy)
-        .limit(pageSize)
-        .offset(offset);
-    } else {
-      rows = await db
-        .select(productListSelect)
-        .from(products)
-        .leftJoin(brands, eq(products.brandId, brands.id))
-        .where(baseWhere)
-        .orderBy(...orderBy)
-        .limit(pageSize)
-        .offset(offset);
-    }
+    const listFrom = input.productBoardKey
+      ? db
+          .select(productListSelect)
+          .from(products)
+          .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+          .leftJoin(brands, eq(products.brandId, brands.id))
+      : db
+          .select(productListSelect)
+          .from(products)
+          .leftJoin(brands, eq(products.brandId, brands.id));
 
-    let countRows;
-    if (categoryId && input.productBoardKey) {
-      countRows = await db
-        .select({ total: count() })
-        .from(products)
-        .innerJoin(productCategories, eq(productCategories.productId, products.id))
-        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
-        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)));
-    } else if (categoryId) {
-      countRows = await db
-        .select({ total: count() })
-        .from(products)
-        .innerJoin(productCategories, eq(productCategories.productId, products.id))
-        .where(and(baseWhere, eq(productCategories.categoryId, categoryId)));
-    } else if (input.productBoardKey) {
-      countRows = await db
-        .select({ total: count() })
-        .from(products)
-        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
-        .where(baseWhere);
-    } else {
-      countRows = await db.select({ total: count() }).from(products).where(baseWhere);
-    }
+    const rows = await listFrom
+      .where(baseWhere)
+      .orderBy(...orderBy)
+      .limit(pageSize)
+      .offset(offset);
 
-    let facetCountRows;
-    if (categoryId && input.productBoardKey) {
-      facetCountRows = await db
-        .select({ purchaseMode: products.purchaseMode, total: count() })
-        .from(products)
-        .innerJoin(productCategories, eq(productCategories.productId, products.id))
-        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
-        .where(and(facetWhere, eq(productCategories.categoryId, categoryId)))
-        .groupBy(products.purchaseMode);
-    } else if (categoryId) {
-      facetCountRows = await db
-        .select({ purchaseMode: products.purchaseMode, total: count() })
-        .from(products)
-        .innerJoin(productCategories, eq(productCategories.productId, products.id))
-        .where(and(facetWhere, eq(productCategories.categoryId, categoryId)))
-        .groupBy(products.purchaseMode);
-    } else if (input.productBoardKey) {
-      facetCountRows = await db
-        .select({ purchaseMode: products.purchaseMode, total: count() })
-        .from(products)
-        .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
-        .where(facetWhere)
-        .groupBy(products.purchaseMode);
-    } else {
-      facetCountRows = await db
-        .select({ purchaseMode: products.purchaseMode, total: count() })
-        .from(products)
-        .where(facetWhere)
-        .groupBy(products.purchaseMode);
-    }
+    const countFrom = input.productBoardKey
+      ? db
+          .select({ total: count() })
+          .from(products)
+          .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+      : db.select({ total: count() }).from(products);
+
+    const countRows = await countFrom.where(baseWhere);
+
+    const facetFrom = input.productBoardKey
+      ? db
+          .select({ purchaseMode: products.purchaseMode, total: count() })
+          .from(products)
+          .innerJoin(productBoardAssignments, eq(productBoardAssignments.productId, products.id))
+      : db.select({ purchaseMode: products.purchaseMode, total: count() }).from(products);
+
+    const facetCountRows = await facetFrom.where(purchaseModeFacetWhere).groupBy(products.purchaseMode);
+
+    const categoryFacetPromise = input.keyword
+      ? db.execute<{ slug: string; name: string; total: number }>(drizzleSql`
+          WITH RECURSIVE category_tree AS (
+            SELECT id, parent_id, id AS root_id
+            FROM categories
+            WHERE status = 'active' AND parent_id IS NULL
+            UNION ALL
+            SELECT child.id, child.parent_id, category_tree.root_id
+            FROM categories child
+            INNER JOIN category_tree ON child.parent_id = category_tree.id
+            WHERE child.status = 'active'
+          ),
+          product_links AS (
+            SELECT category_id, product_id
+            FROM (
+              SELECT default_category_id AS category_id, id AS product_id
+              FROM products
+              WHERE status = 'active' AND default_category_id IS NOT NULL
+              UNION
+              SELECT category_id, product_id
+              FROM product_categories
+              INNER JOIN products ON products.id = product_categories.product_id
+              WHERE products.status = 'active'
+            ) AS linked
+            WHERE category_id IS NOT NULL
+          ),
+          matching_products AS (
+            SELECT products.id
+            FROM products
+            ${input.productBoardKey ? drizzleSql`INNER JOIN product_board_assignments ON product_board_assignments.product_id = products.id` : drizzleSql``}
+            WHERE ${categoryFacetWhere}
+          )
+          SELECT root.slug, root.name, count(DISTINCT matching_products.id)::int AS total
+          FROM matching_products
+          INNER JOIN product_links ON product_links.product_id = matching_products.id
+          INNER JOIN category_tree ON category_tree.id = product_links.category_id
+          INNER JOIN category_translations root
+            ON root.category_id = category_tree.root_id
+            AND root.locale = ${locale}
+          GROUP BY root.slug, root.name
+          ORDER BY root.name ASC
+        `)
+      : Promise.resolve([]);
 
     const listImageRows = rows.length
       ? await db
@@ -600,6 +700,12 @@ export async function getProductList(input: {
     const listTranslationMap = await loadProductTranslationsByProductIds(rows.map((item) => item.id));
 
     const purchaseModeCounts = new Map(facetCountRows.map((row) => [row.purchaseMode, Number(row.total)]));
+    const categoryFacetRows = await categoryFacetPromise;
+    const categoryFacetOptions = (Array.isArray(categoryFacetRows) ? categoryFacetRows : []).map((row) => ({
+      label: row.name,
+      value: row.slug,
+      count: Number(row.total),
+    }));
 
     return {
       items: rows.map((item) => {
@@ -637,6 +743,11 @@ export async function getProductList(input: {
             { label: 'Direct Buy', value: 'buy', count: purchaseModeCounts.get('buy') ?? 0 },
             { label: 'Inquiry', value: 'inquiry', count: purchaseModeCounts.get('inquiry') ?? 0 },
           ],
+        },
+        {
+          key: 'category',
+          label: 'Category',
+          options: categoryFacetOptions,
         },
       ],
     };

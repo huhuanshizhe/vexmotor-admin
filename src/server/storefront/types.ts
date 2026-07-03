@@ -25,6 +25,7 @@ export type StorefrontCategory = {
   image?: StorefrontImage | null;
   parentId?: string | null;
   productCount?: number;
+  rollupProductCount?: number;
   isFeatured?: boolean;
   featuredOrder?: number;
 };
