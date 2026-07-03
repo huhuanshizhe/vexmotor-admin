@@ -9,7 +9,6 @@ import {
   type UiStringsManifest,
   UI_STRING_SOURCE_LOCALE,
 } from '@/lib/ui-strings';
-import { getBundledUiStringLocaleDefault } from '@/lib/ui-string-locale-defaults';
 import { translateText } from '@/server/ai/translate';
 import { getAdminSiteLanguages } from '@/server/admin/languages';
 import { revalidateWebUiStringsCache } from '@/server/web-revalidate';
@@ -302,11 +301,7 @@ export async function getFrontUiStrings(input: {
   const strings: Record<string, string> = {};
 
   for (const row of rows) {
-    const translated = translationMap.get(row.key)?.trim();
-    strings[row.key] =
-      translated
-      || (locale !== UI_STRING_SOURCE_LOCALE ? getBundledUiStringLocaleDefault(locale, row.key) : undefined)
-      || row.defaultText;
+    strings[row.key] = translationMap.get(row.key)?.trim() || row.defaultText;
   }
 
   return { locale, strings };
