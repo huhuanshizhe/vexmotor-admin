@@ -6,6 +6,7 @@ import type Stripe from 'stripe';
 import { db } from '@/server/db';
 import { orderActionLogs, orders } from '@/server/db/schema';
 import { convertCartAfterOrderPaid } from '@/server/storefront/cart';
+import { resolveOrderCurrencyCode } from '@/server/storefront/order-currency';
 import { orderTotalToStripeAmount, stripeAmountMatchesOrder } from '@/server/payments/stripe/amount';
 import {
   cancelStripePaymentIntent,
@@ -21,12 +22,18 @@ const REUSABLE_INTENT_STATUSES = new Set<Stripe.PaymentIntent.Status>([
 ]);
 const PAID_INTENT_STATUSES = new Set<Stripe.PaymentIntent.Status>(['succeeded', 'requires_capture']);
 
+function isCardOnlyPaymentIntent(intent: Stripe.PaymentIntent) {
+  const types = intent.payment_method_types ?? [];
+  return types.length === 1 && types[0] === 'card';
+}
+
 function isIntentPaidAtGateway(intent: Stripe.PaymentIntent, order: typeof orders.$inferSelect) {
+  const chargeCurrency = resolveOrderCurrencyCode(order);
   return (
     PAID_INTENT_STATUSES.has(intent.status)
     && intent.metadata?.orderNumber === order.orderNumber
     && typeof intent.amount === 'number'
-    && stripeAmountMatchesOrder(intent.amount, order.totalAmount, order.currencyCode)
+    && stripeAmountMatchesOrder(intent.amount, order.totalAmount, chargeCurrency)
   );
 }
 
@@ -141,7 +148,8 @@ export async function ensureStripePaymentIntentForOrder(input: {
     return { ok: false as const, code: 'ORDER_ALREADY_PAID' as const };
   }
 
-  const amount = orderTotalToStripeAmount(input.order.totalAmount, input.order.currencyCode);
+  const chargeCurrency = resolveOrderCurrencyCode(input.order);
+  const amount = orderTotalToStripeAmount(input.order.totalAmount, chargeCurrency);
 
   if (input.order.stripePaymentIntentId) {
     try {
@@ -149,16 +157,19 @@ export async function ensureStripePaymentIntentForOrder(input: {
 
       if (
         existing.status === 'succeeded'
-        && stripeAmountMatchesOrder(existing.amount, input.order.totalAmount, input.order.currencyCode)
+        && stripeAmountMatchesOrder(existing.amount, input.order.totalAmount, chargeCurrency)
         && existing.metadata?.orderNumber === input.order.orderNumber
       ) {
         await confirmStripePaymentForOrder(input.order);
         return { ok: false as const, code: 'ORDER_ALREADY_PAID' as const };
       }
 
+      const currencyMatches = existing.currency.toUpperCase() === chargeCurrency;
       if (
-        REUSABLE_INTENT_STATUSES.has(existing.status)
-        && stripeAmountMatchesOrder(existing.amount, input.order.totalAmount, input.order.currencyCode)
+        currencyMatches
+        && isCardOnlyPaymentIntent(existing)
+        && REUSABLE_INTENT_STATUSES.has(existing.status)
+        && stripeAmountMatchesOrder(existing.amount, input.order.totalAmount, chargeCurrency)
         && existing.metadata?.orderNumber === input.order.orderNumber
         && existing.client_secret
       ) {
@@ -183,7 +194,7 @@ export async function ensureStripePaymentIntentForOrder(input: {
   try {
     const intent = await createStripePaymentIntent({
       amount,
-      currency: input.order.currencyCode,
+      currency: chargeCurrency,
       orderNumber: input.order.orderNumber,
       customerEmail: input.customerEmail,
     });
@@ -218,11 +229,13 @@ export async function confirmStripePaymentForOrder(order: typeof orders.$inferSe
 
   const intent = await retrieveStripePaymentIntent(order.stripePaymentIntentId);
 
+  const chargeCurrency = resolveOrderCurrencyCode(order);
+
   if (intent.metadata?.orderNumber !== order.orderNumber) {
     return { ok: false as const, code: 'PAYMENT_INTENT_MISMATCH' as const };
   }
 
-  if (!stripeAmountMatchesOrder(intent.amount, order.totalAmount, order.currencyCode)) {
+  if (!stripeAmountMatchesOrder(intent.amount, order.totalAmount, chargeCurrency)) {
     return { ok: false as const, code: 'PAYMENT_AMOUNT_MISMATCH' as const };
   }
 

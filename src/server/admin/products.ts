@@ -403,29 +403,57 @@ async function loadTranslationsByProductIds(productIds: string[]) {
   return grouped;
 }
 
-async function findProductIdsBySearch(keyword: string) {
-  const pattern = `%${keyword.trim()}%`;
-  const translationMatches = await db
-    .selectDistinct({ productId: productTranslations.productId })
-    .from(productTranslations)
-    .where(or(
-      ilike(productTranslations.name, pattern),
-      ilike(productTranslations.slug, pattern),
-      ilike(productTranslations.shortDescription, pattern),
-      ilike(productTranslations.seoTitle, pattern),
-      ilike(productTranslations.seoDescription, pattern),
-      sql`${productTranslations.payload} ->> 'tags' ILIKE ${pattern}`,
-    ));
+function buildTranslationSearchCondition(pattern: string) {
+  return or(
+    ilike(productTranslations.name, pattern),
+    ilike(productTranslations.slug, pattern),
+    ilike(productTranslations.shortDescription, pattern),
+    ilike(productTranslations.description, pattern),
+    ilike(productTranslations.seoTitle, pattern),
+    ilike(productTranslations.seoDescription, pattern),
+    sql`cast(${productTranslations.payload} as text) ILIKE ${pattern}`,
+  );
+}
 
-  const spuMatches = await db
-    .selectDistinct({ id: products.id })
-      .from(products)
-    .where(ilike(products.spu, pattern));
+async function findProductIdsBySearch(keyword: string, searchLocale: string) {
+  const trimmed = keyword.trim();
+  if (!trimmed) return [];
 
-  const ids = new Set<string>();
-  for (const row of translationMatches) ids.add(row.productId);
-  for (const row of spuMatches) ids.add(row.id);
-  return Array.from(ids);
+  const locale = normalizeLocale(searchLocale);
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  let matchedIds: Set<string> | null = null;
+
+  for (const token of tokens) {
+    const pattern = `%${token}%`;
+    const [translationMatches, spuMatches] = await Promise.all([
+      db
+        .selectDistinct({ productId: productTranslations.productId })
+        .from(productTranslations)
+        .where(and(eq(productTranslations.locale, locale), buildTranslationSearchCondition(pattern))),
+      db
+        .selectDistinct({ id: products.id })
+        .from(products)
+        .where(ilike(products.spu, pattern)),
+    ]);
+
+    const tokenIds = new Set<string>();
+    for (const row of translationMatches) tokenIds.add(row.productId);
+    for (const row of spuMatches) tokenIds.add(row.id);
+
+    if (!tokenIds.size) {
+      return [];
+    }
+
+    if (matchedIds) {
+      for (const id of Array.from(matchedIds)) {
+        if (!tokenIds.has(id)) matchedIds.delete(id);
+      }
+    } else {
+      matchedIds = tokenIds;
+    }
+  }
+
+  return matchedIds ? Array.from(matchedIds) : [];
 }
 
 async function findProductIdsByTranslationFilters(query: ProductListQuery) {
@@ -517,12 +545,13 @@ export async function getAdminProductsPaginated(query: ProductListQuery): Promis
   const page = Math.max(1, query.page);
   const pageSize = normalizePageSize(query.pageSize);
   const keyword = query.keyword?.trim() ?? '';
-
-  const matchingIds = keyword ? await findProductIdsBySearch(keyword) : undefined;
+  const displayLocale = query.locale?.trim()
+    ? normalizeLocale(query.locale)
+    : await getDefaultSiteLanguageCode();
+  const matchingIds = keyword ? await findProductIdsBySearch(keyword, displayLocale) : undefined;
   const translationFilterIds = await findProductIdsByTranslationFilters(query);
   const boardFilterIds = query.boardKey ? await findProductIdsByBoardKey(query.boardKey) : undefined;
   const whereClause = buildProductWhere(query, matchingIds, translationFilterIds, boardFilterIds);
-  const displayLocale = await getDefaultSiteLanguageCode();
 
   if (whereClause === null) {
     const stats = await getAdminProductStats();

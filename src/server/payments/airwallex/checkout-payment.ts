@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/server/db';
 import { orderActionLogs, orders } from '@/server/db/schema';
 import { convertCartAfterOrderPaid } from '@/server/storefront/cart';
+import { resolveOrderCurrencyCode } from '@/server/storefront/order-currency';
 import { airwallexAmountMatchesOrder, orderTotalToAirwallexAmount } from '@/server/payments/airwallex/amount';
 import {
   AirwallexApiError,
@@ -25,10 +26,11 @@ function isIntentPaidAtGateway(
   intent: AirwallexPaymentIntent,
   order: typeof orders.$inferSelect,
 ) {
+  const chargeCurrency = resolveOrderCurrencyCode(order);
   return (
     PAID_INTENT_STATUSES.has(intent.status)
     && intent.merchant_order_id === order.orderNumber
-    && airwallexAmountMatchesOrder(intent.amount, order.totalAmount, order.currencyCode)
+    && airwallexAmountMatchesOrder(intent.amount, order.totalAmount, chargeCurrency)
   );
 }
 
@@ -174,7 +176,8 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
     return { ok: false as const, code: 'ORDER_ALREADY_PAID' as const };
   }
 
-  const amount = orderTotalToAirwallexAmount(input.order.totalAmount, input.order.currencyCode);
+  const chargeCurrency = resolveOrderCurrencyCode(input.order);
+  const amount = orderTotalToAirwallexAmount(input.order.totalAmount, chargeCurrency);
 
   if (input.order.airwallexPaymentIntentId) {
     try {
@@ -184,16 +187,18 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
 
       if (
         existing.status === 'SUCCEEDED'
-        && airwallexAmountMatchesOrder(existing.amount, input.order.totalAmount, input.order.currencyCode)
+        && airwallexAmountMatchesOrder(existing.amount, input.order.totalAmount, chargeCurrency)
         && existing.merchant_order_id === input.order.orderNumber
       ) {
         await confirmAirwallexPaymentForOrder(input.order);
         return { ok: false as const, code: 'ORDER_ALREADY_PAID' as const };
       }
 
+      const currencyMatches = existing.currency.toUpperCase() === chargeCurrency;
       if (
-        REUSABLE_INTENT_STATUSES.has(existing.status)
-        && airwallexAmountMatchesOrder(existing.amount, input.order.totalAmount, input.order.currencyCode)
+        currencyMatches
+        && REUSABLE_INTENT_STATUSES.has(existing.status)
+        && airwallexAmountMatchesOrder(existing.amount, input.order.totalAmount, chargeCurrency)
         && existing.merchant_order_id === input.order.orderNumber
         && existing.client_secret
       ) {
@@ -220,7 +225,7 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
     createAirwallexPaymentIntent({
       requestId: randomUUID(),
       amount,
-      currency: input.order.currencyCode,
+      currency: chargeCurrency,
       merchantOrderId: input.order.orderNumber,
       customerEmail: input.customerEmail,
     }),
@@ -250,11 +255,13 @@ export async function confirmAirwallexPaymentForOrder(order: typeof orders.$infe
     retrieveAirwallexPaymentIntent(order.airwallexPaymentIntentId!),
   );
 
+  const chargeCurrency = resolveOrderCurrencyCode(order);
+
   if (intent.merchant_order_id !== order.orderNumber) {
     return { ok: false as const, code: 'PAYMENT_INTENT_MISMATCH' as const };
   }
 
-  if (!airwallexAmountMatchesOrder(intent.amount, order.totalAmount, order.currencyCode)) {
+  if (!airwallexAmountMatchesOrder(intent.amount, order.totalAmount, chargeCurrency)) {
     return { ok: false as const, code: 'PAYMENT_AMOUNT_MISMATCH' as const };
   }
 

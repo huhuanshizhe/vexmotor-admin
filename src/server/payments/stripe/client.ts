@@ -32,13 +32,11 @@ export async function createStripePaymentIntent(input: {
   return stripe.paymentIntents.create({
     amount: input.amount,
     currency: input.currency.toLowerCase(),
+    payment_method_types: ['card'],
     metadata: {
       orderNumber: input.orderNumber,
     },
     receipt_email: input.customerEmail || undefined,
-    automatic_payment_methods: {
-      enabled: true,
-    },
   });
 }
 

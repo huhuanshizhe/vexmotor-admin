@@ -384,6 +384,14 @@ export function ProductListClient({
           />
           <Select
             allowClear
+            placeholder="展示语言"
+            style={{ width: 130 }}
+            value={query.locale || undefined}
+            options={activeLanguages.map((language) => ({ value: language.code, label: language.nativeName }))}
+            onChange={(value) => applyQueryChange({ locale: value ?? '', page: 1 })}
+          />
+          <Select
+            allowClear
             placeholder="品牌"
             style={{ width: 160 }}
             value={query.brandId || undefined}
@@ -458,14 +466,6 @@ export function ProductListClient({
             value={query.lifecycle || undefined}
             options={productLifecycleListOptions}
             onChange={(value) => applyQueryChange({ lifecycle: value ?? '', page: 1 })}
-          />
-          <Select
-            allowClear
-            placeholder="展示语言"
-            style={{ width: 130 }}
-            value={query.locale || undefined}
-            options={activeLanguages.map((language) => ({ value: language.code, label: language.nativeName }))}
-            onChange={(value) => applyQueryChange({ locale: value ?? '', page: 1 })}
           />
         </Space>
 

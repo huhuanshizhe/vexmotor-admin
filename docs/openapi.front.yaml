@@ -3171,6 +3171,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/locale-path:
+    get:
+      tags: [Languages]
+      summary: 解析目标语言下的前台路径
+      description: |
+        将含多语言 slug 的内部路径（不含 locale 前缀）解析为目标 locale 的 canonical path。
+        支持 `/products/:slug`、`/c/:slug`、`/blog/:slug`；其他路径原样返回（保留 query/hash）。
+        语言切换器在切换前调用，将德语 slug 映射为英文 slug 等。
+      parameters:
+        - in: query
+          name: pathname
+          required: true
+          schema:
+            type: string
+          description: 已去除 locale 前缀的路径，如 `/products/de-slug` 或 `/c/nema-17-schrittmotor`
+          example: /products/17-einwellen-bipolarer-schrittmotor
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+          description: 目标 locale（en / de / es）
+          example: en
+      responses:
+        '200':
+          description: 解析后的路径（不含 locale 前缀）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [to, path]
+                properties:
+                  to:
+                    type: string
+                  path:
+                    type: string
+              example:
+                to: en
+                path: /products/17-single-shaft-bipolar-stepper-motor
+        '400':
+          description: 缺少 pathname
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/front/languages:
     get:
       tags: [Languages]

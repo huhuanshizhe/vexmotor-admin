@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 
 import { calculateOrderPricing, type CommercePricingContext } from '@/lib/commerce-config';
-import { normalizeLocale, type Locale } from '@/lib/i18n';
+import { convertViaBase, type ExchangeRateSnapshot } from '@/lib/currency-exchange';
+import { DEFAULT_LOCALE, getMarketDefaults, normalizeLocale, type Locale } from '@/lib/i18n';
 import { buildConfigurationLabel, type FeatureSelectionSnapshot } from '@/lib/product-feature-selection';
 import { getVolumePricingForQuantity } from '@/lib/volume-pricing';
 import { validateAndBuildFeatureSelections } from '@/server/admin/product-features';
@@ -30,13 +31,32 @@ function cartLocale(locale?: string | null): Locale {
   return normalizeLocale(locale);
 }
 
-function formatMoney(amount: string | number, currencyCode = 'USD') {
+function formatMoney(amount: string | number, currencyCode = 'USD', locale: Locale = DEFAULT_LOCALE) {
   const numeric = Number(amount);
+  const intlLocale = locale === 'de' ? 'de-DE' : locale === 'es' ? 'es-ES' : 'en-US';
   return {
     currency: currencyCode,
     amount: numeric,
-    formatted: new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(numeric),
+    formatted: new Intl.NumberFormat(intlLocale, { style: 'currency', currency: currencyCode }).format(numeric),
   };
+}
+
+function convertToDisplayCurrency(
+  amount: number,
+  fromCurrency: string,
+  displayCurrency: string,
+  snapshot: ExchangeRateSnapshot,
+) {
+  const from = (fromCurrency || 'USD').trim().toUpperCase();
+  const to = displayCurrency.trim().toUpperCase();
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+  if (from === to) {
+    return Number(amount.toFixed(2));
+  }
+  const converted = convertViaBase(amount, from, to, snapshot);
+  return converted ?? Number(amount.toFixed(2));
 }
 
 function resolveTierUnitPrice(basePrice: number, currencyCode: string, quantity: number, volumePricingRules?: Parameters<typeof getVolumePricingForQuantity>[3]) {
@@ -255,23 +275,41 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
     };
   });
 
-  const subtotal = pricedItems.reduce((sum, row) => sum + row.lineSubtotal, 0);
-  const listSubtotal = pricedItems.reduce((sum, row) => sum + row.basePriceAmount * row.item.quantity, 0);
-  const couponLines: CartLineForCoupon[] = pricedItems.map(({ item, unitPriceAmount, lineSubtotal }) => ({
-    productId: item.productId,
-    lineSubtotal,
-    unitPrice: unitPriceAmount,
-    quantity: item.quantity,
-  }));
+  const displayCurrency = getMarketDefaults(locale).currency;
   const [siteSettings, pricingContext] = await Promise.all([
     getSiteSettings(),
-    resolveCommercePricingContext(cart.currencyCode),
+    resolveCommercePricingContext(displayCurrency),
   ]);
+
+  const pricedItemsInDisplayCurrency = pricedItems.map((row) => {
+    const itemCurrency = row.item.currencyCode ?? 'USD';
+    const snapshot = pricingContext.exchangeSnapshot;
+    const convert = (value: number) => convertToDisplayCurrency(value, itemCurrency, displayCurrency, snapshot);
+
+    return {
+      ...row,
+      displayBasePrice: convert(row.basePriceAmount),
+      displayUnitPrice: convert(row.unitPriceAmount),
+      displayLineSubtotal: convert(row.lineSubtotal),
+      displayListLineSubtotal: convert(row.basePriceAmount * row.item.quantity),
+      displayCompareAtPrice: row.item.compareAtPrice ? convert(Number(row.item.compareAtPrice)) : null,
+    };
+  });
+
+  const subtotal = pricedItemsInDisplayCurrency.reduce((sum, row) => sum + row.displayLineSubtotal, 0);
+  const listSubtotal = pricedItemsInDisplayCurrency.reduce((sum, row) => sum + row.displayListLineSubtotal, 0);
+  const couponLines: CartLineForCoupon[] = pricedItemsInDisplayCurrency.map(({ item, displayUnitPrice, displayLineSubtotal }) => ({
+    productId: item.productId,
+    lineSubtotal: displayLineSubtotal,
+    unitPrice: displayUnitPrice,
+    quantity: item.quantity,
+  }));
+
   const summary = await buildCartPricingSummary({
     subtotal,
     listSubtotal,
     couponCode: cart.couponCode,
-    currencyCode: cart.currencyCode,
+    currencyCode: displayCurrency,
     locale,
     lines: couponLines,
     commerceConfig,
@@ -282,7 +320,7 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
   return {
     id: cart.id,
     locale,
-    items: pricedItems.map(({ item, basePriceAmount, unitPriceAmount, lineSubtotal }) => {
+    items: pricedItemsInDisplayCurrency.map(({ item, displayBasePrice, displayUnitPrice, displayLineSubtotal, displayCompareAtPrice }) => {
       const featureSelections = (item.featureSelections ?? []) as FeatureSelectionSnapshot;
       const configurationLabel = buildConfigurationLabel(featureSelections);
       const translation = pickProductTranslation(translationsByProductId.get(item.productId), locale);
@@ -301,35 +339,35 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
           slug: item.slug,
           spu: item.spu,
           shortDescription: item.shortDescription,
-          price: formatMoney(item.basePrice, item.currencyCode),
-          compareAtPrice: item.compareAtPrice ? formatMoney(item.compareAtPrice, item.currencyCode) : null,
+          price: formatMoney(displayBasePrice, displayCurrency, locale),
+          compareAtPrice: displayCompareAtPrice ? formatMoney(displayCompareAtPrice, displayCurrency, locale) : null,
           purchaseMode: item.purchaseMode,
           inStock: item.stockQuantity > 0,
           brand: null,
           coverImage,
         },
         quantity: item.quantity,
-        listUnitPrice: formatMoney(item.basePrice, item.currencyCode),
-        unitPrice: formatMoney(unitPriceAmount, item.currencyCode),
-        subtotal: formatMoney(lineSubtotal, item.currencyCode),
-        tierApplied: unitPriceAmount < basePriceAmount,
+        listUnitPrice: formatMoney(displayBasePrice, displayCurrency, locale),
+        unitPrice: formatMoney(displayUnitPrice, displayCurrency, locale),
+        subtotal: formatMoney(displayLineSubtotal, displayCurrency, locale),
+        tierApplied: displayUnitPrice < displayBasePrice,
         configurationKey: item.configurationKey,
         featureSelections,
         configurationLabel,
         variantLabel: configurationLabel,
       };
     }),
-    itemCount: pricedItems.reduce((sum, row) => sum + row.item.quantity, 0),
+    itemCount: pricedItemsInDisplayCurrency.reduce((sum, row) => sum + row.item.quantity, 0),
     couponCode: cart.couponCode,
     coupon: toPublicCouponSummary(summary.coupon),
-    subtotal: formatMoney(subtotal, cart.currencyCode),
-    volumeDiscount: formatMoney(summary.volumeDiscount, cart.currencyCode),
-    discount: formatMoney(summary.discount, cart.currencyCode),
-    shipping: formatMoney(summary.shippingAmount, cart.currencyCode),
-    tax: formatMoney(summary.taxAmount, cart.currencyCode),
-    total: formatMoney(summary.totalAmount, cart.currencyCode),
-    freeShippingThreshold: formatMoney(summary.freeShippingThreshold, cart.currencyCode),
-    remainingForFreeShipping: formatMoney(summary.remainingForFreeShipping, cart.currencyCode),
+    subtotal: formatMoney(subtotal, displayCurrency, locale),
+    volumeDiscount: formatMoney(summary.volumeDiscount, displayCurrency, locale),
+    discount: formatMoney(summary.discount, displayCurrency, locale),
+    shipping: formatMoney(summary.shippingAmount, displayCurrency, locale),
+    tax: formatMoney(summary.taxAmount, displayCurrency, locale),
+    total: formatMoney(summary.totalAmount, displayCurrency, locale),
+    freeShippingThreshold: formatMoney(summary.freeShippingThreshold, displayCurrency, locale),
+    remainingForFreeShipping: formatMoney(summary.remainingForFreeShipping, displayCurrency, locale),
   };
 }
 
@@ -372,11 +410,11 @@ export async function buildBuyNowCartPreview(input: {
   }
 
   const quantity = Math.max(1, input.quantity);
-  const currencyCode = product.currencyCode ?? 'USD';
+  const productCurrency = product.currencyCode ?? 'USD';
+  const displayCurrency = getMarketDefaults(locale).currency;
   const basePriceAmount = Number(product.basePrice);
-  const unitPriceAmount = resolveTierUnitPrice(basePriceAmount, currencyCode, quantity, commerceConfig.volumePricingRules);
+  const unitPriceAmount = resolveTierUnitPrice(basePriceAmount, productCurrency, quantity, commerceConfig.volumePricingRules);
   const lineSubtotal = Number((unitPriceAmount * quantity).toFixed(2));
-  const subtotal = lineSubtotal;
   const listSubtotal = basePriceAmount * quantity;
 
   const [imageRow] = await db
@@ -411,15 +449,28 @@ export async function buildBuyNowCartPreview(input: {
   }];
   const [siteSettings, pricingContext] = await Promise.all([
     getSiteSettings(),
-    resolveCommercePricingContext(currencyCode),
+    resolveCommercePricingContext(displayCurrency),
   ]);
+  const snapshot = pricingContext.exchangeSnapshot;
+  const displayBasePrice = convertToDisplayCurrency(basePriceAmount, productCurrency, displayCurrency, snapshot);
+  const displayUnitPrice = convertToDisplayCurrency(unitPriceAmount, productCurrency, displayCurrency, snapshot);
+  const displayLineSubtotal = convertToDisplayCurrency(lineSubtotal, productCurrency, displayCurrency, snapshot);
+  const displayListSubtotal = convertToDisplayCurrency(listSubtotal, productCurrency, displayCurrency, snapshot);
+  const displayCompareAtPrice = product.compareAtPrice
+    ? convertToDisplayCurrency(Number(product.compareAtPrice), productCurrency, displayCurrency, snapshot)
+    : null;
   const summary = await buildCartPricingSummary({
-    subtotal,
-    listSubtotal,
+    subtotal: displayLineSubtotal,
+    listSubtotal: displayListSubtotal,
     couponCode: null,
-    currencyCode,
+    currencyCode: displayCurrency,
     locale,
-    lines: couponLines,
+    lines: [{
+      productId: input.productId,
+      lineSubtotal: displayLineSubtotal,
+      unitPrice: displayUnitPrice,
+      quantity,
+    }],
     commerceConfig,
     defaultCountryCode: siteSettings.defaultCountryCode,
     pricingContext,
@@ -441,18 +492,18 @@ export async function buildBuyNowCartPreview(input: {
           slug: product.slug,
           spu: product.spu,
           shortDescription: product.shortDescription,
-          price: formatMoney(product.basePrice, currencyCode),
-          compareAtPrice: product.compareAtPrice ? formatMoney(product.compareAtPrice, currencyCode) : null,
+          price: formatMoney(displayBasePrice, displayCurrency, locale),
+          compareAtPrice: displayCompareAtPrice ? formatMoney(displayCompareAtPrice, displayCurrency, locale) : null,
           purchaseMode: product.purchaseMode,
           inStock: product.stockQuantity > 0,
           brand: null,
           coverImage,
         },
         quantity,
-        listUnitPrice: formatMoney(product.basePrice, currencyCode),
-        unitPrice: formatMoney(unitPriceAmount, currencyCode),
-        subtotal: formatMoney(lineSubtotal, currencyCode),
-        tierApplied: unitPriceAmount < basePriceAmount,
+        listUnitPrice: formatMoney(displayBasePrice, displayCurrency, locale),
+        unitPrice: formatMoney(displayUnitPrice, displayCurrency, locale),
+        subtotal: formatMoney(displayLineSubtotal, displayCurrency, locale),
+        tierApplied: displayUnitPrice < displayBasePrice,
         configurationKey: validation.configurationKey,
         featureSelections,
         configurationLabel,
@@ -461,14 +512,14 @@ export async function buildBuyNowCartPreview(input: {
       itemCount: quantity,
       couponCode: null,
       coupon: toPublicCouponSummary(summary.coupon),
-      subtotal: formatMoney(subtotal, currencyCode),
-      volumeDiscount: formatMoney(summary.volumeDiscount, currencyCode),
-      discount: formatMoney(summary.discount, currencyCode),
-      shipping: formatMoney(summary.shippingAmount, currencyCode),
-      tax: formatMoney(summary.taxAmount, currencyCode),
-      total: formatMoney(summary.totalAmount, currencyCode),
-      freeShippingThreshold: formatMoney(summary.freeShippingThreshold, currencyCode),
-      remainingForFreeShipping: formatMoney(summary.remainingForFreeShipping, currencyCode),
+      subtotal: formatMoney(displayLineSubtotal, displayCurrency, locale),
+      volumeDiscount: formatMoney(summary.volumeDiscount, displayCurrency, locale),
+      discount: formatMoney(summary.discount, displayCurrency, locale),
+      shipping: formatMoney(summary.shippingAmount, displayCurrency, locale),
+      tax: formatMoney(summary.taxAmount, displayCurrency, locale),
+      total: formatMoney(summary.totalAmount, displayCurrency, locale),
+      freeShippingThreshold: formatMoney(summary.freeShippingThreshold, displayCurrency, locale),
+      remainingForFreeShipping: formatMoney(summary.remainingForFreeShipping, displayCurrency, locale),
     },
   };
 }
@@ -819,7 +870,8 @@ export async function createOrderFromCart(input: {
       return null;
     }
 
-    const pricingContext = await resolveCommercePricingContext(currentCart.currencyCode);
+    const checkoutCurrency = detail.subtotal.currency;
+    const pricingContext = await resolveCommercePricingContext(checkoutCurrency);
     const pricing = calculateOrderPricing(commerceConfig, {
       subtotal: detail.subtotal.amount,
       discountAmount: detail.discount.amount,
@@ -842,7 +894,7 @@ export async function createOrderFromCart(input: {
       paymentMethod: input.paymentMethod,
       customerNote: input.customerNote,
       locale: input.locale,
-      currencyCode: currentCart.currencyCode,
+      currencyCode: checkoutCurrency,
       detail,
       pricing,
     });
@@ -857,7 +909,8 @@ export async function createOrderFromCart(input: {
 
   const shippingSnapshot = toOrderAddressSnapshot(input.shippingAddress);
   const billingSnapshot = toOrderAddressSnapshot(input.billingAddress);
-  const pricingContext = await resolveCommercePricingContext(currentCart.currencyCode);
+  const checkoutCurrency = detail.subtotal.currency;
+  const pricingContext = await resolveCommercePricingContext(checkoutCurrency);
   const pricing = calculateOrderPricing(commerceConfig, {
     subtotal: detail.subtotal.amount,
     discountAmount: detail.discount.amount,
@@ -880,7 +933,7 @@ export async function createOrderFromCart(input: {
     paymentMethod: input.paymentMethod,
     customerNote: input.customerNote,
     locale: input.locale,
-    currencyCode: currentCart.currencyCode,
+    currencyCode: checkoutCurrency,
     detail,
     pricing,
   });
