@@ -4,12 +4,13 @@ import {
   getShippingCountryOptions as getShippingCountryOptionsFromConfig,
   getShippingOptions as getShippingOptionsFromConfig,
   type CommerceConfig,
+  type CommercePricingContext,
   type StorefrontShippingOption,
 } from '@/lib/commerce-config';
 
 export const SHIPPING_FREE_THRESHOLD =
   defaultCommerceConfig.shippingCountryRates.find(
-    (rate) => rate.countryCode === defaultCommerceConfig.defaultCountryCode && rate.shippingMethodCode === defaultCommerceConfig.defaultShippingMethodCode,
+    (rate) => rate.countryCode === 'US' && rate.shippingMethodCode === defaultCommerceConfig.defaultShippingMethodCode,
   )?.freeShippingThreshold ?? 0;
 
 export type ShippingCountryCode = string;
@@ -27,10 +28,19 @@ export function getShippingCountryOptions(config: CommerceConfig = defaultCommer
   return getShippingCountryOptionsFromConfig(config);
 }
 
-export function buildShippingOptions(countryCode: string, subtotal: number, config: CommerceConfig = defaultCommerceConfig) {
-  return getShippingOptionsFromConfig(config, countryCode, subtotal);
+export function buildShippingOptions(
+  countryCode: string,
+  subtotal: number,
+  config: CommerceConfig = defaultCommerceConfig,
+  pricingContext: CommercePricingContext,
+) {
+  return getShippingOptionsFromConfig(config, countryCode, subtotal, pricingContext);
 }
 
-export function getEstimatedTaxRate(countryCode: string, config: CommerceConfig = defaultCommerceConfig) {
-  return getEstimatedTaxRateFromConfig(config, countryCode);
+export function getEstimatedTaxRate(
+  countryCode: string,
+  countryContinentByIso: Record<string, string>,
+  config: CommerceConfig = defaultCommerceConfig,
+) {
+  return getEstimatedTaxRateFromConfig(config, countryCode, countryContinentByIso);
 }

@@ -5,7 +5,6 @@ import { eq } from 'drizzle-orm';
 import {
   cloneCommerceConfig,
   defaultCommerceConfig,
-  normalizeCommerceCountryCode,
   type CommerceConfig,
   type ShippingCountryRateConfig,
   type VolumePricingRuleConfig,
@@ -13,20 +12,27 @@ import {
 import { normalizeShippingCountryRateConfig } from '@/lib/commerce-shipping-rate';
 import { validateShippingRateScope } from '@/lib/shipping-rate-uniqueness';
 import { validateVolumePricingDiscountPercent, validateVolumePricingMinQuantity, MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
+import { getExchangeRateSnapshot } from '@/server/admin/exchange-rate-snapshot';
 import { getResolvedShippingMethods, getShippingMethodCodes } from '@/server/admin/shipping-methods';
 import { db } from '@/server/db';
 import { commerceSettings } from '@/server/db/schema';
+import { getCountryContinentByIso } from '@/server/geo/country-continents';
+import { getSiteSettings } from '@/server/site/settings';
 
 const COMMERCE_SETTINGS_ROW_ID = 'default';
+
+export type StorefrontCommerceConfig = CommerceConfig & {
+  /** @deprecated Read from GET /api/front/site-settings instead */
+  currencyCode: string;
+  /** @deprecated Read from GET /api/front/site-settings instead */
+  defaultCountryCode: string;
+  exchangeRateSnapshot: Awaited<ReturnType<typeof getExchangeRateSnapshot>>;
+  countryContinentByIso: Awaited<ReturnType<typeof getCountryContinentByIso>>;
+};
 
 function sanitizeText(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
-}
-
-function normalizeCurrencyCode(value: string | null | undefined) {
-  const normalized = value?.trim().toUpperCase();
-  return normalized && normalized.length === 3 ? normalized : defaultCommerceConfig.currencyCode;
 }
 
 function normalizeMethodCode(value: string | null | undefined, fallback: string) {
@@ -145,16 +151,12 @@ async function sanitizeCommerceConfig(input: Omit<CommerceConfig, 'shippingMetho
     ? shippingCountryRates
     : cloneCommerceConfig(defaultCommerceConfig).shippingCountryRates;
 
-  const normalizedDefaultCountryCode = normalizeCommerceCountryCode(input.defaultCountryCode || defaultCommerceConfig.defaultCountryCode);
-
   const normalizedDefaultShippingMethodCode = normalizeMethodCode(input.defaultShippingMethodCode, '');
   const defaultShippingMethodCode = effectiveMethodCodes.has(normalizedDefaultShippingMethodCode)
     ? normalizedDefaultShippingMethodCode
     : shippingMethods[0]?.code ?? '';
 
   return {
-    currencyCode: normalizeCurrencyCode(input.currencyCode),
-    defaultCountryCode: normalizedDefaultCountryCode,
     defaultShippingMethodCode,
     volumePricingRules: normalizedVolumePricingRules,
     shippingMethods,
@@ -163,16 +165,12 @@ async function sanitizeCommerceConfig(input: Omit<CommerceConfig, 'shippingMetho
 }
 
 async function mapDbConfig(row: {
-  currencyCode: string;
-  defaultCountryCode: string;
   defaultShippingMethodCode: string;
   volumePricingRules: VolumePricingRuleConfig[];
   shippingCountryRates: ShippingCountryRateConfig[];
 }, locale?: string) {
   const shippingMethods = await getResolvedShippingMethods(locale);
   return sanitizeCommerceConfig({
-    currencyCode: row.currencyCode,
-    defaultCountryCode: row.defaultCountryCode,
     defaultShippingMethodCode: row.defaultShippingMethodCode,
     volumePricingRules: row.volumePricingRules,
     shippingCountryRates: row.shippingCountryRates,
@@ -186,8 +184,6 @@ async function ensureCommerceConfig(locale?: string) {
   }
 
   const seeded = await mapDbConfig({
-    currencyCode: defaultCommerceConfig.currencyCode,
-    defaultCountryCode: defaultCommerceConfig.defaultCountryCode,
     defaultShippingMethodCode: defaultCommerceConfig.defaultShippingMethodCode,
     volumePricingRules: cloneCommerceConfig(defaultCommerceConfig).volumePricingRules,
     shippingCountryRates: cloneCommerceConfig(defaultCommerceConfig).shippingCountryRates,
@@ -195,8 +191,6 @@ async function ensureCommerceConfig(locale?: string) {
 
   await db.insert(commerceSettings).values({
     id: COMMERCE_SETTINGS_ROW_ID,
-    currencyCode: seeded.currencyCode,
-    defaultCountryCode: seeded.defaultCountryCode,
     defaultShippingMethodCode: seeded.defaultShippingMethodCode,
     volumePricingRules: seeded.volumePricingRules,
     shippingCountryRates: seeded.shippingCountryRates,
@@ -210,6 +204,23 @@ export async function getCommerceConfig(locale?: string) {
   return cloneCommerceConfig(config);
 }
 
+export async function getStorefrontCommerceConfig(locale?: string): Promise<StorefrontCommerceConfig> {
+  const [config, siteSettings, exchangeRateSnapshot, countryContinentByIso] = await Promise.all([
+    getCommerceConfig(locale),
+    getSiteSettings(),
+    getExchangeRateSnapshot(),
+    getCountryContinentByIso(),
+  ]);
+
+  return {
+    ...config,
+    currencyCode: siteSettings.defaultCurrencyCode,
+    defaultCountryCode: siteSettings.defaultCountryCode,
+    exchangeRateSnapshot,
+    countryContinentByIso,
+  };
+}
+
 export async function updateCommerceConfig(input: Omit<CommerceConfig, 'shippingMethods'>) {
   const methodCodes = new Set(await getShippingMethodCodes());
   const normalized = await sanitizeCommerceConfig(input, methodCodes);
@@ -218,8 +229,6 @@ export async function updateCommerceConfig(input: Omit<CommerceConfig, 'shipping
     .insert(commerceSettings)
     .values({
       id: COMMERCE_SETTINGS_ROW_ID,
-      currencyCode: normalized.currencyCode,
-      defaultCountryCode: normalized.defaultCountryCode,
       defaultShippingMethodCode: normalized.defaultShippingMethodCode,
       volumePricingRules: normalized.volumePricingRules,
       shippingCountryRates: normalized.shippingCountryRates,
@@ -228,8 +237,6 @@ export async function updateCommerceConfig(input: Omit<CommerceConfig, 'shipping
     .onConflictDoUpdate({
       target: commerceSettings.id,
       set: {
-        currencyCode: normalized.currencyCode,
-        defaultCountryCode: normalized.defaultCountryCode,
         defaultShippingMethodCode: normalized.defaultShippingMethodCode,
         volumePricingRules: normalized.volumePricingRules,
         shippingCountryRates: normalized.shippingCountryRates,

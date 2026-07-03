@@ -73,8 +73,6 @@ export function ShippingMethodsClient({
   function handleSettingsChange(changedValues: Partial<CommerceSettingsFormValues>) {
     updateConfig((current) => ({
       ...current,
-      currencyCode: changedValues.currencyCode ?? current.currencyCode,
-      defaultCountryCode: changedValues.defaultCountryCode ?? current.defaultCountryCode,
       defaultShippingMethodCode: changedValues.defaultShippingMethodCode ?? current.defaultShippingMethodCode,
     }));
   }
@@ -273,6 +271,7 @@ export function ShippingMethodsClient({
         initialRateId={initialRateId}
         onClose={closeRatesModal}
         onChange={updateConfig}
+        onPersist={persistConfig}
       />
     </Space>
   );

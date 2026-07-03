@@ -12,6 +12,7 @@ import {
   normalizeShippingCountryRateConfig,
 } from '@/lib/commerce-shipping-rate';
 import { buildAdminListRowIndexColumn } from '@/lib/admin-list-query';
+import { formatCurrencyLabel, getCommonCurrencyGroupedSelectOptions } from '@/lib/currencies';
 import {
   getShippingContinent,
   getShippingContinentLabel,
@@ -31,6 +32,7 @@ type GeoCountryOption = {
 type CountryRateFormValues = {
   regionCode: ShippingContinentCode;
   countryIsoCode: string | null;
+  currencyCode: string;
   rate: number;
   freeShippingThreshold: number | null;
   taxRatePercent: number | null;
@@ -45,6 +47,7 @@ type ShippingCountryRatesModalProps = {
   initialRateId?: string | null;
   onClose: () => void;
   onChange: (updater: (current: CommerceConfig) => CommerceConfig) => void;
+  onPersist?: (snapshot?: CommerceConfig) => Promise<boolean>;
 };
 
 export function ShippingCountryRatesModal({
@@ -54,6 +57,7 @@ export function ShippingCountryRatesModal({
   initialRateId = null,
   onClose,
   onChange,
+  onPersist,
 }: ShippingCountryRatesModalProps) {
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
@@ -61,6 +65,8 @@ export function ShippingCountryRatesModal({
   const [continentCountries, setContinentCountries] = useState<GeoCountryOption[]>([]);
   const [form] = Form.useForm<CountryRateFormValues>();
   const selectedRegionCode = Form.useWatch('regionCode', form);
+  const selectedCurrencyCode = Form.useWatch('currencyCode', form) ?? 'USD';
+  const currencyOptions = useMemo(() => getCommonCurrencyGroupedSelectOptions(), []);
 
   const rates = useMemo(
     () => (method
@@ -116,6 +122,7 @@ export function ShippingCountryRatesModal({
     form.setFieldsValue({
       regionCode: rate?.regionCode ?? 'EUROPE',
       countryIsoCode: rate?.countryIsoCode ?? null,
+      currencyCode: rate?.currencyCode ?? 'USD',
       rate: rate?.rate ?? 0,
       freeShippingThreshold: rate?.freeShippingThreshold ?? null,
       taxRatePercent: rate?.taxRate ? decimalToTaxRatePercentValue(rate.taxRate) : null,
@@ -127,7 +134,7 @@ export function ShippingCountryRatesModal({
 
   function saveRate() {
     if (!method) return;
-    void form.validateFields().then((values) => {
+    void form.validateFields().then(async (values) => {
       if (!isShippingContinentCode(values.regionCode)) {
         void message.error('请选择有效的地区');
         return;
@@ -156,6 +163,7 @@ export function ShippingCountryRatesModal({
         regionName: getShippingContinentLabel(values.regionCode).split(' — ')[1],
         countryName: selectedCountry?.nameEn ?? null,
         shippingMethodCode: method.code,
+        currencyCode: values.currencyCode,
         rate: values.rate,
         freeShippingThreshold: values.freeShippingThreshold == null ? null : values.freeShippingThreshold,
         taxRate,
@@ -163,36 +171,52 @@ export function ShippingCountryRatesModal({
         note: values.note.trim() || null,
       });
 
-      onChange((current) => ({
-        ...current,
+      const nextConfig: CommerceConfig = {
+        ...config,
         shippingCountryRates: editingRateId
-          ? current.shippingCountryRates.map((rate) => (rate.id === editingRateId ? nextRate : rate))
-          : [...current.shippingCountryRates, nextRate],
-      }));
+          ? config.shippingCountryRates.map((rate) => (rate.id === editingRateId ? nextRate : rate))
+          : [...config.shippingCountryRates, nextRate],
+      };
+
+      onChange(() => nextConfig);
+      const persisted = onPersist ? await onPersist(nextConfig) : true;
+      if (!persisted) {
+        return;
+      }
       setFormModalOpen(false);
       setEditingRateId(null);
       form.resetFields();
-      void message.success('保存成功');
+      if (!onPersist) {
+        void message.success('保存成功');
+      }
     });
   }
 
-  function deleteRate(id: string) {
-    onChange((current) => ({
-      ...current,
-      shippingCountryRates: current.shippingCountryRates.filter((rate) => rate.id !== id),
-    }));
+  async function deleteRate(id: string) {
+    const nextConfig: CommerceConfig = {
+      ...config,
+      shippingCountryRates: config.shippingCountryRates.filter((rate) => rate.id !== id),
+    };
+    onChange(() => nextConfig);
     if (selectedRateId === id) {
       setSelectedRateId(null);
     }
+    if (onPersist) {
+      await onPersist(nextConfig);
+    }
   }
 
-  function patchRateEnabled(row: ShippingCountryRateConfig, enabled: boolean) {
-    onChange((current) => ({
-      ...current,
-      shippingCountryRates: current.shippingCountryRates.map((rate) => (
+  async function patchRateEnabled(row: ShippingCountryRateConfig, enabled: boolean) {
+    const nextConfig: CommerceConfig = {
+      ...config,
+      shippingCountryRates: config.shippingCountryRates.map((rate) => (
         rate.id === row.id ? { ...rate, enabled } : rate
       )),
-    }));
+    };
+    onChange(() => nextConfig);
+    if (onPersist) {
+      await onPersist(nextConfig);
+    }
   }
 
   return (
@@ -247,14 +271,22 @@ export function ShippingCountryRatesModal({
                 },
               },
               {
+                title: '币种',
+                dataIndex: 'currencyCode',
+                width: 120,
+                render: (value: string) => formatCurrencyLabel(value),
+              },
+              {
                 title: '基础运费',
                 dataIndex: 'rate',
-                render: (value: number) => formatCommerceMoney(value, config.currencyCode),
+                render: (value: number, row: ShippingCountryRateConfig) => formatCommerceMoney(value, row.currencyCode),
               },
               {
                 title: '免运门槛',
                 dataIndex: 'freeShippingThreshold',
-                render: (value: number | null) => (value == null ? '—' : formatCommerceMoney(value, config.currencyCode)),
+                render: (value: number | null, row: ShippingCountryRateConfig) => (
+                  value == null ? '—' : formatCommerceMoney(value, row.currencyCode)
+                ),
               },
               {
                 title: '税率估算',
@@ -309,7 +341,7 @@ export function ShippingCountryRatesModal({
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ enabled: true, rate: 0, taxRatePercent: null, freeShippingThreshold: null, countryIsoCode: null }}
+          initialValues={{ enabled: true, rate: 0, currencyCode: 'USD', taxRatePercent: null, freeShippingThreshold: null, countryIsoCode: null }}
           onValuesChange={(changed) => {
             if ('regionCode' in changed) {
               form.setFieldValue('countryIsoCode', null);
@@ -329,11 +361,14 @@ export function ShippingCountryRatesModal({
               placeholder={selectedRegionCode ? '不选则仅按地区' : '请先选择地区'}
             />
           </Form.Item>
+          <Form.Item label="货币单位" name="currencyCode" rules={[{ required: true, message: '请选择货币' }]}>
+            <Select showSearch optionFilterProp="label" options={currencyOptions} />
+          </Form.Item>
           <Form.Item label="基础运费" name="rate" rules={[{ required: true }]}>
-            <InputNumber min={0} step={1} style={{ width: '100%' }} addonAfter={config.currencyCode} />
+            <InputNumber min={0} step={1} style={{ width: '100%' }} addonAfter={selectedCurrencyCode} />
           </Form.Item>
           <Form.Item label="免运门槛" name="freeShippingThreshold">
-            <InputNumber min={0} step={1} style={{ width: '100%' }} addonAfter={config.currencyCode} />
+            <InputNumber min={0} step={1} style={{ width: '100%' }} addonAfter={selectedCurrencyCode} />
           </Form.Item>
           <Form.Item label="税率估算" name="taxRatePercent" extra="直接输入百分数，如 8 表示 8%">
             <InputNumber min={0} max={100} step={0.01} precision={4} style={{ width: '100%' }} addonAfter="%" />

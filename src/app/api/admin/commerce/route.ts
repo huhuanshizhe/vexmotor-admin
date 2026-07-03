@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { CommerceConfig } from '@/lib/commerce-config';
 import { getAdminCommerceConfig, updateAdminCommerceConfig } from '@/server/commerce/config';
 import { isShippingContinentCode } from '@/lib/shipping-continents';
+import { isCommonCurrencyCode } from '@/lib/currencies';
 import { MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
 
 const volumePricingRuleSchema = z.object({
@@ -23,6 +24,10 @@ const shippingCountryRateSchema = z.object({
   countryName: z.string().trim().nullable().optional().transform((value) => value ?? null),
   countryCode: z.string().trim().min(1).optional(),
   shippingMethodCode: z.string().trim().min(1),
+  currencyCode: z.string().trim().min(3).max(3).refine(
+    (value) => isCommonCurrencyCode(value.toUpperCase()),
+    'Invalid currency code',
+  ),
   rate: z.coerce.number().min(0),
   freeShippingThreshold: z.coerce.number().min(0).nullable().optional().transform((value) => value ?? null),
   taxRate: z.coerce.number().min(0).max(1),
@@ -31,8 +36,6 @@ const shippingCountryRateSchema = z.object({
 });
 
 const commerceConfigSchema = z.object({
-  currencyCode: z.string().trim().min(3).max(3),
-  defaultCountryCode: z.string().trim().min(2).max(16),
   defaultShippingMethodCode: z.string().trim().min(1),
   volumePricingRules: z.array(volumePricingRuleSchema).min(1),
   shippingCountryRates: z.array(shippingCountryRateSchema).min(1),

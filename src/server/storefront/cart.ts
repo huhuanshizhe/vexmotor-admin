@@ -2,12 +2,15 @@ import { randomUUID } from 'node:crypto';
 
 import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 
-import { calculateOrderPricing } from '@/lib/commerce-config';
+import { calculateOrderPricing, type CommercePricingContext } from '@/lib/commerce-config';
 import { normalizeLocale, type Locale } from '@/lib/i18n';
 import { buildConfigurationLabel, type FeatureSelectionSnapshot } from '@/lib/product-feature-selection';
 import { getVolumePricingForQuantity } from '@/lib/volume-pricing';
 import { validateAndBuildFeatureSelections } from '@/server/admin/product-features';
 import { getCommerceConfig } from '@/server/commerce/config';
+import { getExchangeRateSnapshot } from '@/server/admin/exchange-rate-snapshot';
+import { getCountryContinentByIso } from '@/server/geo/country-continents';
+import { getSiteSettings } from '@/server/site/settings';
 import { db } from '@/server/db';
 import {
   loadProductTranslationsByProductIds,
@@ -40,6 +43,18 @@ function resolveTierUnitPrice(basePrice: number, currencyCode: string, quantity:
   return getVolumePricingForQuantity(basePrice, currencyCode, quantity, volumePricingRules).unitPriceAmount;
 }
 
+async function resolveCommercePricingContext(currencyCode: string): Promise<CommercePricingContext> {
+  const [exchangeSnapshot, countryContinentByIso] = await Promise.all([
+    getExchangeRateSnapshot(),
+    getCountryContinentByIso(),
+  ]);
+  return {
+    targetCurrency: currencyCode,
+    exchangeSnapshot,
+    countryContinentByIso,
+  };
+}
+
 async function buildCartPricingSummary(input: {
   subtotal: number;
   listSubtotal: number;
@@ -48,6 +63,8 @@ async function buildCartPricingSummary(input: {
   locale: Locale;
   lines: CartLineForCoupon[];
   commerceConfig: Awaited<ReturnType<typeof getCommerceConfig>>;
+  defaultCountryCode: string;
+  pricingContext: CommercePricingContext;
 }) {
   const volumeDiscount = Math.max(input.listSubtotal - input.subtotal, 0);
   const coupon = input.couponCode
@@ -63,8 +80,9 @@ async function buildCartPricingSummary(input: {
   const pricing = calculateOrderPricing(input.commerceConfig, {
     subtotal: input.subtotal,
     discountAmount: discount,
-    countryCode: input.commerceConfig.defaultCountryCode,
+    countryCode: input.defaultCountryCode,
     shippingMethodCode: input.commerceConfig.defaultShippingMethodCode,
+    pricingContext: input.pricingContext,
   });
 
   return {
@@ -245,6 +263,10 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
     unitPrice: unitPriceAmount,
     quantity: item.quantity,
   }));
+  const [siteSettings, pricingContext] = await Promise.all([
+    getSiteSettings(),
+    resolveCommercePricingContext(cart.currencyCode),
+  ]);
   const summary = await buildCartPricingSummary({
     subtotal,
     listSubtotal,
@@ -253,6 +275,8 @@ export async function getCartDetail(cartId: string, localeInput?: string | null)
     locale,
     lines: couponLines,
     commerceConfig,
+    defaultCountryCode: siteSettings.defaultCountryCode,
+    pricingContext,
   });
 
   return {
@@ -385,6 +409,10 @@ export async function buildBuyNowCartPreview(input: {
     unitPrice: unitPriceAmount,
     quantity,
   }];
+  const [siteSettings, pricingContext] = await Promise.all([
+    getSiteSettings(),
+    resolveCommercePricingContext(currencyCode),
+  ]);
   const summary = await buildCartPricingSummary({
     subtotal,
     listSubtotal,
@@ -393,6 +421,8 @@ export async function buildBuyNowCartPreview(input: {
     locale,
     lines: couponLines,
     commerceConfig,
+    defaultCountryCode: siteSettings.defaultCountryCode,
+    pricingContext,
   });
 
   const syntheticItemId = `buy-now-${input.productId}`;
@@ -789,11 +819,13 @@ export async function createOrderFromCart(input: {
       return null;
     }
 
+    const pricingContext = await resolveCommercePricingContext(currentCart.currencyCode);
     const pricing = calculateOrderPricing(commerceConfig, {
       subtotal: detail.subtotal.amount,
       discountAmount: detail.discount.amount,
       countryCode: String(shippingRow.countryCode),
       shippingMethodCode: input.shippingMethod,
+      pricingContext,
     });
     if (!pricing.selectedShippingOption) {
       return null;
@@ -825,11 +857,13 @@ export async function createOrderFromCart(input: {
 
   const shippingSnapshot = toOrderAddressSnapshot(input.shippingAddress);
   const billingSnapshot = toOrderAddressSnapshot(input.billingAddress);
+  const pricingContext = await resolveCommercePricingContext(currentCart.currencyCode);
   const pricing = calculateOrderPricing(commerceConfig, {
     subtotal: detail.subtotal.amount,
     discountAmount: detail.discount.amount,
     countryCode: shippingSnapshot.countryCode,
     shippingMethodCode: input.shippingMethod,
+    pricingContext,
   });
   if (!pricing.selectedShippingOption) {
     return null;
@@ -896,11 +930,13 @@ export async function createOrderFromBuyNowLine(input: {
       return null;
     }
 
+    const pricingContext = await resolveCommercePricingContext(currencyCode);
     const pricing = calculateOrderPricing(commerceConfig, {
       subtotal: detail.subtotal.amount,
       discountAmount: detail.discount.amount,
       countryCode: String(shippingRow.countryCode),
       shippingMethodCode: input.shippingMethod,
+      pricingContext,
     });
     if (!pricing.selectedShippingOption) {
       return null;
@@ -929,11 +965,13 @@ export async function createOrderFromBuyNowLine(input: {
 
   const shippingSnapshot = toOrderAddressSnapshot(input.shippingAddress);
   const billingSnapshot = toOrderAddressSnapshot(input.billingAddress);
+  const pricingContext = await resolveCommercePricingContext(currencyCode);
   const pricing = calculateOrderPricing(commerceConfig, {
     subtotal: detail.subtotal.amount,
     discountAmount: detail.discount.amount,
     countryCode: shippingSnapshot.countryCode,
     shippingMethodCode: input.shippingMethod,
+    pricingContext,
   });
   if (!pricing.selectedShippingOption) {
     return null;
@@ -1110,6 +1148,8 @@ export async function buildQuoteCartPreview(input: {
     locale,
     lines: couponLines,
     commerceConfig,
+    defaultCountryCode: (await getSiteSettings()).defaultCountryCode,
+    pricingContext: await resolveCommercePricingContext(currencyCode),
   });
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -1170,11 +1210,13 @@ export async function createOrderFromQuoteLines(input: {
   }
 
   const commerceConfig = await getCommerceConfig();
+  const pricingContext = await resolveCommercePricingContext(preview.detail.subtotal.currency);
   const pricing = calculateOrderPricing(commerceConfig, {
     subtotal: preview.detail.subtotal.amount,
     discountAmount: preview.detail.discount.amount,
     countryCode: String(shippingRow.countryCode),
     shippingMethodCode: input.shippingMethod,
+    pricingContext,
   });
 
   if (!pricing.selectedShippingOption) {

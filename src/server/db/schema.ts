@@ -411,11 +411,18 @@ export const shippingMethodTranslations = pgTable(
 
 export const commerceSettings = pgTable('commerce_settings', {
   id: varchar('id', { length: 32 }).primaryKey(),
-  currencyCode: varchar('currency_code', { length: 3 }).notNull().default('USD'),
-  defaultCountryCode: varchar('default_country_code', { length: 16 }).notNull().default('US'),
   defaultShippingMethodCode: varchar('default_shipping_method_code', { length: 100 }).notNull().default('dhl-express'),
   volumePricingRules: jsonb('volume_pricing_rules').$type<VolumePricingRuleConfig[]>().notNull().default([]),
   shippingCountryRates: jsonb('shipping_country_rates').$type<ShippingCountryRateConfig[]>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const siteSettings = pgTable('site_settings', {
+  id: varchar('id', { length: 32 }).primaryKey(),
+  defaultCurrencyCode: varchar('default_currency_code', { length: 3 }).notNull().default('USD'),
+  defaultCountryCode: varchar('default_country_code', { length: 16 }).notNull().default('US'),
+  extra: jsonb('extra').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

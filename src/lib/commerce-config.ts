@@ -1,6 +1,9 @@
 import type { ShippingContinentCode } from '@/lib/shipping-continents';
 import { getShippingContinent, migrateLegacyRegionCode } from '@/lib/shipping-continents';
 import { MIN_VOLUME_PRICING_QUANTITY } from '@/lib/volume-discount';
+import { convertViaBase, type ExchangeRateSnapshot } from '@/lib/currency-exchange';
+import { resolveShippingRatesForCountry } from '@/lib/commerce-shipping-rate';
+import { defaultSiteSettings } from '@/lib/site-settings';
 
 export type VolumePricingRuleConfig = {
   id: string;
@@ -30,6 +33,7 @@ export type ShippingCountryRateConfig = {
   /** 前台运费匹配兼容字段，本期仍按国家 ISO 或 OTHER 写入 */
   countryCode: string;
   shippingMethodCode: string;
+  currencyCode: string;
   rate: number;
   freeShippingThreshold: number | null;
   taxRate: number;
@@ -38,12 +42,16 @@ export type ShippingCountryRateConfig = {
 };
 
 export type CommerceConfig = {
-  currencyCode: string;
-  defaultCountryCode: string;
   defaultShippingMethodCode: string;
   volumePricingRules: VolumePricingRuleConfig[];
   shippingMethods: ShippingMethodConfig[];
   shippingCountryRates: ShippingCountryRateConfig[];
+};
+
+export type CommercePricingContext = {
+  targetCurrency: string;
+  exchangeSnapshot: ExchangeRateSnapshot;
+  countryContinentByIso: Record<string, string>;
 };
 
 export type VolumePricingTier = {
@@ -94,6 +102,7 @@ function buildDefaultShippingRate(input: {
     countryName: migrated.countryIsoCode ? input.countryName : null,
     countryCode: input.legacyCode,
     shippingMethodCode: input.shippingMethodCode,
+    currencyCode: 'USD',
     rate: input.rate,
     freeShippingThreshold: input.freeShippingThreshold,
     taxRate: input.taxRate,
@@ -103,8 +112,6 @@ function buildDefaultShippingRate(input: {
 }
 
 export const defaultCommerceConfig: CommerceConfig = {
-  currencyCode: 'USD',
-  defaultCountryCode: 'US',
   defaultShippingMethodCode: 'dhl-express',
   volumePricingRules: [
     { id: 'tier-2', label: 'Tier 5', minQuantity: 5, priceFactor: 0.96, note: '适合小批量补货与试产。', enabled: true },
@@ -159,15 +166,13 @@ function sortShippingMethods(methods: ShippingMethodConfig[]) {
   return [...methods].sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
 }
 
-export function normalizeCommerceCountryCode(countryCode: string) {
+export function normalizeCommerceCountryCode(countryCode: string, fallback = defaultSiteSettings.defaultCountryCode) {
   const normalized = countryCode.trim().toUpperCase();
-  return normalized || defaultCommerceConfig.defaultCountryCode;
+  return normalized || fallback;
 }
 
 export function cloneCommerceConfig(config: CommerceConfig): CommerceConfig {
   return {
-    currencyCode: config.currencyCode,
-    defaultCountryCode: config.defaultCountryCode,
     defaultShippingMethodCode: config.defaultShippingMethodCode,
     volumePricingRules: config.volumePricingRules.map((rule) => ({ ...rule })),
     shippingMethods: config.shippingMethods.map((method) => ({ ...method })),
@@ -286,15 +291,31 @@ export function getVolumePricingEstimate(
   };
 }
 
-function getRatesForCountry(config: CommerceConfig, countryCode: string) {
-  const normalizedCountryCode = normalizeCommerceCountryCode(countryCode);
-  const exactRates = config.shippingCountryRates.filter((rate) => rate.enabled && normalizeCommerceCountryCode(rate.countryCode) === normalizedCountryCode);
-
-  if (exactRates.length) {
-    return exactRates;
+function convertShippingMoney(
+  amount: number | null,
+  fromCurrency: string,
+  pricingContext: CommercePricingContext,
+) {
+  if (amount == null) {
+    return null;
   }
 
-  return config.shippingCountryRates.filter((rate) => rate.enabled && normalizeCommerceCountryCode(rate.countryCode) === 'OTHER');
+  const from = fromCurrency.trim().toUpperCase();
+  const to = pricingContext.targetCurrency.trim().toUpperCase();
+  if (from === to) {
+    return roundMoney(amount);
+  }
+
+  const converted = convertViaBase(amount, from, to, pricingContext.exchangeSnapshot);
+  if (converted == null) {
+    return roundMoney(amount);
+  }
+
+  return roundMoney(converted);
+}
+
+function getRatesForCountry(config: CommerceConfig, countryCode: string, countryContinentByIso: Record<string, string>) {
+  return resolveShippingRatesForCountry(config.shippingCountryRates, countryCode, countryContinentByIso);
 }
 
 export function getShippingCountryOptions(config: CommerceConfig) {
@@ -321,17 +342,22 @@ export function getShippingOptions(
   config: CommerceConfig,
   countryCode: string,
   subtotal: number,
+  pricingContext: CommercePricingContext,
 ) {
   const methodByCode = new Map(sortShippingMethods(config.shippingMethods.filter((method) => method.enabled)).map((method) => [method.code, method]));
 
-  return getRatesForCountry(config, countryCode)
+  return getRatesForCountry(config, countryCode, pricingContext.countryContinentByIso)
     .map((rate) => {
       const method = methodByCode.get(rate.shippingMethodCode);
       if (!method) {
         return null;
       }
 
-      const qualifiesForFreeShipping = rate.freeShippingThreshold != null && subtotal >= rate.freeShippingThreshold;
+      const rateCurrency = rate.currencyCode.trim().toUpperCase() || 'USD';
+      const convertedBaseRate = convertShippingMoney(rate.rate, rateCurrency, pricingContext) ?? roundMoney(rate.rate);
+      const convertedFreeShippingThreshold = convertShippingMoney(rate.freeShippingThreshold, rateCurrency, pricingContext);
+      const qualifiesForFreeShipping =
+        convertedFreeShippingThreshold != null && subtotal >= convertedFreeShippingThreshold;
       const laneNote = method.note.trim() || rate.note || '';
       return {
         id: method.code,
@@ -340,26 +366,35 @@ export function getShippingOptions(
         title: method.name,
         eta: method.etaLabel,
         note: qualifiesForFreeShipping
-          ? `Free shipping applied for orders over ${formatMoney(rate.freeShippingThreshold ?? 0, config.currencyCode)} on this lane.`
+          ? `Free shipping applied for orders over ${formatMoney(convertedFreeShippingThreshold ?? 0, pricingContext.targetCurrency)} on this lane.`
           : laneNote,
-        price: qualifiesForFreeShipping ? 0 : roundMoney(rate.rate),
-        baseRate: roundMoney(rate.rate),
+        price: qualifiesForFreeShipping ? 0 : convertedBaseRate,
+        baseRate: convertedBaseRate,
         countryCode: normalizeCommerceCountryCode(rate.countryCode),
         countryName: rate.countryName ?? rate.countryCode,
-        freeShippingThreshold: rate.freeShippingThreshold,
+        freeShippingThreshold: convertedFreeShippingThreshold,
         taxRate: rate.taxRate,
       } satisfies StorefrontShippingOption;
     })
     .filter((option): option is StorefrontShippingOption => Boolean(option));
 }
 
-export function getEstimatedTaxRate(config: CommerceConfig, countryCode: string) {
-  const rate = getRatesForCountry(config, countryCode)[0];
+export function getEstimatedTaxRate(
+  config: CommerceConfig,
+  countryCode: string,
+  countryContinentByIso: Record<string, string>,
+) {
+  const rate = getRatesForCountry(config, countryCode, countryContinentByIso)[0];
   return rate?.taxRate ?? 0;
 }
 
-export function getPrimaryShippingOption(config: CommerceConfig, countryCode: string, subtotal: number) {
-  const options = getShippingOptions(config, countryCode, subtotal);
+export function getPrimaryShippingOption(
+  config: CommerceConfig,
+  countryCode: string,
+  subtotal: number,
+  pricingContext: CommercePricingContext,
+) {
+  const options = getShippingOptions(config, countryCode, subtotal, pricingContext);
 
   return options.find((option) => option.methodCode === config.defaultShippingMethodCode) ?? options[0] ?? null;
 }
@@ -371,15 +406,18 @@ export function calculateOrderPricing(
     discountAmount?: number;
     countryCode: string;
     shippingMethodCode?: string | null;
+    pricingContext: CommercePricingContext;
   },
 ) {
   const normalizedSubtotal = roundMoney(Math.max(0, input.subtotal));
   const normalizedDiscountAmount = roundMoney(Math.max(0, input.discountAmount ?? 0));
   const taxableSubtotal = roundMoney(Math.max(normalizedSubtotal - normalizedDiscountAmount, 0));
-  const options = getShippingOptions(config, input.countryCode, normalizedSubtotal);
-  const selectedShippingOption = options.find((option) => option.methodCode === input.shippingMethodCode) ?? getPrimaryShippingOption(config, input.countryCode, normalizedSubtotal);
+  const options = getShippingOptions(config, input.countryCode, normalizedSubtotal, input.pricingContext);
+  const selectedShippingOption =
+    options.find((option) => option.methodCode === input.shippingMethodCode)
+    ?? getPrimaryShippingOption(config, input.countryCode, normalizedSubtotal, input.pricingContext);
   const shippingAmount = roundMoney(selectedShippingOption?.price ?? 0);
-  const taxRate = selectedShippingOption?.taxRate ?? getEstimatedTaxRate(config, input.countryCode);
+  const taxRate = selectedShippingOption?.taxRate ?? getEstimatedTaxRate(config, input.countryCode, input.pricingContext.countryContinentByIso);
   const taxAmount = roundMoney(taxableSubtotal * taxRate);
   const totalAmount = roundMoney(taxableSubtotal + shippingAmount + taxAmount);
   const freeShippingThreshold = selectedShippingOption?.freeShippingThreshold ?? null;

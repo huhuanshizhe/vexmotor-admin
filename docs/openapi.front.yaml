@@ -1254,6 +1254,8 @@ components:
           type: string
         shippingMethodCode:
           type: string
+        currencyCode:
+          type: string
         rate:
           type: number
         freeShippingThreshold:
@@ -1266,7 +1268,7 @@ components:
         note:
           type: string
           nullable: true
-      required: [id, regionCode, countryCode, shippingMethodCode, rate, taxRate, enabled]
+      required: [id, regionCode, countryCode, shippingMethodCode, currencyCode, rate, taxRate, enabled]
       additionalProperties: false
     VolumePricingRule:
       type: object
@@ -1293,10 +1295,29 @@ components:
       properties:
         currencyCode:
           type: string
+          deprecated: true
+          description: 已迁移至 GET /api/front/site-settings
         defaultCountryCode:
           type: string
+          deprecated: true
+          description: 已迁移至 GET /api/front/site-settings
         defaultShippingMethodCode:
           type: string
+        exchangeRateSnapshot:
+          type: object
+          properties:
+            baseCurrencyCode:
+              type: string
+            ratesByCurrency:
+              type: object
+              additionalProperties:
+                type: number
+          required: [baseCurrencyCode, ratesByCurrency]
+        countryContinentByIso:
+          type: object
+          description: ISO 3166-1 alpha-2 国家代码到大洲代码的映射，用于地区级运费匹配
+          additionalProperties:
+            type: string
         volumePricingRules:
           type: array
           items:
@@ -1310,12 +1331,21 @@ components:
           items:
             $ref: '#/components/schemas/ShippingCountryRate'
       required:
-        - currencyCode
-        - defaultCountryCode
         - defaultShippingMethodCode
+        - exchangeRateSnapshot
+        - countryContinentByIso
         - volumePricingRules
         - shippingMethods
         - shippingCountryRates
+      additionalProperties: false
+    SiteSettings:
+      type: object
+      properties:
+        defaultCurrencyCode:
+          type: string
+        defaultCountryCode:
+          type: string
+      required: [defaultCurrencyCode, defaultCountryCode]
       additionalProperties: false
     OrderItem:
       type: object
@@ -2659,6 +2689,24 @@ paths:
           description: 退款申请已提交
         '409':
           description: 当前不可申请退款
+  /api/front/geo/country-continents:
+    get:
+      tags: [Geo]
+      summary: 国家 ISO 到大洲映射
+      description: 从 geo 数据表生成，供前台运费按地区费率匹配使用。
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  countryContinentByIso:
+                    type: object
+                    additionalProperties:
+                      type: string
+                required: [countryContinentByIso]
   /api/front/geo/countries:
     get:
       tags: [Geo]
@@ -3535,11 +3583,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/site-settings:
+    get:
+      tags: [Commerce]
+      summary: 获取站点全局默认配置
+      description: 返回站点级默认币种与国家，用于访客地址默认值与无地址时的运费估算。
+      responses:
+        '200':
+          description: 站点配置
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettings'
   /api/front/commerce:
     get:
       tags: [Commerce]
       summary: 获取结账与商城配置
-      description: 返回币种、默认国家/物流、批量定价规则、物流方式及国家费率。物流方式的 name、etaLabel、note 按 `x-vex-locale` 本地化；`code` 为稳定业务键。
+      description: 返回默认物流、批量定价规则、物流方式、国家费率及汇率快照。默认币种/国家请使用 `/api/front/site-settings`；`currencyCode`/`defaultCountryCode` 为兼容字段。
       parameters:
         - $ref: '#/components/parameters/LocaleHeader'
       responses:
