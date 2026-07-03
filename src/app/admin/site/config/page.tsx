@@ -1,8 +1,19 @@
-import { SiteSettingsClient } from '@/components/site/site-settings-client';
+import { GlobalSettingsClient } from '@/components/site/global-settings-client';
+import { buildPaymentDiagnostics } from '@/server/payments/payment-diagnostics';
 import { getSiteSettings } from '@/server/site/settings';
 
 export default async function AdminSiteConfigPage() {
-  const initialSettings = await getSiteSettings();
+  const [settings, paymentDiagnostics] = await Promise.all([
+    getSiteSettings(),
+    buildPaymentDiagnostics(),
+  ]);
 
-  return <SiteSettingsClient initialSettings={initialSettings} />;
+  return (
+    <GlobalSettingsClient
+      initialSettings={{
+        ...settings,
+        paymentDiagnostics,
+      }}
+    />
+  );
 }

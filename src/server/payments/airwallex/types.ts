@@ -23,6 +23,5 @@ export type CreatePaymentIntentInput = {
   amount: number;
   currency: string;
   merchantOrderId: string;
-  returnUrl?: string;
   customerEmail?: string;
 };

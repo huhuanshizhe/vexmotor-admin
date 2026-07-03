@@ -37,7 +37,7 @@ export function CommercePageHeader({
           </Typography.Text>
         ) : null}
         {showSave ? (
-          <Button type="primary" icon={<SaveOutlined />} onClick={onSave} loading={isPending}>
+          <Button type="primary" icon={<SaveOutlined />} onClick={() => onSave?.()} loading={isPending}>
             保存配置
           </Button>
         ) : null}

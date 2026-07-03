@@ -6,7 +6,7 @@ import {
   isPaymentGatewayConfigured,
   resolveOrderPaymentGateway,
 } from '@/server/payments/checkout-gateway';
-import { resolveStripePublicKeyMode } from '@/server/payments/stripe/config';
+import { resolvePaymentMode } from '@/server/payments/payment-mode';
 import { assertCheckoutOrderAccess } from '@/server/payments/order-access';
 
 import { frontCorsHeaders } from '@/lib/front-cors';
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!isPaymentGatewayConfigured(access.order)) {
+  if (!(await isPaymentGatewayConfigured(access.order))) {
     const gateway = resolveOrderPaymentGateway(access.order);
     return NextResponse.json(
       {
@@ -77,14 +77,7 @@ export async function POST(request: NextRequest) {
 
   const publicKey = 'publicKey' in result ? result.publicKey : undefined;
   const airwallexEnv = 'env' in result ? result.env : undefined;
-  const mode =
-    result.gateway === 'stripe' && publicKey
-      ? resolveStripePublicKeyMode(publicKey)
-      : airwallexEnv === 'prod'
-        ? 'live'
-        : airwallexEnv === 'demo'
-          ? 'test'
-          : undefined;
+  const mode = await resolvePaymentMode();
 
   return NextResponse.json(
     {

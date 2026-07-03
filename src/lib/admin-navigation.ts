@@ -60,8 +60,8 @@ export const adminNavItems: AdminNavItem[] = [
     children: [
       { key: '/admin/languages', title: '多语言', href: '/admin/languages' },
       { key: '/admin/ui-strings', title: '文案翻译', href: '/admin/ui-strings' },
-      { key: '/admin/site/config', title: '站点配置', href: '/admin/site/config' },
       { key: '/admin/site/exchange-rates', title: '汇率管理', href: '/admin/site/exchange-rates' },
+      { key: '/admin/site/config', title: '全局配置', href: '/admin/site/config' },
     ],
   },
 ];

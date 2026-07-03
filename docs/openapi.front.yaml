@@ -3587,10 +3587,10 @@ paths:
     get:
       tags: [Commerce]
       summary: 获取站点全局默认配置
-      description: 返回站点级默认币种与国家，用于访客地址默认值与无地址时的运费估算。
+      description: 返回站点级默认币种与国家，用于访客地址默认值与无地址时的运费估算。支付沙盒模式由后台「全局配置」管理，不通过此接口暴露。
       responses:
         '200':
-          description: 站点配置
+          description: 全局配置（前台可见字段）
           content:
             application/json:
               schema:

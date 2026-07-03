@@ -6,12 +6,17 @@ import type { AirwallexPaymentIntent, CreatePaymentIntentInput } from '@/server/
 type AuthCache = {
   token: string;
   expiresAtMs: number;
+  cacheKey: string;
 };
 
 let authCache: AuthCache | null = null;
 
 function clearAuthCache() {
   authCache = null;
+}
+
+function buildAuthCacheKey(config: NonNullable<Awaited<ReturnType<typeof getAirwallexConfig>>>) {
+  return `${config.apiBase}:${config.clientId}`;
 }
 
 type AirwallexErrorPayload = {
@@ -36,7 +41,7 @@ async function airwallexFetch<T>(
   path: string,
   init: RequestInit & { auth?: boolean } = {},
 ): Promise<T> {
-  const config = getAirwallexConfig();
+  const config = await getAirwallexConfig();
   if (!config) {
     throw new Error('AIRWALLEX_NOT_CONFIGURED');
   }
@@ -70,13 +75,14 @@ async function airwallexFetch<T>(
 }
 
 export async function getAirwallexAccessToken() {
-  const config = getAirwallexConfig();
+  const config = await getAirwallexConfig();
   if (!config) {
     throw new Error('AIRWALLEX_NOT_CONFIGURED');
   }
 
+  const cacheKey = buildAuthCacheKey(config);
   const now = Date.now();
-  if (authCache && authCache.expiresAtMs - 60_000 > now) {
+  if (authCache && authCache.cacheKey === cacheKey && authCache.expiresAtMs - 60_000 > now) {
     return authCache.token;
   }
 
@@ -99,6 +105,7 @@ export async function getAirwallexAccessToken() {
   authCache = {
     token: payload.token,
     expiresAtMs: Number.isFinite(expiresAtMs) ? expiresAtMs : now + 25 * 60_000,
+    cacheKey,
   };
 
   return authCache.token;
@@ -111,10 +118,6 @@ export async function createAirwallexPaymentIntent(input: CreatePaymentIntentInp
     currency: input.currency.toUpperCase(),
     merchant_order_id: input.merchantOrderId,
   };
-
-  if (input.returnUrl) {
-    body.return_url = input.returnUrl;
-  }
 
   if (input.customerEmail) {
     body.customer = {

@@ -23,7 +23,7 @@ export async function GET(
     );
   }
 
-  if (!isPaymentGatewayConfigured(access.order)) {
+  if (!(await isPaymentGatewayConfigured(access.order))) {
     return NextResponse.json(
       {
         code: 'PAYMENT_GATEWAY_NOT_CONFIGURED',

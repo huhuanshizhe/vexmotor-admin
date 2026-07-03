@@ -55,7 +55,7 @@ export async function ensurePaymentIntentForOrder(input: {
     };
   }
 
-  if (!isStripeConfigured()) {
+  if (!(await isStripeConfigured())) {
     return { ok: false as const, code: 'STRIPE_NOT_CONFIGURED' as const };
   }
 
@@ -104,7 +104,7 @@ export async function getPaymentStatusForOrder(
   return getStripePaymentStatusForOrder(order, options);
 }
 
-export function isPaymentGatewayConfigured(order: typeof orders.$inferSelect) {
+export async function isPaymentGatewayConfigured(order: typeof orders.$inferSelect) {
   const gateway = resolveOrderPaymentGateway(order);
   if (gateway === 'airwallex') {
     return isAirwallexConfigured();
@@ -112,7 +112,7 @@ export function isPaymentGatewayConfigured(order: typeof orders.$inferSelect) {
   if (gateway === 'stripe') {
     return isStripeConfigured();
   }
-  return isStripeConfigured() || isAirwallexConfigured();
+  return (await isStripeConfigured()) || (await isAirwallexConfigured());
 }
 
 export function buildCheckoutPaymentRedirectPath(orderNumber: string, userId?: string | null) {

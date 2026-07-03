@@ -52,7 +52,7 @@ export async function checkOrderPaymentGatewayStatus(
   order: typeof orders.$inferSelect,
   options?: { userId?: string | null },
 ) {
-  const config = getAirwallexConfig();
+  const config = await getAirwallexConfig();
   const redirectPath = buildPaymentRedirectPath(order.orderNumber, options?.userId);
 
   if (order.paymentStatus === 'paid') {
@@ -114,16 +114,6 @@ export async function checkOrderPaymentGatewayStatus(
   } satisfies OrderPaymentGatewayStatus;
 }
 
-function buildReturnUrl(orderNumber: string) {
-  const config = getAirwallexConfig();
-  const base = config?.returnUrlBase;
-  if (!base) {
-    return undefined;
-  }
-
-  return `${base}/checkout/confirmation/${encodeURIComponent(orderNumber)}`;
-}
-
 function mapAirwallexPaymentIntentError(error: unknown) {
   const message = error instanceof Error ? error.message : 'Airwallex payment intent failed';
   const code = error instanceof AirwallexApiError ? error.code : undefined;
@@ -133,7 +123,7 @@ function mapAirwallexPaymentIntentError(error: unknown) {
       ok: false as const,
       code: 'AIRWALLEX_CONFIGURATION_ERROR' as const,
       message:
-        'Airwallex merchant is not configured for card checkout. In Sandbox: enable Online Payments / Card for your API key, and set AIRWALLEX_RETURN_URL to an HTTPS URL (e.g. ngrok) if testing 3DS locally.',
+        'Airwallex merchant is not configured for card checkout. In Sandbox: enable Online Payments / Card for your API key.',
     };
   }
 
@@ -175,7 +165,7 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
   order: typeof orders.$inferSelect;
   customerEmail?: string;
 }) {
-  const config = getAirwallexConfig();
+  const config = await getAirwallexConfig();
   if (!config) {
     return { ok: false as const, code: 'AIRWALLEX_NOT_CONFIGURED' as const };
   }
@@ -185,7 +175,6 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
   }
 
   const amount = orderTotalToAirwallexAmount(input.order.totalAmount, input.order.currencyCode);
-  const returnUrl = buildReturnUrl(input.order.orderNumber);
 
   if (input.order.airwallexPaymentIntentId) {
     try {
@@ -233,7 +222,6 @@ export async function ensureAirwallexPaymentIntentForOrder(input: {
       amount,
       currency: input.order.currencyCode,
       merchantOrderId: input.order.orderNumber,
-      returnUrl,
       customerEmail: input.customerEmail,
     }),
   ).catch((error: unknown) => mapAirwallexPaymentIntentError(error));

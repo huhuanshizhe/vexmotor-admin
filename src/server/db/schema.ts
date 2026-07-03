@@ -422,6 +422,7 @@ export const siteSettings = pgTable('site_settings', {
   id: varchar('id', { length: 32 }).primaryKey(),
   defaultCurrencyCode: varchar('default_currency_code', { length: 3 }).notNull().default('USD'),
   defaultCountryCode: varchar('default_country_code', { length: 16 }).notNull().default('US'),
+  paymentSandboxMode: boolean('payment_sandbox_mode').notNull().default(true),
   extra: jsonb('extra').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

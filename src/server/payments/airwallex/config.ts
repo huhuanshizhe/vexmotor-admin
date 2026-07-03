@@ -1,65 +1,80 @@
 import 'server-only';
 
-import { getSiteUrl } from '@/lib/app-urls';
+import type { PaymentDiagnostics } from '@/lib/site-settings';
+import { resolvePaymentSandboxMode } from '@/server/payments/payment-mode';
 
 export type AirwallexRuntimeConfig = {
   clientId: string;
   apiKey: string;
   apiBase: string;
   env: 'demo' | 'prod';
-  frontSiteUrl: string;
-  returnUrlBase: string | null;
+  sandbox: boolean;
 };
 
-function trimUrl(value: string | undefined) {
-  return value?.trim().replace(/\/$/, '') || null;
+function readEnv(name: string) {
+  return process.env[name]?.trim() || null;
 }
 
-/** HTTPS storefront base for Airwallex 3DS / redirect return. Omit on plain localhost. */
-export function resolveAirwallexReturnUrlBase(frontSiteUrl: string) {
-  const explicit = trimUrl(process.env.AIRWALLEX_RETURN_URL);
-  if (explicit) {
-    return explicit;
+function warnDeprecatedEnvUsage(name: string, replacement: string) {
+  if (process.env.NODE_ENV === 'production') {
+    return;
   }
+  console.warn(`[payments] ${name} is deprecated; use ${replacement} instead.`);
+}
 
-  try {
-    const parsed = new URL(frontSiteUrl);
-    const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-    if (isLocalhost || parsed.protocol !== 'https:') {
-      return null;
+function resolveAirwallexCredentials(sandbox: boolean) {
+  if (sandbox) {
+    const clientId = readEnv('AIRWALLEX_SANDBOX_CLIENT_ID') ?? readEnv('AIRWALLEX_CLIENT_ID');
+    const apiKey = readEnv('AIRWALLEX_SANDBOX_API_KEY') ?? readEnv('AIRWALLEX_API_KEY');
+    if (!readEnv('AIRWALLEX_SANDBOX_CLIENT_ID') && readEnv('AIRWALLEX_CLIENT_ID')) {
+      warnDeprecatedEnvUsage('AIRWALLEX_CLIENT_ID', 'AIRWALLEX_SANDBOX_CLIENT_ID');
     }
-    return `${parsed.origin}`;
-  } catch {
-    return null;
+    if (!readEnv('AIRWALLEX_SANDBOX_API_KEY') && readEnv('AIRWALLEX_API_KEY')) {
+      warnDeprecatedEnvUsage('AIRWALLEX_API_KEY', 'AIRWALLEX_SANDBOX_API_KEY');
+    }
+    return { clientId, apiKey };
   }
+
+  return {
+    clientId: readEnv('AIRWALLEX_LIVE_CLIENT_ID'),
+    apiKey: readEnv('AIRWALLEX_LIVE_API_KEY'),
+  };
 }
 
-export function getAirwallexConfig(): AirwallexRuntimeConfig | null {
-  const clientId = process.env.AIRWALLEX_CLIENT_ID?.trim();
-  const apiKey = process.env.AIRWALLEX_API_KEY?.trim();
+function resolveAirwallexApiBase(sandbox: boolean) {
+  if (sandbox) {
+    return 'https://api-demo.airwallex.com';
+  }
+  return 'https://api.airwallex.com';
+}
+
+export async function getAirwallexConfig(): Promise<AirwallexRuntimeConfig | null> {
+  const sandbox = await resolvePaymentSandboxMode();
+  const { clientId, apiKey } = resolveAirwallexCredentials(sandbox);
 
   if (!clientId || !apiKey) {
     return null;
   }
 
-  const env = process.env.AIRWALLEX_ENV === 'prod' ? 'prod' : 'demo';
-  const apiBase =
-    process.env.AIRWALLEX_API_BASE?.trim()
-    || (env === 'prod' ? 'https://api.airwallex.com' : 'https://api-demo.airwallex.com');
-
-  const frontSiteUrl = getSiteUrl();
-  const returnUrlBase = resolveAirwallexReturnUrlBase(frontSiteUrl);
-
   return {
     clientId,
     apiKey,
-    apiBase,
-    env,
-    frontSiteUrl,
-    returnUrlBase,
+    apiBase: resolveAirwallexApiBase(sandbox),
+    env: sandbox ? 'demo' : 'prod',
+    sandbox,
   };
 }
 
-export function isAirwallexConfigured() {
-  return getAirwallexConfig() !== null;
+export async function isAirwallexConfigured() {
+  return Boolean(await getAirwallexConfig());
+}
+
+export function isAirwallexEnvConfigured(sandbox: boolean) {
+  const { clientId, apiKey } = resolveAirwallexCredentials(sandbox);
+  return Boolean(clientId && apiKey);
+}
+
+export async function buildAirwallexPaymentDiagnostics(): Promise<PaymentDiagnostics['airwallex']> {
+  const sandbox = await resolvePaymentSandboxMode();
+  return { configured: isAirwallexEnvConfigured(sandbox) };
 }

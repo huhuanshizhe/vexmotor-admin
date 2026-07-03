@@ -22,6 +22,7 @@ async function mapDbRow(row: typeof siteSettings.$inferSelect): Promise<SiteSett
   return {
     defaultCurrencyCode: normalizeCurrencyCode(row.defaultCurrencyCode),
     defaultCountryCode: normalizeCommerceCountryCode(row.defaultCountryCode),
+    paymentSandboxMode: row.paymentSandboxMode ?? true,
     extra: row.extra ?? {},
   };
 }
@@ -37,6 +38,7 @@ async function ensureSiteSettingsRow() {
     id: SITE_SETTINGS_ROW_ID,
     defaultCurrencyCode: seeded.defaultCurrencyCode,
     defaultCountryCode: seeded.defaultCountryCode,
+    paymentSandboxMode: seeded.paymentSandboxMode,
     extra: seeded.extra ?? {},
     updatedAt: new Date(),
   });
@@ -52,6 +54,7 @@ export async function updateSiteSettings(input: SiteSettings) {
   const normalized: SiteSettings = {
     defaultCurrencyCode: normalizeCurrencyCode(input.defaultCurrencyCode),
     defaultCountryCode: normalizeCommerceCountryCode(input.defaultCountryCode),
+    paymentSandboxMode: input.paymentSandboxMode !== false,
     extra: input.extra ?? {},
   };
   const now = new Date();
@@ -62,6 +65,7 @@ export async function updateSiteSettings(input: SiteSettings) {
       id: SITE_SETTINGS_ROW_ID,
       defaultCurrencyCode: normalized.defaultCurrencyCode,
       defaultCountryCode: normalized.defaultCountryCode,
+      paymentSandboxMode: normalized.paymentSandboxMode,
       extra: normalized.extra ?? {},
       updatedAt: now,
     })
@@ -70,6 +74,7 @@ export async function updateSiteSettings(input: SiteSettings) {
       set: {
         defaultCurrencyCode: normalized.defaultCurrencyCode,
         defaultCountryCode: normalized.defaultCountryCode,
+        paymentSandboxMode: normalized.paymentSandboxMode,
         extra: normalized.extra ?? {},
         updatedAt: now,
       },

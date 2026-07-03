@@ -8,7 +8,7 @@ import { confirmAirwallexPaymentForOrder } from '@/server/payments/airwallex/che
 import { isAirwallexConfigured } from '@/server/payments/airwallex/config';
 
 export async function POST(request: NextRequest) {
-  if (!isAirwallexConfigured()) {
+  if (!(await isAirwallexConfigured())) {
     return NextResponse.json({ error: 'Airwallex webhook is not configured' }, { status: 500 });
   }
 

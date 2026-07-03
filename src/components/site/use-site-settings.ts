@@ -3,13 +3,22 @@
 import { message } from 'antd';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
-import type { SiteSettings } from '@/lib/site-settings';
+import type { AdminSiteSettingsResponse } from '@/lib/site-settings';
 
-async function saveSiteSettings(snapshot: SiteSettings) {
+async function saveSiteSettings(snapshot: AdminSiteSettingsResponse) {
+  if (!snapshot || typeof snapshot !== 'object' || !('defaultCurrencyCode' in snapshot)) {
+    return {
+      ok: false as const,
+      message: '配置数据无效，请刷新页面后重试。',
+    };
+  }
+
+  const { paymentDiagnostics: _ignored, ...payload } = snapshot;
+
   const response = await fetch('/api/admin/site-settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(snapshot),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -20,12 +29,12 @@ async function saveSiteSettings(snapshot: SiteSettings) {
     };
   }
 
-  const saved = (await response.json()) as SiteSettings;
+  const saved = (await response.json()) as AdminSiteSettingsResponse;
   return { ok: true as const, settings: saved };
 }
 
-export function useSiteSettings(initialSettings: SiteSettings) {
-  const [settings, setSettings] = useState<SiteSettings>(initialSettings);
+export function useSiteSettings(initialSettings: AdminSiteSettingsResponse) {
+  const [settings, setSettings] = useState<AdminSiteSettingsResponse>(initialSettings);
   const settingsRef = useRef(initialSettings);
   const [isPending, startTransition] = useTransition();
 
@@ -34,17 +43,19 @@ export function useSiteSettings(initialSettings: SiteSettings) {
     setSettings(initialSettings);
   }, [initialSettings]);
 
-  const applySettings = useCallback((next: SiteSettings) => {
+  const applySettings = useCallback((next: AdminSiteSettingsResponse) => {
     settingsRef.current = next;
     setSettings(next);
   }, []);
 
-  const updateSettings = useCallback((updater: (current: SiteSettings) => SiteSettings) => {
+  const updateSettings = useCallback((updater: (current: AdminSiteSettingsResponse) => AdminSiteSettingsResponse) => {
     applySettings(updater(settingsRef.current));
   }, [applySettings]);
 
-  const persistSettings = useCallback((snapshot?: SiteSettings) => {
-    const payload = snapshot ?? settingsRef.current;
+  const persistSettings = useCallback((snapshot?: AdminSiteSettingsResponse) => {
+    const payload = snapshot && typeof snapshot === 'object' && 'defaultCurrencyCode' in snapshot
+      ? snapshot
+      : settingsRef.current;
 
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {

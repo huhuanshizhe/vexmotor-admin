@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!isPaymentGatewayConfigured(access.order)) {
+  if (!(await isPaymentGatewayConfigured(access.order))) {
     return NextResponse.json(
       { code: 'PAYMENT_GATEWAY_NOT_CONFIGURED', message: 'Payment gateway is not configured' },
       { status: 503, headers: frontCorsHeaders() },

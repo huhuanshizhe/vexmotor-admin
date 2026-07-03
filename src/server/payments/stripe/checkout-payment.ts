@@ -50,7 +50,7 @@ export async function checkStripePaymentGatewayStatus(
   order: typeof orders.$inferSelect,
   options?: { userId?: string | null },
 ) {
-  const config = getStripeConfig();
+  const config = await getStripeConfig();
   const redirectPath = buildPaymentRedirectPath(order.orderNumber, options?.userId);
 
   if (order.paymentStatus === 'paid') {
@@ -132,7 +132,7 @@ export async function ensureStripePaymentIntentForOrder(input: {
   order: typeof orders.$inferSelect;
   customerEmail?: string;
 }) {
-  const config = getStripeConfig();
+  const config = await getStripeConfig();
   if (!config) {
     return { ok: false as const, code: 'STRIPE_NOT_CONFIGURED' as const };
   }
