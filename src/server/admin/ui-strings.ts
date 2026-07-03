@@ -11,7 +11,6 @@ import {
 } from '@/lib/ui-strings';
 import { translateText } from '@/server/ai/translate';
 import { getAdminSiteLanguages } from '@/server/admin/languages';
-import { revalidateWebUiStringsCache } from '@/server/web-revalidate';
 import { db } from '@/server/db';
 import { uiStringTranslations, uiStrings } from '@/server/db/schema';
 
@@ -159,7 +158,6 @@ export async function updateAdminUiStringTranslation(input: {
     })
     .returning();
 
-  await revalidateWebUiStringsCache();
   return saved;
 }
 

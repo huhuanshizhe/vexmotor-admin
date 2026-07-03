@@ -5,6 +5,9 @@ import { getSiteUrl } from '@/lib/app-urls';
 import { getServerSitePreferences } from '@/lib/i18n-server';
 import { buildMetadata } from '@/lib/seo';
 
+/** Admin pages depend on live DB data — skip static prerender at build time. */
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata() {
   const { locale } = await getServerSitePreferences();
   return buildMetadata({
