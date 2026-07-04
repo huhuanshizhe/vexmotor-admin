@@ -69,10 +69,12 @@ export async function enrichOrderItemsWithCoverImages(
       productId: item.productId,
       productName: item.productName,
       spu: item.spu,
+      slug: translation?.slug ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
       coverImage,
+      featureSelections: item.featureSelections ?? [],
     };
   });
 }

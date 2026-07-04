@@ -39,7 +39,9 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 前台 JWT，由 POST /api/front/auth/login 或 POST /api/front/auth/register 返回的 `token` 字段；后续请求放在 Header `Authorization: Bearer <token>`
+      description: >-
+        前台 JWT，由 POST /api/front/auth/login 或 POST /api/front/auth/register 返回的 token 字段；
+        后续请求放在 Header Authorization Bearer token。
   parameters:
     PageParam:
       name: page
