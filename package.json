@@ -15,18 +15,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "tsx scripts/db-migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/server/db/seed.ts",
-    "db:seed-geo": "tsx scripts/seed-geo-divisions.ts",
-    "db:migrate-admins": "tsx scripts/migrate-admin-users.ts",
-    "db:import-categories": "tsx scripts/import-categories.ts",
-    "db:import-category-images": "tsx scripts/import-category-images.ts",
-    "db:import-faq-content": "tsx scripts/import-faq-content.ts",
-    "db:import-products": "tsx scripts/import-products.ts",
-    "db:import-single-product": "tsx scripts/import-single-product.ts",
-    "db:translate-product-locales": "tsx scripts/translate-product-locales.ts",
-    "db:translate-all-locales": "tsx scripts/translate-all-locales.ts",
-    "db:delete-product-by-spu": "tsx scripts/delete-product-by-spu.ts",
-    "db:import-product-images": "tsx scripts/import-product-images.ts"
+    "db:seed": "tsx src/server/db/seed.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

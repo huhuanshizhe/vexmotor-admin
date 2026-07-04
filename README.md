@@ -15,8 +15,8 @@ VexMotor 后台运营平台 + 全部前台 API + 数据库层。从单体 `vexmo
 ```bash
 pnpm install
 cp .env.example .env   # 填写 DATABASE_URL、AUTH_SECRET、JWT_SECRET
-pnpm db:push --force   # 或 pnpm drizzle-kit push --force
-pnpm db:migrate-admins # 将 users 中 role=admin 迁入 admins 表
+pnpm db:push --force   # 或 pnpm db:migrate
+pnpm db:seed
 pnpm dev               # http://localhost:5100
 ```
 
@@ -63,8 +63,8 @@ pnpm dev               # http://localhost:5100
 | `pnpm build` | 生产构建 |
 | `pnpm typecheck` | TypeScript 检查 |
 | `pnpm db:push` | Drizzle schema 推送 |
+| `pnpm db:migrate` | 应用 SQL 迁移 |
 | `pnpm db:seed` | 种子数据 |
-| `pnpm db:migrate-admins` | admins 表迁移 |
 
 ## 与 vexmotor-web 联调
 
