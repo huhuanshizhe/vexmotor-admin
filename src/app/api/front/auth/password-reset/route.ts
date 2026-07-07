@@ -3,7 +3,11 @@ import { z } from 'zod';
 
 import { frontCorsHeaders } from '@/lib/front-cors';
 
-import { createPasswordResetRequest, resetPasswordWithToken } from '@/server/auth/customer-auth';
+import {
+  createPasswordResetRequest,
+  resetPasswordWithToken,
+  verifyPasswordResetToken,
+} from '@/server/auth/customer-auth';
 
 const passwordResetRequestSchema = z.object({
   action: z.literal('request'),
@@ -18,7 +22,24 @@ const passwordResetConfirmSchema = z.object({
 
 const passwordResetSchema = z.union([passwordResetRequestSchema, passwordResetConfirmSchema]);
 
+export async function GET(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get('token')?.trim() ?? '';
 
+  if (!token) {
+    return NextResponse.json(
+      { valid: false, code: 'VALIDATION_ERROR', message: 'Token is required.' },
+      { status: 400, headers: frontCorsHeaders() },
+    );
+  }
+
+  const result = await verifyPasswordResetToken(token);
+
+  if (!result.valid) {
+    return NextResponse.json(result, { status: 400, headers: frontCorsHeaders() });
+  }
+
+  return NextResponse.json({ valid: true, email: result.email }, { status: 200, headers: frontCorsHeaders() });
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json();

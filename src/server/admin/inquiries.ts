@@ -21,9 +21,12 @@ import { admins, inquiries, inquiryMessages, productTranslations, products, user
 import { getCommerceConfig } from '@/server/commerce/config';
 import { DEFAULT_PRODUCT_LOCALE, productNameSql, productSlugSql } from '@/server/products/resolve-product-translation';
 import {
+  getInquiryDisplayTitle,
   hasUnsetQuotedUnitPrice,
+  isContactInquiry,
   normalizeInquiryQuotedLines,
   type InquiryQuotedLine,
+  type InquiryRfqKind,
   type InquiryRfqPayload,
 } from '@/lib/inquiry-rfq';
 import type { InquirySalesStatus } from '@/lib/inquiry-sales-status';
@@ -58,6 +61,7 @@ export type AdminInquiryListItem = {
   productSlug: string;
   productSpu: string;
   projectName: string | null;
+  inquiryKind: InquiryRfqKind | null;
 };
 
 export type AdminInquiryDetail = AdminInquiryListItem & {
@@ -67,7 +71,7 @@ export type AdminInquiryDetail = AdminInquiryListItem & {
   internalNote: string | null;
   handledAt: Date | null;
   handledByEmail: string | null;
-  productId: string;
+  productId: string | null;
   rfqPayload: InquiryRfqPayload | null;
   quotedLines: InquiryQuotedLine[] | null;
   expiresAt: Date | null;
@@ -142,9 +146,12 @@ function mapListRow(row: {
   terminatedAt: Date | null;
   productName: string | null;
   productSlug: string | null;
-  productSpu: string;
+  productSpu: string | null;
 }): AdminInquiryListItem {
   const payload = row.rfqPayload as InquiryRfqPayload | null;
+  const inquiryKind = payload?.kind ?? (payload?.lines?.length ? 'rfq' : null);
+  const displayProductName = row.productName ?? (isContactInquiry(payload) ? 'Contact' : '未知产品');
+
   return {
     id: row.id,
     quoteNumber: row.quoteNumber ?? null,
@@ -160,10 +167,11 @@ function mapListRow(row: {
     lastMessageAt: row.lastMessageAt,
     resolvedAt: row.resolvedAt,
     terminatedAt: row.terminatedAt,
-    productName: row.productName ?? '未知产品',
+    productName: displayProductName,
     productSlug: row.productSlug ?? '',
-    productSpu: row.productSpu,
-    projectName: payload?.project?.projectName ?? null,
+    productSpu: row.productSpu ?? '',
+    projectName: getInquiryDisplayTitle(payload, row.productName),
+    inquiryKind,
   };
 }
 
@@ -413,7 +421,7 @@ export async function listActiveAdminInquiries(query: InquiryActiveListQuery) {
   const rows = await db
     .select(inquiryListSelect)
     .from(inquiries)
-    .innerJoin(products, eq(products.id, inquiries.productId))
+    .leftJoin(products, eq(products.id, inquiries.productId))
     .where(whereClause)
     .orderBy(desc(inquiries.lastMessageAt), desc(inquiries.createdAt));
 
@@ -424,7 +432,7 @@ export async function listRecentAdminInquiries(limit = 5) {
   const rows = await db
     .select(inquiryListSelect)
     .from(inquiries)
-    .innerJoin(products, eq(products.id, inquiries.productId))
+    .leftJoin(products, eq(products.id, inquiries.productId))
     .orderBy(desc(inquiries.lastMessageAt), desc(inquiries.createdAt))
     .limit(limit);
 
@@ -447,7 +455,7 @@ export async function listHistoryAdminInquiries(query: InquiryHistoryListQuery):
   const rows = await db
     .select(inquiryListSelect)
     .from(inquiries)
-    .innerJoin(products, eq(products.id, inquiries.productId))
+    .leftJoin(products, eq(products.id, inquiries.productId))
     .where(whereClause)
     .orderBy(desc(inquiries.lastMessageAt), desc(inquiries.createdAt))
     .limit(pageSize)
@@ -473,11 +481,11 @@ export async function getAdminInquiryDetail(id: string): Promise<AdminInquiryDet
       quotedLines: inquiries.quotedLines,
       expiresAt: inquiries.expiresAt,
       handledAt: inquiries.handledAt,
-      productId: products.id,
+      productId: inquiries.productId,
       handledByEmail: users.email,
     })
     .from(inquiries)
-    .innerJoin(products, eq(products.id, inquiries.productId))
+    .leftJoin(products, eq(products.id, inquiries.productId))
     .leftJoin(users, eq(users.id, inquiries.handledBy))
     .where(eq(inquiries.id, id))
     .limit(1);
@@ -564,7 +572,7 @@ export async function updateAdminInquiry(input: {
   handledBy?: string | null;
   quotedLines?: InquiryQuotedLine[] | null;
   expiresAt?: Date | null;
-}) {
+}): Promise<AdminInquiryDetail | null | { error: 'CONTACT_QUOTE_NOT_ALLOWED' }> {
   const nextUpdate: {
     status?: InquiryStatus;
     salesStatus?: InquirySalesStatus;
@@ -604,9 +612,14 @@ export async function updateAdminInquiry(input: {
       .where(eq(inquiries.id, input.id))
       .limit(1);
 
+    const existingPayload = (existing?.rfqPayload as InquiryRfqPayload | null) ?? null;
+    if (isContactInquiry(existingPayload) && input.quotedLines?.length) {
+      return { error: 'CONTACT_QUOTE_NOT_ALLOWED' };
+    }
+
     const resolvedQuotedLines = input.quotedLines?.length
       ? await resolveQuotedLinesWithCatalogPricing(
-          (existing?.rfqPayload as InquiryRfqPayload | null) ?? null,
+          existingPayload,
           input.quotedLines,
         )
       : null;

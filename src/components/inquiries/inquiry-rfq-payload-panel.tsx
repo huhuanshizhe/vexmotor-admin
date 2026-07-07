@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { StoredCountryLabel } from '@/components/geo/stored-country-label';
 import { formatCustomerIndustryLabel } from '@/lib/customer-industries';
-import type { InquiryQuotedLine, InquiryRfqPayload } from '@/lib/inquiry-rfq';
+import { isContactInquiry, type InquiryQuotedLine, type InquiryRfqPayload } from '@/lib/inquiry-rfq';
 
 type InquiryRfqPayloadPanelProps = {
   rfqPayload: InquiryRfqPayload | null;
@@ -58,6 +58,13 @@ export function InquiryRfqPayloadPanel({
           </dl>
         </article>
       </div>
+
+      {isContactInquiry(rfqPayload) && rfqPayload.procurementDetails ? (
+        <article className="info-card inquiry-detail-facts-card">
+          <h3 className="inquiry-detail-section-title">采购需求</h3>
+          <pre className="inquiry-detail-fallback-text">{rfqPayload.procurementDetails}</pre>
+        </article>
+      ) : null}
 
       {rfqPayload.projectAttachments.length ? (
         <article className="info-card inquiry-detail-attachments-card">

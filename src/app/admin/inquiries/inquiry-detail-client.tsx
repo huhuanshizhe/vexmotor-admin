@@ -15,6 +15,7 @@ import {
 } from '@/lib/admin-display';
 import { formatInquirySalesStatus, INQUIRY_SALES_STATUS_OPTIONS, type InquirySalesStatus } from '@/lib/inquiry-sales-status';
 import type { InquiryRfqPayload } from '@/lib/inquiry-rfq';
+import { isContactInquiry } from '@/lib/inquiry-rfq';
 
 type InquiryMessageItem = {
   id: string;
@@ -50,7 +51,7 @@ type InquiryDetail = {
   productName: string;
   productSlug: string;
   productSpu: string;
-  productId?: string;
+  productId?: string | null;
   handledByEmail: string | null;
   rfqPayload: InquiryRfqPayload | null;
   quotedLines: InquiryQuotedLine[] | null;
@@ -110,6 +111,7 @@ export function InquiryDetailClient({
     terminatedAt: inquiry.terminatedAt,
     status: inquiry.status,
   });
+  const contactInquiry = isContactInquiry(inquiry.rfqPayload);
 
   function saveQuote() {
     startTransition(async () => {
@@ -255,6 +257,7 @@ export function InquiryDetailClient({
           <InquiryRfqPayloadPanel rfqPayload={inquiry.rfqPayload} fallbackMessage={inquiry.message} />
         </div>
 
+        {!contactInquiry ? (
         <article className="info-card inquiry-detail-quote-card">
           <div className="inquiry-detail-section-head">
             <h2 className="inquiry-detail-section-title">报价单</h2>
@@ -372,6 +375,12 @@ export function InquiryDetailClient({
             </button>
           </div>
         </article>
+        ) : (
+          <article className="info-card inquiry-detail-quote-card">
+            <h2 className="inquiry-detail-section-title">报价单</h2>
+            <p className="inquiry-detail-quote-card__desc">通用联系询盘无需填写商品价格，请通过下方对话回复客户。</p>
+          </article>
+        )}
       </section>
 
       <article className="info-card" style={{ display: 'grid', gap: 12 }}>

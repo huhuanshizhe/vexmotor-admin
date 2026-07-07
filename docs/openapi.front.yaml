@@ -1835,10 +1835,17 @@ components:
       additionalProperties: false
     CreateInquiryRequest:
       type: object
+      description: |
+        支持三种提交方式：
+        1. 产品 RFQ：`productId` + `rfqPayload.lines`（至少 1 行）
+        2. 通用联系询盘：`rfqPayload.kind=contact`，无 `productId`，含 `procurementDetails`
+        3. 简单询盘（产品页）：`productId` + `message`
       properties:
         productId:
           type: string
           format: uuid
+          nullable: true
+          description: contact 询盘不传；产品 RFQ / 简单询盘必填
         fullName:
           type: string
         email:
@@ -1854,10 +1861,19 @@ components:
           type: string
         rfqPayload:
           $ref: '#/components/schemas/InquiryRfqPayload'
-      required: [productId, fullName, email]
+      required: [fullName, email]
       additionalProperties: false
     InquiryRfqPayload:
       type: object
+      description: |
+        `kind=contact` 时为无商品通用询盘，需 `procurementDetails`，`lines` 为空数组。
+        产品 RFQ 可省略 `kind` 或设为 `rfq`，`lines` 至少 1 行。
+      properties:
+        kind:
+          type: string
+          enum: [rfq, contact]
+        procurementDetails:
+          type: string
       additionalProperties: true
     InquiryQuotedLine:
       type: object
@@ -2938,11 +2954,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/front/auth/password-reset:
+    get:
+      tags: [Auth]
+      summary: 校验密码重置 token
+      description: |
+        检查 `token` 是否存在于 `verification_tokens` 且未过期（有效期 1 小时）。
+        用于前台打开重置链接时预校验。
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: token 有效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    enum: [true]
+                  email:
+                    type: string
+                    format: email
+                    description: 待重置密码的账户邮箱（来自 verification_tokens.identifier）
+                required: [valid, email]
+        '400':
+          description: token 缺失、无效或已过期
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    enum: [false]
+                  code:
+                    type: string
+                  message:
+                    type: string
     post:
       tags: [Auth]
       summary: 请求或完成密码重置
       description: |
-        `action=request` 时发送重置邮件（开发环境可能返回 `resetUrl`）；
+        `action=request` 时向已注册邮箱发送重置邮件（链接 1 小时内有效、单次使用；开发环境可能返回 `resetUrl`）；
         `action=reset` 时使用 token 设置新密码。
       requestBody:
         required: true
@@ -2979,6 +3037,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/front/auth/verify-email:
+    get:
+      tags: [Auth]
+      summary: 校验邮箱验证 token
+      description: |
+        检查 `token` 是否存在于 `verification_tokens`（identifier=`email-verify:{userId}`）且未过期（有效期 24 小时）。
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: token 有效
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    enum: [true]
+                  email:
+                    type: string
+                    format: email
+                required: [valid, email]
+        '400':
+          description: token 缺失、无效或已过期
+    post:
+      tags: [Auth]
+      summary: 请求或完成邮箱验证
+      description: |
+        `action=request` 需 Bearer 登录态，向当前用户邮箱发送验证链接（24 小时内有效）；
+        `action=confirm` 使用 token 完成验证并写入 `users.emailVerifiedAt`。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    action:
+                      type: string
+                      enum: [request]
+                  required: [action]
+                - type: object
+                  properties:
+                    action:
+                      type: string
+                      enum: [confirm]
+                    token:
+                      type: string
+                  required: [action, token]
+      responses:
+        '200':
+          description: 验证邮件已发送或邮箱验证完成
+        '400':
+          description: 已验证、token 无效等
+        '401':
+          description: request 操作未登录
   /api/front/auth/logout:
     post:
       tags: [Auth]

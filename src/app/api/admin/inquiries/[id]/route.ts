@@ -54,5 +54,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ code: 'NOT_FOUND', message: 'Inquiry not found' }, { status: 404 });
   }
 
+  if ('error' in updated) {
+    return NextResponse.json(
+      { code: 'CONTACT_QUOTE_NOT_ALLOWED', message: 'Contact inquiries do not support product quote lines.' },
+      { status: 400 },
+    );
+  }
+
   return NextResponse.json(updated);
 }

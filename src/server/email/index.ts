@@ -1,7 +1,5 @@
-/**
- * Mock email sender — logs payloads instead of sending.
- * Wire a real provider here when outbound email is needed.
- */
+import nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 import { getSiteUrl } from '@/lib/app-urls';
 
@@ -14,19 +12,252 @@ type SendEmailInput = {
 
 type SendResult = { ok: true; id?: string } | { ok: false; error: string };
 
+const PASSWORD_RESET_EXPIRY_MINUTES = 60;
+const EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
+
+function emailFooter(year: number): string {
+  return `<tr>
+            <td style="background:#f8fafc;padding:20px 40px;text-align:center;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">
+                This is an automated message. Please do not reply directly.<br>
+                &copy; ${year} STEPMOTECH. All rights reserved.
+              </p>
+            </td>
+          </tr>`;
+}
+
+function emailHeader(subtitle: string): string {
+  return `<tr>
+            <td style="background:linear-gradient(135deg,#2563EB 0%,#38BDF8 100%);padding:32px 40px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.5px;">STEPMOTECH</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.85);">${subtitle}</p>
+            </td>
+          </tr>`;
+}
+
 function getFromAddress(): string {
-  return process.env.EMAIL_FROM ?? 'STEPMOTECH <support@stepmotech.online>';
+  return process.env.EMAIL_FROM ?? 'STEPMOTECH <noreply@stepmotech.online>';
+}
+
+function isEmailMockMode(): boolean {
+  if (process.env.EMAIL_MOCK === 'true') {
+    return true;
+  }
+
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  return !user || !pass;
+}
+
+function createSmtpTransporter(): Transporter {
+  const port = Number(process.env.SMTP_PORT ?? '465');
+  const secure = process.env.SMTP_SECURE !== 'false';
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST ?? 'smtp.exmail.qq.com',
+    port,
+    secure,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   const recipients = Array.isArray(input.to) ? input.to.join(', ') : input.to;
 
-  console.log('[email:mock] Outbound email skipped (mock mode)');
-  console.log(`[email:mock] From: ${getFromAddress()}`);
-  console.log(`[email:mock] To: ${recipients}`);
-  console.log(`[email:mock] Subject: ${input.subject}`);
+  if (isEmailMockMode()) {
+    console.log('[email:mock] Outbound email skipped (mock mode)');
+    console.log(`[email:mock] From: ${getFromAddress()}`);
+    console.log(`[email:mock] To: ${recipients}`);
+    console.log(`[email:mock] Subject: ${input.subject}`);
+    return { ok: true, id: `mock-${Date.now()}` };
+  }
 
-  return { ok: true, id: `mock-${Date.now()}` };
+  try {
+    const transporter = createSmtpTransporter();
+    const info = await transporter.sendMail({
+      from: getFromAddress(),
+      to: recipients,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+    });
+
+    return { ok: true, id: info.messageId };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown email error';
+    console.error('[email] Send failed:', message);
+    return { ok: false, error: message };
+  }
+}
+
+function buildPasswordResetEmailHtml(resetUrl: string): string {
+  const safeUrl = escapeHtml(resetUrl);
+  const year = new Date().getFullYear();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset your password</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+          ${emailHeader('Account Security · Password Reset')}
+          <tr>
+            <td style="padding:36px 40px;">
+              <p style="margin:0 0 16px;font-size:15px;color:#1e293b;line-height:1.7;">Hello,</p>
+              <p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.7;">
+                We received a request to reset your STEPMOTECH account password. Click the button below to choose a new password. This link expires in <strong style="color:#2563EB;">${PASSWORD_RESET_EXPIRY_MINUTES} minutes</strong>.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${safeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#2563EB 0%,#38BDF8 100%);color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 48px;border-radius:8px;">
+                      Reset Password
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;text-align:center;">If the button does not work, copy and paste this URL into your browser:</p>
+              <p style="margin:0 0 24px;font-size:12px;color:#64748b;text-align:center;word-break:break-all;">${safeUrl}</p>
+              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 16px;">
+                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;">
+                  If you did not request a password reset, you can safely ignore this email. Your password will not change, and this link will expire automatically.
+                </p>
+              </div>
+            </td>
+          </tr>
+          ${emailFooter(year)}
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildWelcomeEmailHtml(input: {
+  firstName: string;
+  companyName?: string | null;
+  accountStatus: string;
+}): string {
+  const year = new Date().getFullYear();
+  const isPending = input.accountStatus === 'pending';
+  const loginUrl = escapeHtml(`${getSiteUrl()}/login`);
+  const settingsUrl = escapeHtml(`${getSiteUrl()}/account/settings`);
+  const safeFirstName = escapeHtml(input.firstName);
+  const companyLine = input.companyName
+    ? `<p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.7;">Company: <strong style="color:#1e293b;">${escapeHtml(input.companyName)}</strong></p>`
+    : '';
+
+  const statusBlock = isPending
+    ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 16px;margin:0 0 20px;">
+              <p style="margin:0;font-size:14px;font-weight:600;color:#9a3412;">Account Under Review</p>
+              <p style="margin:8px 0 0;font-size:13px;color:#9a3412;line-height:1.6;">
+                Your business account is being reviewed. You will receive a confirmation email once approved. In the meantime you can browse products and submit inquiries.
+              </p>
+            </div>`
+    : `<p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.7;">
+                Your account is active. You can sign in to access pricing, order history, saved addresses, and account settings.
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.7;">
+                We recommend verifying your email in <a href="${settingsUrl}" style="color:#2563EB;text-decoration:none;font-weight:600;">Account Settings</a> to secure your account and receive order updates.
+              </p>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to STEPMOTECH</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+          ${emailHeader(isPending ? 'Welcome · Account Under Review' : 'Welcome · Account Active')}
+          <tr>
+            <td style="padding:36px 40px;">
+              <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1e293b;">Welcome, ${safeFirstName}!</p>
+              ${companyLine}
+              ${statusBlock}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${loginUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#2563EB 0%,#38BDF8 100%);color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 48px;border-radius:8px;">
+                      Sign In to Your Account
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ${emailFooter(year)}
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildEmailVerificationEmailHtml(input: { email: string; verifyUrl: string }): string {
+  const safeUrl = escapeHtml(input.verifyUrl);
+  const safeEmail = escapeHtml(input.email);
+  const year = new Date().getFullYear();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your email</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+          ${emailHeader('Account Security · Email Verification')}
+          <tr>
+            <td style="padding:36px 40px;">
+              <p style="margin:0 0 16px;font-size:15px;color:#1e293b;line-height:1.7;">Hello,</p>
+              <p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.7;">
+                Please confirm that <strong style="color:#1e293b;">${safeEmail}</strong> is the correct email for your STEPMOTECH account. This link expires in <strong style="color:#2563EB;">${EMAIL_VERIFICATION_EXPIRY_HOURS} hours</strong>.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${safeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#2563EB 0%,#38BDF8 100%);color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 48px;border-radius:8px;">
+                      Verify Email
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;font-size:12px;color:#94a3b8;text-align:center;">If the button does not work, copy and paste this URL into your browser:</p>
+              <p style="margin:0 0 24px;font-size:12px;color:#64748b;text-align:center;word-break:break-all;">${safeUrl}</p>
+              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px 16px;">
+                <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.6;">
+                  If you did not request this verification, you can safely ignore this email. Your account will remain unchanged.
+                </p>
+              </div>
+            </td>
+          </tr>
+          ${emailFooter(year)}
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 /* ─── Templated emails ─────────────────────────────────────── */
@@ -42,33 +273,22 @@ export async function sendWelcomeEmail(input: {
   return sendEmail({
     to: input.to,
     subject: `Welcome to STEPMOTECH${isPending ? ' — Account Under Review' : ''}`,
-    html: `
-      <div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-        <div style="background:#0a0a0a;color:#fff;padding:24px 32px">
-          <h1 style="margin:0;font-size:20px;letter-spacing:0.5px">STEPMOTECH</h1>
-        </div>
-        <div style="padding:32px;background:#f9f9f9">
-          <h2 style="margin:0 0 16px">Welcome, ${escapeHtml(input.firstName)}!</h2>
-          ${input.companyName ? `<p style="margin:0 0 12px">Company: <strong>${escapeHtml(input.companyName)}</strong></p>` : ''}
-          ${isPending ? `
-            <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:16px;margin:16px 0">
-              <strong>Account Under Review</strong>
-              <p style="margin:8px 0 0">Your business account is being reviewed. You will receive a confirmation email once approved. In the meantime you can browse products and submit inquiries.</p>
-            </div>
-          ` : `
-            <p style="margin:0 0 12px">Your account is active. You can now sign in to access pricing, order history, and saved addresses.</p>
-          `}
-          <a href="${getSiteUrl()}/login"
-             style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin-top:16px">
-            Sign In to Your Account
-          </a>
-          <hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
-          <p style="font-size:13px;color:#666;margin:0">
-            Questions? Reply to this email or call +1-518-722-7315.
-          </p>
-        </div>
-      </div>
-    `,
+    html: buildWelcomeEmailHtml(input),
+    text: isPending
+      ? `Welcome to STEPMOTECH, ${input.firstName}. Your account is under review. Sign in at ${getSiteUrl()}/login`
+      : `Welcome to STEPMOTECH, ${input.firstName}. Your account is active. Sign in at ${getSiteUrl()}/login and verify your email in Account Settings.`,
+  });
+}
+
+export async function sendEmailVerificationEmail(input: {
+  to: string;
+  verifyUrl: string;
+}) {
+  return sendEmail({
+    to: input.to,
+    subject: 'Verify your STEPMOTECH email address',
+    html: buildEmailVerificationEmailHtml({ email: input.to, verifyUrl: input.verifyUrl }),
+    text: `Verify your STEPMOTECH email address (${input.to}) using this link (expires in ${EMAIL_VERIFICATION_EXPIRY_HOURS} hours): ${input.verifyUrl}`,
   });
 }
 
@@ -79,28 +299,8 @@ export async function sendPasswordResetEmail(input: {
   return sendEmail({
     to: input.to,
     subject: 'Reset your STEPMOTECH password',
-    html: `
-      <div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-        <div style="background:#0a0a0a;color:#fff;padding:24px 32px">
-          <h1 style="margin:0;font-size:20px;letter-spacing:0.5px">STEPMOTECH</h1>
-        </div>
-        <div style="padding:32px;background:#f9f9f9">
-          <h2 style="margin:0 0 16px">Password Reset Request</h2>
-          <p style="margin:0 0 16px">We received a request to reset your password. Click the button below to set a new password. This link expires in 1 hour.</p>
-          <a href="${input.resetUrl}"
-             style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px">
-            Reset Password
-          </a>
-          <p style="margin:16px 0 0;font-size:13px;color:#666">
-            If you did not request this, you can safely ignore this email.
-          </p>
-          <hr style="border:none;border-top:1px solid #ddd;margin:24px 0" />
-          <p style="font-size:13px;color:#666;margin:0">
-            Questions? Reply to this email or call +1-518-722-7315.
-          </p>
-        </div>
-      </div>
-    `,
+    html: buildPasswordResetEmailHtml(input.resetUrl),
+    text: `Reset your STEPMOTECH password using this link (expires in ${PASSWORD_RESET_EXPIRY_MINUTES} minutes): ${input.resetUrl}`,
   });
 }
 

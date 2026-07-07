@@ -449,7 +449,6 @@ export async function reviewAdminCustomer(id: string, action: 'approve' | 'rejec
     .update(users)
     .set({
       status: action === 'approve' ? 'active' : 'disabled',
-      emailVerifiedAt: action === 'approve' ? new Date() : null,
       updatedAt: new Date(),
     })
     .where(eq(users.id, id))

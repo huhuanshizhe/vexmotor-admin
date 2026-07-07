@@ -1,5 +1,4 @@
 import { formatCustomerIndustryLabel, normalizeCustomerIndustry } from '@/lib/customer-industries';
-import { getGeoCountryName, resolveGeoCountryIso } from '@/server/geo/divisions';
 
 export type InquiryAttachment = {
   url: string;
@@ -7,6 +6,8 @@ export type InquiryAttachment = {
   filename: string;
   contentType: string;
 };
+
+export type InquiryRfqKind = 'rfq' | 'contact';
 
 export type InquiryRfqProject = {
   projectName: string;
@@ -43,12 +44,46 @@ export type InquiryRfqLine = {
 };
 
 export type InquiryRfqPayload = {
+  kind?: InquiryRfqKind;
+  procurementDetails?: string;
   project: InquiryRfqProject;
   contact: InquiryRfqContact;
   compliance: InquiryRfqCompliance;
   lines: InquiryRfqLine[];
   projectAttachments: InquiryAttachment[];
 };
+
+export function isContactInquiry(payload: InquiryRfqPayload | null | undefined): boolean {
+  return payload?.kind === 'contact';
+}
+
+export function getInquiryDisplayTitle(
+  payload: InquiryRfqPayload | null | undefined,
+  productName?: string | null,
+): string {
+  const projectName = payload?.project?.projectName?.trim();
+  if (projectName) {
+    return projectName;
+  }
+
+  if (isContactInquiry(payload)) {
+    return 'Contact';
+  }
+
+  return productName?.trim() || 'Inquiry';
+}
+
+export function getInquiryValueLabel(
+  payload: InquiryRfqPayload | null | undefined,
+  quotedLines: InquiryQuotedLine[] | null | undefined,
+  locale = 'en',
+): string {
+  if (isContactInquiry(payload) && !quotedLines?.length) {
+    return 'Contact';
+  }
+
+  return summarizeQuotedValue(quotedLines, locale);
+}
 
 export type InquiryQuotedLine = {
   productId: string;
@@ -101,24 +136,7 @@ export function hasUnsetQuotedUnitPrice(line: Pick<InquiryQuotedLine, 'unitPrice
   return !Number.isFinite(unitPrice) || unitPrice <= 0;
 }
 
-export async function normalizeRfqPayloadAsync(payload: InquiryRfqPayload): Promise<InquiryRfqPayload> {
-  const industry = normalizeCustomerIndustry(payload.project.industry) ?? payload.project.industry.trim();
-  const countryIso = await resolveGeoCountryIso(payload.contact.country);
-
-  return {
-    ...payload,
-    project: {
-      ...payload.project,
-      industry,
-    },
-    contact: {
-      ...payload.contact,
-      country: countryIso ?? payload.contact.country.trim(),
-    },
-  };
-}
-
-/** @deprecated Use normalizeRfqPayloadAsync */
+/** @deprecated Use normalizeRfqPayloadAsync from @/lib/inquiry-rfq-server */
 export function normalizeRfqPayloadIndustry(payload: InquiryRfqPayload): InquiryRfqPayload {
   const industry = normalizeCustomerIndustry(payload.project.industry) ?? payload.project.industry.trim();
 
@@ -131,47 +149,7 @@ export function normalizeRfqPayloadIndustry(payload: InquiryRfqPayload): Inquiry
   };
 }
 
-export async function buildRfqMessageTextAsync(payload: InquiryRfqPayload): Promise<string> {
-  const industryLabel = formatCustomerIndustryLabel(payload.project.industry, 'en') || 'Not specified';
-  const countryLabel = (await getGeoCountryName(payload.contact.country)) || payload.contact.country || 'Not specified';
-  const lines = [
-    'RFQ PROJECT',
-    `Project name: ${payload.project.projectName || 'Not specified'}`,
-    `Industry: ${industryLabel}`,
-    `Target start date: ${payload.project.targetStartDate || 'Not specified'}`,
-    `Annual volume estimate: ${payload.project.annualVolumeEstimate || 'Not specified'}`,
-    '',
-    'CONTACT',
-    `Full name: ${payload.contact.fullName || 'Not specified'}`,
-    `Email: ${payload.contact.email || 'Not specified'}`,
-    `Company: ${payload.contact.company || 'Not specified'}`,
-    `Country: ${countryLabel}`,
-    `Phone: ${payload.contact.phone || 'Not specified'}`,
-    `VAT / Tax ID: ${payload.contact.vat || 'Not specified'}`,
-    '',
-    'LINE ITEMS',
-    ...payload.lines.map((line, index) => [
-      `${index + 1}. ${line.name}`,
-      `   SPU: ${line.spu}`,
-      `   Quantity: ${line.quantity}`,
-      `   Required by: ${line.requiredBy || 'Not specified'}`,
-      `   Notes: ${line.notes || 'Not specified'}`,
-    ].join('\n')),
-    '',
-    'PROJECT ATTACHMENTS',
-    payload.projectAttachments.length
-      ? payload.projectAttachments.map((file) => file.filename).join(', ')
-      : 'None',
-    '',
-    'COMPLIANCE',
-    `Confirmed unrestricted use: ${payload.compliance.unrestrictedUseConfirmed ? 'yes' : 'no'}`,
-    `Confirmed documentation/compliance: ${payload.compliance.complianceAccepted ? 'yes' : 'no'}`,
-  ];
-
-  return lines.join('\n');
-}
-
-/** @deprecated Use buildRfqMessageTextAsync */
+/** @deprecated Use buildRfqMessageTextAsync from @/lib/inquiry-rfq-server */
 export function buildRfqMessageText(payload: InquiryRfqPayload): string {
   const industryLabel = formatCustomerIndustryLabel(payload.project.industry, 'en') || 'Not specified';
   const lines = [

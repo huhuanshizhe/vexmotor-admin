@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 
 import { grantRegistrationCoupons } from '@/server/admin/coupons';
+import { sendWelcomeEmail } from '@/server/email';
 import { db } from '@/server/db';
 import { accounts, users } from '@/server/db/schema';
 
@@ -58,6 +59,12 @@ export async function linkOAuthAccount(input: OAuthLinkInput): Promise<string | 
     grantRegistrationCoupons(userId).catch((err) => {
       console.error('[oauth] grantRegistrationCoupons error:', err);
     });
+    sendWelcomeEmail({
+      to: email,
+      firstName,
+      companyName: null,
+      accountStatus: 'active',
+    }).catch((err) => console.error('[oauth] Welcome email error:', err));
   }
 
   await db

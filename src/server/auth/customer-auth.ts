@@ -310,9 +310,6 @@ export async function createPasswordResetRequest(email: string): Promise<Passwor
   const expires = new Date(Date.now() + 1000 * 60 * 60);
   const fullResetUrl = `${getSiteUrl()}/password-reset?token=${encodeURIComponent(token)}`;
 
-  sendPasswordResetEmail({ to: normalizedEmail, resetUrl: fullResetUrl })
-    .catch((err) => console.error('[auth] Password reset email error:', err));
-
   await db.delete(verificationTokens).where(eq(verificationTokens.identifier, normalizedEmail));
   await db.insert(verificationTokens).values({
     identifier: normalizedEmail,
@@ -320,10 +317,37 @@ export async function createPasswordResetRequest(email: string): Promise<Passwor
     expires,
   });
 
+  const emailResult = await sendPasswordResetEmail({ to: normalizedEmail, resetUrl: fullResetUrl });
+  if (!emailResult.ok) {
+    console.error('[auth] Password reset email error:', emailResult.error);
+  }
+
   return {
     ok: true,
     resetUrl: process.env.NODE_ENV === 'production' ? null : fullResetUrl,
   };
+}
+
+export async function verifyPasswordResetToken(
+  token: string,
+): Promise<{ valid: true; email: string } | { valid: false; code: 'INVALID_TOKEN'; message: string }> {
+  const [tokenRecord] = await db
+    .select({
+      identifier: verificationTokens.identifier,
+    })
+    .from(verificationTokens)
+    .where(and(eq(verificationTokens.token, token), gt(verificationTokens.expires, new Date())))
+    .limit(1);
+
+  if (!tokenRecord) {
+    return {
+      valid: false,
+      code: 'INVALID_TOKEN',
+      message: 'This reset link is invalid or has expired.',
+    };
+  }
+
+  return { valid: true, email: tokenRecord.identifier };
 }
 
 export async function resetPasswordWithToken(input: { token: string; password: string }): Promise<PasswordResetResult> {

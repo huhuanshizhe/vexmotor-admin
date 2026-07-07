@@ -897,7 +897,7 @@ export const inquiries = pgTable(
   'inquiries',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    productId: uuid('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+    productId: uuid('product_id').references(() => products.id, { onDelete: 'restrict' }),
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     fullName: varchar('full_name', { length: 150 }).notNull(),
     email: varchar('email', { length: 320 }).notNull(),

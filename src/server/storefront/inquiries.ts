@@ -5,9 +5,11 @@ import { and, asc, count, desc, eq, gt, ilike } from 'drizzle-orm';
 import {
   type InquiryQuotedLine,
   type InquiryRfqPayload,
-  buildRfqMessageTextAsync,
-  summarizeQuotedValue,
+  getInquiryDisplayTitle,
+  getInquiryValueLabel,
+  isContactInquiry,
 } from '@/lib/inquiry-rfq';
+import { buildRfqMessageTextAsync } from '@/lib/inquiry-rfq-server';
 import { productNameSql, productSlugSql } from '@/server/products/resolve-product-translation';
 import { db } from '@/server/db';
 import { admins, inquiries, inquiryMessages, products, verificationTokens } from '@/server/db/schema';
@@ -23,7 +25,7 @@ export type StorefrontInquiryMessage = {
 };
 
 type InquiryInput = {
-  productId: string;
+  productId: string | null;
   userId?: string | null;
   fullName: string;
   email: string;
@@ -303,7 +305,7 @@ export async function getStorefrontInquiryDetail(input: {
       productSpu: products.spu,
     })
     .from(inquiries)
-    .innerJoin(products, eq(products.id, inquiries.productId))
+    .leftJoin(products, eq(products.id, inquiries.productId))
     .where(eq(inquiries.id, input.inquiryId))
     .limit(1);
 
@@ -352,15 +354,15 @@ export async function getStorefrontInquiriesByUser(userId: string, locale = 'en'
       productSpu: products.spu,
     })
     .from(inquiries)
-    .innerJoin(products, eq(products.id, inquiries.productId))
+    .leftJoin(products, eq(products.id, inquiries.productId))
     .where(eq(inquiries.userId, userId))
     .orderBy(desc(inquiries.createdAt));
 
   return rows.map((row) => {
     const payload = row.rfqPayload as InquiryRfqPayload | null;
     const quotedLines = (row.quotedLines ?? null) as InquiryQuotedLine[] | null;
-    const lineCount = payload?.lines?.length ?? 0;
-    const projectName = payload?.project?.projectName ?? row.productName ?? 'Inquiry';
+    const lineCount = isContactInquiry(payload) ? 0 : (payload?.lines?.length ?? 0);
+    const projectName = getInquiryDisplayTitle(payload, row.productName);
 
     return {
       id: row.id,
@@ -373,12 +375,13 @@ export async function getStorefrontInquiriesByUser(userId: string, locale = 'en'
       message: row.message,
       projectName,
       lineCount,
-      valueLabel: summarizeQuotedValue(quotedLines, locale),
+      valueLabel: getInquiryValueLabel(payload, quotedLines, locale),
+      inquiryKind: payload?.kind ?? (payload?.lines?.length ? 'rfq' : null),
       expiresAt: row.expiresAt,
       createdAt: row.createdAt,
-      productName: row.productName,
-      productSlug: row.productSlug,
-      productSpu: row.productSpu,
+      productName: row.productName ?? null,
+      productSlug: row.productSlug ?? null,
+      productSpu: row.productSpu ?? null,
       rfqPayload: payload,
       quotedLines,
     };
